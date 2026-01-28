@@ -1,0 +1,21 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(mkdir:*)",
+      "Bash(npm init:*)",
+      "Bash(npm install:*)",
+      "Bash(npx:*)",
+      "Bash(docker-compose:*)",
+      "Bash(grep:*)",
+      "Bash(npm run build:*)",
+      "Bash(lsof:*)",
+      "Bash(npm uninstall:*)",
+      "WebFetch(domain:www.npmjs.com)",
+      "WebSearch",
+      "WebFetch(domain:raw.githubusercontent.com)",
+      "Bash(docker compose exec:*)"
+    ],
+    "deny": [],
+    "ask": []
+  }
+}

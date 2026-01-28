@@ -1,0 +1,30 @@
+{
+  "name": "relvic",
+  "version": "1.0.0",
+  "description": "Relvic Anti-Cheat System",
+  "main": "dist/main.js",
+  "scripts": {
+    "build": "tsc",
+    "start": "npm run build && electron .",
+    "dev": "tsc && electron ."
+  },
+  "keywords": ["anticheat", "plutonium"],
+  "author": "",
+  "license": "ISC",
+  "devDependencies": {
+    "@types/node": "^25.1.0",
+    "electron": "^40.0.0",
+    "electron-builder": "^26.4.0",
+    "typescript": "^5.9.3"
+  },
+  "build": {
+    "appId": "com.relvic.anticheat",
+    "productName": "Relvic",
+    "directories": {
+      "output": "release"
+    },
+    "win": {
+      "target": "nsis"
+    }
+  }
+}

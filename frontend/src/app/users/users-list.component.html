@@ -1,0 +1,39 @@
+<div class="users-container">
+  <h1>Users</h1>
+  <mat-card>
+    <mat-card-header>
+      <mat-card-title>Search Users</mat-card-title>
+    </mat-card-header>
+    <mat-card-content>
+      <mat-form-field class="full-width" appearance="outline">
+        <mat-label>Filter by username</mat-label>
+        <input matInput [formControl]="searchControl" placeholder="Search..." />
+      </mat-form-field>
+
+      <table mat-table [dataSource]="users" class="full-width">
+        <ng-container matColumnDef="username">
+          <th mat-header-cell *matHeaderCellDef>Username</th>
+          <td mat-cell *matCellDef="let user" class="clickable" (click)="viewProfile(user)">
+            {{ user.username }}
+          </td>
+        </ng-container>
+
+        <ng-container matColumnDef="actions">
+          <th mat-header-cell *matHeaderCellDef>Actions</th>
+          <td mat-cell *matCellDef="let user">
+            <button
+              mat-raised-button
+              color="primary"
+              (click)="openChallengeModal(user)"
+              *ngIf="user.id !== currentUserId">
+              CHALLENGE
+            </button>
+          </td>
+        </ng-container>
+
+        <tr mat-header-row *matHeaderRowDef="displayedColumns"></tr>
+        <tr mat-row *matRowDef="let row; columns: displayedColumns;"></tr>
+      </table>
+    </mat-card-content>
+  </mat-card>
+</div>

@@ -1,0 +1,25 @@
+{
+  "name": "1v1lb",
+  "version": "1.0.0",
+  "description": "1v1 Leaderboards - Competitive Gaming Platform",
+  "scripts": {
+    "dev": "docker-compose up",
+    "dev:build": "docker-compose up --build",
+    "deploy": "bash deploy/push.sh",
+    "docker:up": "docker-compose up --build",
+    "docker:down": "docker-compose down",
+    "docker:down:volumes": "docker-compose down -v",
+    "docker:logs": "docker-compose logs -f",
+    "docker:restart": "docker-compose restart",
+    "start": "docker-compose up --build"
+  },
+  "keywords": [
+    "angular",
+    "nestjs",
+    "postgresql",
+    "docker",
+    "authentication"
+  ],
+  "author": "",
+  "license": "ISC"
+}
