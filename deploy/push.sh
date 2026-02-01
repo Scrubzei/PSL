@@ -19,13 +19,17 @@ rsync -avz --delete \
   --exclude '.git' \
   --exclude '.env' \
   --exclude '*.log' \
-  /Users/brynnafowler/Projects/Code/slb/ \
+  /Users/brynnafowler/Projects/Code/1v1Leaderboards/core/ \
   $SERVER:$REMOTE_PATH/
+
+# Copy production .env file for server
+echo "=== Copying .env file ==="
+scp /Users/brynnafowler/Projects/Code/1v1Leaderboards/core/deploy/.env.production $SERVER:$REMOTE_PATH/services/server/.env
 
 echo "=== Building on server ==="
 
 ssh $SERVER << 'EOF'
-  cd /var/www/slb/backend
+  cd /var/www/slb/services/server
   npm install
   npm run build
   npm run migration:run
@@ -34,7 +38,7 @@ ssh $SERVER << 'EOF'
   pm2 describe slb-backend > /dev/null 2>&1 && pm2 restart slb-backend || pm2 start dist/main.js --name slb-backend
   pm2 save
 
-  cd /var/www/slb/frontend
+  cd /var/www/slb/services/website
   npm install
   npm run build
 EOF

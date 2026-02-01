@@ -1,167 +1,129 @@
-# Full-Stack Authentication Application
+# 1v1 Leaderboards
 
-A complete full-stack application with Angular Material frontend, NestJS backend with Passport authentication, PostgreSQL database, all dockerized with Docker Compose.
+A competitive gaming platform for 1v1 matches with leaderboards, matchmaking, and Discord integration.
 
-## Features
+## Tech Stack
 
-- **Frontend**: Angular 18+ with Material Design
-  - Login and Register pages
-  - Form validation
-  - JWT authentication with HTTP interceptor
-  - Protected routes with auth guard
-
-- **Backend**: NestJS with TypeScript
-  - Passport.js authentication (Local + JWT strategies)
-  - PostgreSQL with TypeORM
-  - Password hashing with bcrypt
-  - RESTful API endpoints
-
+- **Frontend**: Angular with Angular Material
+- **Backend**: NestJS with TypeORM
 - **Database**: PostgreSQL 15
-  - User management
-  - Automatic schema synchronization
-
-- **Docker**: Complete containerization
-  - Multi-stage builds
-  - Health checks
-  - Volume persistence
-
-## Prerequisites
-
-- Docker
-- Docker Compose
+- **Bot**: Discord.js
+- **Infrastructure**: Docker Compose
 
 ## Quick Start
 
-Run the entire application with a single command:
+```bash
+# Start all services
+npm run dev
+
+# Start with rebuild
+npm run dev:build
+```
+
+Services will be available at:
+- Frontend: http://localhost:4200
+- Backend API: http://localhost:3000
+- PostgreSQL: localhost:5432
+
+## Scripts
+
+| Command | Description |
+|---------|-------------|
+| `npm run dev` | Start all services |
+| `npm run dev:build` | Start with rebuild |
+| `npm run db:seed` | Seed the database with test data |
+| `npm run docker:down` | Stop all services |
+| `npm run docker:down:volumes` | Stop and remove volumes |
+| `npm run docker:logs` | View logs |
+| `npm run docker:restart` | Restart services |
+| `npm run deploy` | Deploy to production |
+
+## Database
+
+### Migrations
+
+Migrations run automatically on startup. To run manually:
 
 ```bash
-docker-compose up --build
+docker-compose exec server npm run migration:run
 ```
 
-This will start:
-- PostgreSQL database on port 5432
-- NestJS backend on port 3000
-- Angular frontend on port 4200
+Generate a new migration:
 
-## Access the Application
-
-- **Frontend**: http://localhost:4200
-- **Backend API**: http://localhost:3000
-- **Database**: localhost:5432
-
-## API Endpoints
-
-### Authentication
-- `POST /auth/register` - Register a new user
-- `POST /auth/login` - Login with email and password
-- `GET /auth/profile` - Get current user profile (requires JWT token)
-
-### Request/Response Examples
-
-**Register:**
-```json
-POST /auth/register
-{
-  "email": "user@example.com",
-  "password": "password123",
-  "firstName": "John",
-  "lastName": "Doe"
-}
-```
-
-**Login:**
-```json
-POST /auth/login
-{
-  "email": "user@example.com",
-  "password": "password123"
-}
-```
-
-**Response:**
-```json
-{
-  "access_token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
-  "user": {
-    "id": "uuid",
-    "email": "user@example.com",
-    "firstName": "John",
-    "lastName": "Doe"
-  }
-}
-```
-
-## Development
-
-### Run Backend Locally
 ```bash
-cd backend
-npm install
-npm run start:dev
+docker-compose exec server npm run migration:generate src/migrations/MigrationName
 ```
 
-### Run Frontend Locally
+### Seeding
+
+Seed data is **not** applied automatically. Run manually after migrations:
+
 ```bash
-cd frontend
-npm install
-npm start
+npm run db:seed
 ```
 
-### Run Database Only
-```bash
-docker-compose up postgres
-```
-
-## Environment Variables
-
-Backend environment variables (`.env`):
-- `DATABASE_HOST` - PostgreSQL host
-- `DATABASE_PORT` - PostgreSQL port
-- `DATABASE_USER` - Database user
-- `DATABASE_PASSWORD` - Database password
-- `DATABASE_NAME` - Database name
-- `JWT_SECRET` - Secret for JWT signing
-- `JWT_EXPIRATION` - JWT token expiration time
+This creates test users, games, platforms, leaderboards, and sample leaderboard entries.
 
 ## Project Structure
 
 ```
-.
-├── backend/
-│   ├── src/
-│   │   ├── auth/          # Authentication module
-│   │   ├── users/         # Users module
-│   │   ├── app.module.ts
-│   │   └── main.ts
-│   ├── Dockerfile
-│   └── package.json
-├── frontend/
-│   ├── src/
-│   │   ├── app/
-│   │   │   ├── auth/      # Auth components & services
-│   │   │   ├── dashboard/ # Dashboard component
-│   │   │   └── ...
-│   ├── Dockerfile
-│   ├── nginx.conf
-│   └── package.json
+core/
+├── services/
+│   ├── server/        # NestJS backend
+│   ├── website/       # Angular frontend
+│   └── botzei/        # Discord bot
+├── deploy/            # Deployment scripts
+├── .github/
+│   └── workflows/     # GitHub Actions
 └── docker-compose.yml
 ```
 
-## Stopping the Application
+## Environment Variables
 
-```bash
-docker-compose down
+Create a `.env` file in the root:
+
+```env
+DISCORD_TOKEN=your-discord-bot-token
+BOT_API_KEY=your-bot-api-key
+ANTHROPIC_API_KEY=your-anthropic-key
+FRONTEND_URL=http://localhost:4200
 ```
 
-To remove volumes as well:
+## Deployment
+
+Deployment is automatic on push to `main` via GitHub Actions.
+
+### Required GitHub Secrets
+
+| Secret | Description |
+|--------|-------------|
+| `SERVER_HOST` | Server IP or hostname |
+| `SERVER_USER` | SSH username |
+| `SSH_PRIVATE_KEY` | Private SSH key |
+
+### Manual Deployment
+
 ```bash
-docker-compose down -v
+npm run deploy
 ```
 
-## Security Notes
+## API Overview
 
-- Change `JWT_SECRET` in production
-- Use HTTPS in production
-- Implement rate limiting
-- Add input sanitization
-- Use environment-specific configurations
+### Auth
+- `POST /auth/register` - Register
+- `POST /auth/login` - Login
+- `GET /auth/profile` - Get profile (authenticated)
+- `GET /auth/discord` - Discord OAuth
+
+### Games & Platforms
+- `GET /games` - List games
+- `GET /platforms` - List platforms
+
+### Leaderboards
+- `GET /leaderboards` - List leaderboards
+- `GET /leaderboards/:id/entries` - Get leaderboard entries
+
+### Matches
+- `POST /matches/challenge` - Create challenge
+- `POST /matches/:id/accept` - Accept challenge
+- `POST /matches/:id/report` - Report result

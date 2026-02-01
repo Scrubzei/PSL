@@ -11,6 +11,7 @@
     "docker:down:volumes": "docker-compose down -v",
     "docker:logs": "docker-compose logs -f",
     "docker:restart": "docker-compose restart",
+    "db:seed": "docker-compose exec server npm run seed",
     "start": "docker-compose up --build"
   },
   "keywords": [

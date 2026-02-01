@@ -14,7 +14,7 @@ git pull origin main
 
 # Backend
 echo "Building backend..."
-cd /var/www/slb/backend
+cd /var/www/slb/services/server
 npm install --production=false
 npm run build
 npm run migration:run
@@ -26,7 +26,7 @@ pm2 save
 
 # Frontend
 echo "Building frontend..."
-cd /var/www/slb/frontend
+cd /var/www/slb/services/website
 npm install
 npm run build
 
@@ -38,5 +38,5 @@ SECONDS=$((ELAPSED % 60))
 echo ""
 echo "=== Deployment Complete ==="
 echo "Backend running on PM2"
-echo "Frontend built to: /var/www/slb/frontend/dist/frontend/browser"
+echo "Frontend built to: /var/www/slb/services/website/dist/website/browser"
 echo "Deployed in ${MINUTES}m ${SECONDS}s"
