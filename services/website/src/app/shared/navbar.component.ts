@@ -33,6 +33,7 @@ import { HallOfFameService } from './hall-of-fame.service';
         <a routerLink="/users" routerLinkActive="active">Users</a>
         <a routerLink="/leaderboards" routerLinkActive="active">Leaderboards</a>
         <a routerLink="/challenges" routerLinkActive="active">Challenges</a>
+        <a routerLink="/tournaments" routerLinkActive="active">Tournaments</a>
       </nav>
 
       <span class="spacer"></span>
@@ -134,8 +135,12 @@ import { HallOfFameService } from './hall-of-fame.service';
           <mat-icon>sports_kabaddi</mat-icon>
           Challenges
         </a>
-        <a (click)="goToHallOfFame()" class="hall-of-fame-mobile">
+        <a routerLink="/tournaments" routerLinkActive="active" (click)="closeMobileMenu()">
           <mat-icon>emoji_events</mat-icon>
+          Tournaments
+        </a>
+        <a (click)="goToHallOfFame()" class="hall-of-fame-mobile">
+          <mat-icon>military_tech</mat-icon>
           Hall of Fame
         </a>
       </div>

@@ -8,6 +8,7 @@ import { ThemeService } from './shared/theme.service';
 import { HallOfFameService } from './shared/hall-of-fame.service';
 import { NavbarComponent } from './shared/navbar.component';
 import { WelcomeModalComponent } from './shared/welcome-modal.component';
+import { TournamentSpotlightModalComponent } from './shared/tournament-spotlight-modal.component';
 import { filter } from 'rxjs/operators';
 
 interface HallOfFamePlayer {
@@ -452,13 +453,46 @@ export class AppComponent implements OnInit {
   }
 
   private showWelcomeModal(): void {
+    const hasSeenWelcome = localStorage.getItem('hasSeenWelcome');
+    const hasSeenTournamentSpotlight = localStorage.getItem('hasSeenTournamentSpotlight');
+
+    if (hasSeenWelcome && hasSeenTournamentSpotlight) return;
+
+    if (!hasSeenWelcome) {
+      // First time visitor: show welcome, then tournament spotlight
+      setTimeout(() => {
+        const dialogRef = this.dialog.open(WelcomeModalComponent, {
+          panelClass: 'welcome-dialog',
+          disableClose: true,
+          autoFocus: false
+        });
+
+        dialogRef.afterClosed().subscribe(() => {
+          localStorage.setItem('hasSeenWelcome', 'true');
+          // Show tournament spotlight after welcome modal
+          this.showTournamentSpotlight();
+        });
+      }, 500);
+    } else if (!hasSeenTournamentSpotlight) {
+      // Returning visitor who hasn't seen tournament spotlight
+      setTimeout(() => {
+        this.showTournamentSpotlight();
+      }, 500);
+    }
+  }
+
+  private showTournamentSpotlight(): void {
     setTimeout(() => {
-      this.dialog.open(WelcomeModalComponent, {
-        panelClass: 'welcome-dialog',
-        disableClose: true,
-        autoFocus: false
+      const dialogRef = this.dialog.open(TournamentSpotlightModalComponent, {
+        panelClass: 'tournament-spotlight-dialog',
+        autoFocus: false,
+        data: {}
       });
-    }, 500);
+
+      dialogRef.afterClosed().subscribe(() => {
+        localStorage.setItem('hasSeenTournamentSpotlight', 'true');
+      });
+    }, 300);
   }
 
   private openHof(): void {

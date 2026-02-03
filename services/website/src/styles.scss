@@ -325,6 +325,23 @@ body {
   }
 }
 
+// Tournament spotlight dialog styling
+.tournament-spotlight-dialog {
+  .mat-mdc-dialog-container {
+    border-radius: 20px;
+    overflow: hidden;
+    box-shadow:
+      0 25px 80px rgba(0, 0, 0, 0.6),
+      0 0 60px rgba(var(--theme-primary-rgb, 25, 118, 210), 0.15);
+
+    .mat-mdc-dialog-surface {
+      padding: 0 !important;
+      background: #0d0d0d;
+      border: 1px solid rgba(255, 255, 255, 0.08);
+    }
+  }
+}
+
 // Mobile dialog adjustments
 @media (max-width: 768px) {
   .mat-mdc-dialog-container {

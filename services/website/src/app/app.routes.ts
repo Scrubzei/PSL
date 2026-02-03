@@ -31,9 +31,9 @@ export const routes: Routes = [
   { path: 'challenges', component: ChallengesComponent },
   { path: 'challenges/:id', component: ChallengeDetailComponent },
   { path: 'tournaments', component: TournamentsListComponent },
+  { path: 'tournaments/create', component: TournamentCreateComponent, canActivate: [authGuard, adminGuard] },
   { path: 'tournaments/:id', component: TournamentDetailComponent },
   { path: 'tournaments/:id/bracket', component: TournamentBracketComponent },
   // Protected routes - require login
   { path: 'dashboard', component: DashboardComponent, canActivate: [authGuard] },
-  { path: 'tournaments/create', component: TournamentCreateComponent, canActivate: [authGuard, adminGuard] },
 ];
