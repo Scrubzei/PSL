@@ -1,7 +1,10 @@
 import 'dart:isolate';
 import 'dart:async';
 import 'dart:io';
+import 'dart:convert';
 import 'package:logger/logger.dart';
+import 'package:path_provider/path_provider.dart';
+import 'package:flutter/foundation.dart';
 import '../launcher/plutonium_launcher.dart';
 import '../reporting/discord_reporter.dart';
 import '../../core/models/detection_report.dart';
@@ -421,9 +424,51 @@ class DetectionEngine {
 
         // Log detection
         _logger.w('Detection: ${detection.type} - ${detection.processName}');
+
+        // Persist detection to file (only in debug mode)
+        if (kDebugMode) {
+          _persistDetection(detection);
+        }
       } catch (e) {
         _logger.e('Error handling detection: $e');
       }
+    }
+  }
+
+  /// Persist a detection to the logs file (debug mode only)
+  Future<void> _persistDetection(DetectionReport detection) async {
+    const logsFileName = 'detection_logs.json';
+    try {
+      final appDir = await getApplicationSupportDirectory();
+      final logsFile = File('${appDir.path}/$logsFileName');
+
+      List<DetectionReport> existingLogs = [];
+      if (await logsFile.exists()) {
+        try {
+          final content = await logsFile.readAsString();
+          final List<dynamic> jsonList = jsonDecode(content);
+          existingLogs = jsonList
+              .map((json) => DetectionReport.fromJson(json))
+              .toList();
+        } catch (e) {
+          _logger.w('Error reading existing logs, starting fresh: $e');
+        }
+      }
+
+      // Add new detection
+      existingLogs.add(detection);
+
+      // Limit to last 1000 logs to prevent file from growing too large
+      if (existingLogs.length > 1000) {
+        existingLogs.sort((a, b) => b.timestamp.compareTo(a.timestamp));
+        existingLogs = existingLogs.take(1000).toList();
+      }
+
+      // Save to file
+      final jsonList = existingLogs.map((log) => log.toJson()).toList();
+      await logsFile.writeAsString(jsonEncode(jsonList));
+    } catch (e) {
+      _logger.e('Error persisting detection: $e');
     }
   }
 

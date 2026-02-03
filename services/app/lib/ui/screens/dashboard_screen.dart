@@ -479,7 +479,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
             OutlineButton(
               onPressed: () => Navigator.push(
                 context,
-                MaterialPageRoute(builder: (context) => const LogsScreen()),
+                MaterialPageRoute(
+                  builder: (context) =>
+                      LogsScreen(detectionEngine: _detectionEngine),
+                ),
               ),
               child: const Text('View Logs'),
             ),

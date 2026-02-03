@@ -13,7 +13,9 @@
       "WebFetch(domain:www.npmjs.com)",
       "WebSearch",
       "WebFetch(domain:raw.githubusercontent.com)",
-      "Bash(docker compose exec:*)"
+      "Bash(docker compose exec:*)",
+      "Bash(ssh slb:*)",
+      "Bash(curl:*)"
     ],
     "deny": [],
     "ask": []

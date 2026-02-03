@@ -33,6 +33,9 @@ services:
       JWT_EXPIRATION: 24h
       FRONTEND_URL: http://localhost:4200
       BOT_API_KEY: ${BOT_API_KEY}
+      DISCORD_CLIENT_ID: ${DISCORD_CLIENT_ID}
+      DISCORD_CLIENT_SECRET: ${DISCORD_CLIENT_SECRET}
+      DISCORD_CALLBACK_URL: ${DISCORD_CALLBACK_URL}
     ports:
       - "3000:3000"
     depends_on:
