@@ -52,7 +52,8 @@ enum CheatType {
   suspiciousMemoryRegion,
   unsignedModule,
   checksumMismatch,
-
+  memoryTampering, // Child process memory tampering detected
+  processCloning, // Process cloning detected
   // Memory and code integrity detections
   pageProtections, // Re-remapping detected
   codeIntegrity, // .text section changes

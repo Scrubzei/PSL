@@ -24,6 +24,7 @@ import 'scanners/blacklist_scanner.dart' show BlacklistScanner;
 import 'scanners/registry_scanner.dart' show RegistryScanner;
 import 'scanners/dll_injection_scanner.dart' show DllInjectionScanner;
 import 'scanners/adapter_detector.dart' show AdapterDetector;
+import 'scanners/process_cloning_scanner.dart' show ProcessCloningScanner;
 
 /// Main detection engine coordinator
 class DetectionEngine {
@@ -179,6 +180,10 @@ class DetectionEngine {
     final registryScanner = RegistryScanner();
     final dllInjectionScanner = DllInjectionScanner();
     final adapterDetector = AdapterDetector();
+    final processCloningScanner = ProcessCloningScanner(
+      excludePid: excludePid,
+      excludeProcessName: excludeProcessName,
+    );
 
     try {
       final scanInterval = Duration(seconds: scanIntervalSeconds);
@@ -377,6 +382,17 @@ class DetectionEngine {
             }
           }
 
+          // Run process cloning scanner (every 5th scan cycle - expensive)
+          if (scanCycle % 5 == 0) {
+            try {
+              final cloningDetections = await processCloningScanner.scan();
+              allDetections.addAll(cloningDetections);
+              await Future.delayed(const Duration(milliseconds: 50));
+            } catch (e) {
+              logger.e('Error in process cloning scanner: $e');
+            }
+          }
+
           if (allDetections.isNotEmpty) {
             logger.w('Found ${allDetections.length} detections');
             sendPort.send(allDetections);
@@ -391,6 +407,22 @@ class DetectionEngine {
     } catch (e) {
       logger.e('Fatal error in scan loop: $e');
     }
+  }
+
+  /// Report detections from outside the isolate (e.g., memory tampering detection)
+  /// This ensures they get reported to Discord and handled properly
+  Future<void> reportDetections(List<DetectionReport> detections) async {
+    if (detections.isEmpty) return;
+    
+    _logger.i(
+      '[Detection Engine] Reporting ${detections.length} detection(s) from external source',
+    );
+    
+    // Broadcast to stream listeners
+    _detectionStreamController.add(detections);
+    
+    // Handle detections (report to Discord, kill process, etc.)
+    await _handleDetections(detections);
   }
 
   /// Handle detected cheats
@@ -414,6 +446,9 @@ class DetectionEngine {
         _reportedDetections.add(detectionKey);
 
         // Report to Discord (only once)
+        _logger.i(
+          '[Detection Engine] Reporting detection to Discord: ${detection.type} - ${detection.processName}',
+        );
         await _discordReporter.reportDetection(detection);
 
         // Kill Plutonium process
