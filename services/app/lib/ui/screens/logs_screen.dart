@@ -617,6 +617,8 @@ class _LogsScreenState extends State<LogsScreen> {
       case CheatType.hostMenu:
       case CheatType.nonHostMenu:
         return Icons.menu;
+      case CheatType.suspiciousAppdataDllOrGsc:
+        return Icons.folder;
       case CheatType.overlayMenu:
         return Icons.layers;
       case CheatType.dmaDevice:

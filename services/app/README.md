@@ -389,7 +389,7 @@ The application follows a layered architecture:
 
 Individual detection modules:
 
-- `host_menu_scanner.dart`: Detects GSC file modifications
+- `plutonium_ad_dll_and_gsc_scanner.dart`: Detects suspicious `.dll` / `.gsc` files in `%LOCALAPPDATA%\Plutonium` (not in allowlist)
 - `overlay_scanner.dart`: Detects overlay windows and ESP
 - `process_scanner.dart`: Scans for suspicious processes
 - `dma_scanner.dart`: Detects DMA (Direct Memory Access) devices via SetupAPI (PCI/USB enumeration)
@@ -488,7 +488,7 @@ The application can detect the following types of cheats and modifications:
 
 - **Description**: In-game mods that edit command values (like `sv_cheats`) without memory modification
 - **Detection Method**: GSC file checksum verification and file system monitoring
-- **Scanner**: `HostMenuScanner`
+- **Scanner**: `PlutoniumAdDllAndGscScanner` (appdata DLL/GSC allowlist enforcement)
 
 ### Non-Host Menus
 

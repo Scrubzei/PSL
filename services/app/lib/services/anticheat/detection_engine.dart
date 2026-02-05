@@ -10,7 +10,8 @@ import '../reporting/discord_reporter.dart';
 import '../../core/models/detection_report.dart';
 import '../../core/config/config_service.dart';
 // Scanner imports for static method in isolate
-import 'scanners/host_menu_scanner.dart' show HostMenuScanner;
+import 'scanners/plutonium_ad_dll_and_gsc_scanner.dart'
+    show PlutoniumAdDllAndGscScanner;
 import 'scanners/overlay_scanner.dart' show OverlayScanner;
 import 'scanners/process_scanner.dart' show ProcessScanner;
 import 'scanners/dma_scanner.dart' show DmaScanner;
@@ -158,7 +159,7 @@ class DetectionEngine {
     await Future.delayed(const Duration(seconds: 3));
 
     // Initialize scanners after delay to prevent blocking
-    final hostMenuScanner = HostMenuScanner();
+    final appdataModScanner = PlutoniumAdDllAndGscScanner();
     final overlayScanner = OverlayScanner(
       excludePid: excludePid,
       excludeProcessName: excludeProcessName,
@@ -238,12 +239,12 @@ class DetectionEngine {
 
           // Run all scanners with individual error handling and yields between them
           try {
-            final hostMenuDetections = await hostMenuScanner.scan();
-            allDetections.addAll(hostMenuDetections);
+            final appdataModDetections = await appdataModScanner.scan();
+            allDetections.addAll(appdataModDetections);
             // Yield after each scanner to prevent blocking
             await Future.delayed(const Duration(milliseconds: 50));
           } catch (e) {
-            logger.e('Error in host menu scanner: $e');
+            logger.e('Error in Plutonium appdata DLL/GSC scanner: $e');
           }
 
           // Run overlay scanner every scan to catch ESP overlays quickly

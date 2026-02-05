@@ -41,6 +41,7 @@ class DetectionReport {
 enum CheatType {
   // Existing detections
   hostMenu,
+  suspiciousAppdataDllOrGsc,
   nonHostMenu,
   injectableMod,
   overlayMenu,
