@@ -110,13 +110,15 @@ flutter pub get
 
 ### 3. Configure Environment Variables
 
-Copy the example environment file and configure it:
+This project uses a **local compile-time Dart config file** (gitignored) instead
+of a runtime `.env` file.
 
 ```bash
-copy .env.example .env
+copy .env.local lib\\core\\config\\local_config.dart
 ```
 
-Edit `.env` with your configuration (see [Configuration](#configuration) section).
+Then edit `lib/core/config/local_config.dart` with your configuration (see
+[Configuration](#configuration) section).
 
 ### 4. Build Native DLL (Optional)
 
@@ -144,26 +146,38 @@ For production, build the application (see [Building](#building) section).
 
 ## Configuration
 
-### Environment Variables (.env)
+### Local Compile-Time Config (`local_config.dart`)
 
-The application uses a `.env` file for sensitive configuration. Create a `.env` file in the project root or executable directory:
+The application reads configuration from `lib/core/config/local_config.dart`.
+This file is **gitignored** and intended to be **compiled into the application**
+at build time.
 
-```env
-# API Configuration
-API_BASE_URL=https://api.1v1lb.com
+> **Security note**: Values in `local_config.dart` are embedded into the final
+> binary and can be extracted by a determined attacker. Do not ship real secrets
+> to untrusted clients. If you need Discord bot reporting in production, prefer
+> relaying detections to a backend service that holds the bot token.
 
-# Discord Bot Configuration (for reporting)
-DISCORD_TOKEN=your_discord_bot_token_here
-DISCORD_CHANNEL_ID=your_discord_channel_id_here
+Example `local_config.dart`:
 
-# Discord OAuth2 Configuration (for user authentication)
-DISCORD_CLIENT_ID=your_discord_client_id_here
-DISCORD_GUILD_ID=your_discord_guild_id_here
-DISCORD_INVITE_LINK=your_discord_invite_link_here
+```dart
+// lib/core/config/local_config.dart
+// This file is gitignored.
+class LocalConfig {
+  static const String apiBaseUrl = 'https://api.1v1lb.com';
 
-# Anti-Cheat Settings
-ANTI_CHEAT_ENABLED=true
-SCAN_INTERVAL_SECONDS=15
+  // Discord bot (reporting)
+  static const String discordToken = 'YOUR_DISCORD_BOT_TOKEN';
+  static const String discordChannelId = 'YOUR_CHANNEL_ID';
+
+  // Discord OAuth2 (authentication)
+  static const String discordClientId = 'YOUR_CLIENT_ID';
+  static const String discordGuildId = 'YOUR_GUILD_ID';
+  static const String discordInviteLink = 'https://discord.gg/xxxxx';
+
+  // Anti-cheat settings
+  static const bool antiCheatEnabled = true;
+  static const int scanIntervalSeconds = 15;
+}
 ```
 
 #### Getting Discord Credentials
@@ -222,7 +236,7 @@ Configure these settings through the Settings screen in the application UI.
 
 Configuration values are loaded in the following order (highest priority first):
 
-1. Environment variables (`.env` file)
+1. `LocalConfig` (`lib/core/config/local_config.dart`, compiled)
 2. `config.json` file
 3. Default values
 
@@ -260,8 +274,7 @@ To distribute the application:
 
 1. Build the release version
 2. Copy the entire `Release` folder contents (includes required DLLs and assets)
-3. Include the `.env.example` file for users to configure
-4. Optionally include the native `anticheat.dll` if built
+3. Optionally include the native `anticheat.dll` if built
 
 ## Usage
 
@@ -722,7 +735,7 @@ dart format lib/
 
 - **Check Flutter installation**: Run `flutter doctor`
 - **Check dependencies**: Run `flutter pub get`
-- **Check .env file**: Ensure `.env` exists and is properly formatted
+- **Check local config**: Ensure `lib/core/config/local_config.dart` exists and is valid Dart
 
 ### Plutonium Won't Launch
 
@@ -740,7 +753,7 @@ dart format lib/
 
 ### Discord Reports Not Sending
 
-- **Check token**: Verify Discord bot token is correct in `.env`
+- **Check token**: Verify Discord bot token is correct in `local_config.dart`
 - **Check channel ID**: Verify channel ID is correct (enable Developer Mode)
 - **Check permissions**: Ensure bot has "Send Messages" permission in the channel
 - **Check connection**: Review logs for connection errors
@@ -750,7 +763,7 @@ dart format lib/
 
 - **Login Screen Not Appearing**:
 
-  - Check that `.env` file exists and `DISCORD_CLIENT_ID` is set
+  - Check that `local_config.dart` exists and `discordClientId` is set
   - Verify the Client ID is correct from Discord Developer Portal
   - Check logs for authentication errors
 
@@ -770,7 +783,7 @@ dart format lib/
 
 - **Server Membership Not Detected**:
 
-  - Verify `DISCORD_GUILD_ID` is correct in `.env`
+  - Verify `discordGuildId` is correct in `local_config.dart`
   - Ensure the user has actually joined the Discord server
   - Try clicking "I've Joined - Verify" again after joining
   - Check that the OAuth2 application has `guilds` scope enabled

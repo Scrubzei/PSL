@@ -1,4 +1,4 @@
-import 'package:dotenv/dotenv.dart';
+import 'local_config.dart';
 
 /// Application configuration model
 class AppConfig {
@@ -48,57 +48,37 @@ class AppConfig {
     scanIntervalSeconds: json['scanIntervalSeconds'] as int? ?? 15,
   );
 
-  /// Create AppConfig from JSON with environment variables taking precedence
-  /// Environment variables override JSON values for: API, Discord, and Anti-Cheat settings
-  factory AppConfig.fromJsonWithEnv(Map<String, dynamic> json, DotEnv env) {
-    // Helper to get env var with fallback to JSON
-    String? getEnvOrJson(String envKey, String jsonKey) {
-      final envValue = env[envKey];
-      if (envValue != null && envValue.isNotEmpty) {
-        return envValue;
-      }
-      return json[jsonKey] as String?;
-    }
+  /// Create `AppConfig` where values from `LocalConfig` take precedence.
+  ///
+  /// This replaces runtime `.env` loading so values are compiled into the app.
+  factory AppConfig.fromJsonWithLocalConfig(Map<String, dynamic> json) {
+    String? nonEmpty(String? value) =>
+        (value != null && value.trim().isNotEmpty) ? value.trim() : null;
 
-    // Helper to get bool from env or JSON
-    bool getBoolEnvOrJson(String envKey, String jsonKey, bool defaultValue) {
-      final envValue = env[envKey];
-      if (envValue != null && envValue.isNotEmpty) {
-        return envValue.toLowerCase() == 'true';
-      }
-      return json[jsonKey] as bool? ?? defaultValue;
-    }
+    bool boolOrDefault(bool value, bool defaultValue) => value;
 
-    // Helper to get int from env or JSON
-    int getIntEnvOrJson(String envKey, String jsonKey, int defaultValue) {
-      final envValue = env[envKey];
-      if (envValue != null && envValue.isNotEmpty) {
-        return int.tryParse(envValue) ?? defaultValue;
-      }
-      return json[jsonKey] as int? ?? defaultValue;
-    }
+    int intOrDefault(int value, int defaultValue) => value;
 
     return AppConfig(
       plutoniumPath: json['plutoniumPath'] as String?, // Only from JSON
-      apiBaseUrl:
-          getEnvOrJson('API_BASE_URL', 'apiBaseUrl') ?? 'https://api.1v1lb.com',
-      discordToken: getEnvOrJson('DISCORD_TOKEN', 'discordToken'),
-      discordChannelId: getEnvOrJson('DISCORD_CHANNEL_ID', 'discordChannelId'),
-      discordClientId: getEnvOrJson('DISCORD_CLIENT_ID', 'discordClientId'),
-      discordGuildId: getEnvOrJson('DISCORD_GUILD_ID', 'discordGuildId'),
-      discordInviteLink: getEnvOrJson(
-        'DISCORD_INVITE_LINK',
-        'discordInviteLink',
+      apiBaseUrl: nonEmpty(LocalConfig.apiBaseUrl) ??
+          (json['apiBaseUrl'] as String? ?? 'https://api.1v1lb.com'),
+      discordToken: nonEmpty(LocalConfig.discordToken) ?? json['discordToken'] as String?,
+      discordChannelId: nonEmpty(LocalConfig.discordChannelId) ??
+          json['discordChannelId'] as String?,
+      discordClientId: nonEmpty(LocalConfig.discordClientId) ??
+          json['discordClientId'] as String?,
+      discordGuildId: nonEmpty(LocalConfig.discordGuildId) ??
+          json['discordGuildId'] as String?,
+      discordInviteLink: nonEmpty(LocalConfig.discordInviteLink) ??
+          json['discordInviteLink'] as String?,
+      antiCheatEnabled: boolOrDefault(
+        LocalConfig.antiCheatEnabled,
+        json['antiCheatEnabled'] as bool? ?? true,
       ),
-      antiCheatEnabled: getBoolEnvOrJson(
-        'ANTI_CHEAT_ENABLED',
-        'antiCheatEnabled',
-        true,
-      ),
-      scanIntervalSeconds: getIntEnvOrJson(
-        'SCAN_INTERVAL_SECONDS',
-        'scanIntervalSeconds',
-        15,
+      scanIntervalSeconds: intOrDefault(
+        LocalConfig.scanIntervalSeconds,
+        json['scanIntervalSeconds'] as int? ?? 15,
       ),
     );
   }

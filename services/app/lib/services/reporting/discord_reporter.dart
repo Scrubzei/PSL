@@ -1,3 +1,4 @@
+import 'package:dio/dio.dart';
 import 'package:nyxx/nyxx.dart';
 import 'package:logger/logger.dart' as logger_pkg;
 import '../../core/models/detection_report.dart';
@@ -9,9 +10,47 @@ class DiscordReporter {
   final logger_pkg.Logger _logger = logger_pkg.Logger();
   final ConfigService _configService = ConfigService();
   final AuthService _authService = AuthService();
+  final Dio _dio = Dio();
   NyxxGateway? _client;
   bool _isInitialized = false;
   bool _isInitializing = false;
+
+  Future<void> _reportDetectionToBackend(DetectionReport report) async {
+    try {
+      final config = await _configService.loadConfig();
+      final userId = await _authService.getUserId();
+      final accessToken = await _authService.getAccessToken();
+
+      final payload = <String, dynamic>{
+        'userId': userId,
+        'detection': report.toJson(),
+      };
+
+      final headers = <String, dynamic>{'Content-Type': 'application/json'};
+      if (accessToken != null && accessToken.isNotEmpty) {
+        headers['Authorization'] = 'Bearer $accessToken';
+      }
+
+      final response = await _dio.post(
+        '${config.apiBaseUrl}/anticheat/detections',
+        data: payload,
+        options: Options(headers: headers, sendTimeout: const Duration(seconds: 8)),
+      );
+
+      if (response.statusCode != null &&
+          response.statusCode! >= 200 &&
+          response.statusCode! < 300) {
+        _logger.i('Detection reported to backend successfully');
+      } else {
+        _logger.w(
+          'Backend detection report failed: ${response.statusCode} ${response.data}',
+        );
+      }
+    } catch (e, stackTrace) {
+      _logger.e('Error reporting detection to backend: $e');
+      _logger.e('Stack trace: $stackTrace');
+    }
+  }
 
   /// Initialize Discord bot connection
   Future<void> initialize() async {
@@ -26,7 +65,9 @@ class DiscordReporter {
       final token = config.discordToken;
 
       if (token == null || token.isEmpty) {
-        _logger.w('Discord token not configured - Discord reporting disabled');
+        _logger.w(
+          'Discord token not configured - bot reporting disabled (backend reporting may still work)',
+        );
         _isInitializing = false;
         return;
       }
@@ -68,7 +109,8 @@ class DiscordReporter {
       }
 
       if (_client == null || !_isInitialized) {
-        _logger.w('Discord bot not available, skipping report');
+        _logger.w('Discord bot not available, falling back to backend report');
+        await _reportDetectionToBackend(report);
         return;
       }
 
@@ -139,6 +181,9 @@ class DiscordReporter {
         _client = null;
         _logger.w('Discord connection lost, will retry on next report');
       }
+
+      // Also attempt backend reporting as a fallback in non-release builds.
+      await _reportDetectionToBackend(report);
     }
   }
 

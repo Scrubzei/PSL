@@ -809,6 +809,14 @@ class AuthService {
     }
   }
 
+  /// Get stored Discord OAuth access token (if available).
+  ///
+  /// This is intended for sending authenticated requests to your own API,
+  /// where the backend can validate the token with Discord.
+  Future<String?> getAccessToken() async {
+    return _getAccessToken();
+  }
+
   /// Check if user is in the required Discord guild/server
   Future<bool> isInRequiredGuild() async {
     try {
