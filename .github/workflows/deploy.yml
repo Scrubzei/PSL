@@ -38,13 +38,13 @@ jobs:
 
       - name: Package build artifacts
         run: |
-          tar -czf deploy.tar.gz \
+          tar -czf ${{ runner.temp }}/deploy.tar.gz \
             --exclude='node_modules' \
             --exclude='.git' \
             --exclude='.env' \
             --exclude='*.log' \
-            --exclude='deploy.tar.gz' \
             .
+          cp ${{ runner.temp }}/deploy.tar.gz ./deploy.tar.gz
 
       - name: Copy to server
         uses: appleboy/scp-action@v0.1.7
@@ -61,6 +61,7 @@ jobs:
           host: ${{ secrets.SERVER_HOST }}
           username: ${{ secrets.SERVER_USER }}
           key: ${{ secrets.SSH_PRIVATE_KEY }}
+          command_timeout: 10m
           script: |
             mkdir -p /var/www/slb
             tar -xzf /tmp/deploy.tar.gz -C /var/www/slb
