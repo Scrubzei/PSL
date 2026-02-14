@@ -1,6 +1,5 @@
-import { Component, OnInit } from '@angular/core';
+import { Component } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { HttpClient } from '@angular/common/http';
 
 @Component({
   selector: 'app-download',
@@ -13,7 +12,7 @@ import { HttpClient } from '@angular/common/http';
         <h1>1v1 Leaderboards Launcher</h1>
         <p class="subtitle">Queue for ranked matches, run anticheat, and manage your Plutonium settings — all in one place.</p>
 
-        <a [href]="downloadUrl" class="btn-download" *ngIf="downloadUrl">
+        <a href="https://github.com/1v1Leaderboards/launcher/releases/latest" class="btn-download" target="_blank">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
             <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
             <polyline points="7 10 12 15 17 10"/>
@@ -21,8 +20,6 @@ import { HttpClient } from '@angular/common/http';
           </svg>
           Download for Windows
         </a>
-
-        <span class="version" *ngIf="version">{{ version }}</span>
 
         <div class="features">
           <div class="feature">
@@ -120,13 +117,6 @@ import { HttpClient } from '@angular/common/http';
       }
     }
 
-    .version {
-      display: block;
-      margin-top: 12px;
-      font-size: 13px;
-      color: rgba(255, 255, 255, 0.25);
-    }
-
     .features {
       display: grid;
       grid-template-columns: repeat(3, 1fr);
@@ -188,31 +178,4 @@ import { HttpClient } from '@angular/common/http';
     }
   `]
 })
-export class DownloadComponent implements OnInit {
-  downloadUrl: string | null = null;
-  version: string | null = null;
-
-  private readonly GITHUB_REPO = '1v1Leaderboards/launcher';
-
-  constructor(private http: HttpClient) {}
-
-  ngOnInit() {
-    this.http
-      .get<any>(`https://api.github.com/repos/${this.GITHUB_REPO}/releases/latest`)
-      .subscribe({
-        next: (release) => {
-          this.version = release.tag_name;
-          const exeAsset = release.assets?.find((a: any) =>
-            a.name.endsWith('.exe')
-          );
-          this.downloadUrl = exeAsset
-            ? exeAsset.browser_download_url
-            : release.html_url;
-        },
-        error: () => {
-          // Fallback to generic releases page
-          this.downloadUrl = `https://github.com/${this.GITHUB_REPO}/releases/latest`;
-        },
-      });
-  }
-}
+export class DownloadComponent {}
