@@ -82,7 +82,7 @@ interface RoundSchedule {
             </div>
           }
         </div>
-        <p class="schedule-note">Arrange a match time with your opponent before each deadline. Each player picks a map and both agree on a third — if they can't agree, the website will randomly select it. Admins and refs are available to help if needed. <span class="schedule-warning">If a time is agreed upon and a player fails to show, they are disqualified.</span></p>
+        <p class="schedule-note">Arrange a match time with your opponent before each deadline. Each player picks a map, and both agree on a third. If no agreement is reached, the website will randomly select the third map. Admins and refs are available to help if needed. <span class="schedule-warning">If a time is agreed upon and a player fails to show, they are disqualified.</span></p>
       </div>
 
       <!-- Discord Requirement -->

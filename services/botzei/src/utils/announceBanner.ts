@@ -217,17 +217,10 @@ export async function generateAnnounceBanner(options: BannerOptions): Promise<Bu
   // === Start date ===
   curY += 20;
   if (startDate) {
-    // "STARTS" label
-    ctx.fillStyle = hexToRgba(accent, 0.9);
-    ctx.font = 'bold 10px "DejaVu Sans", sans-serif';
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'top';
-    ctx.fillText('S T A R T S', width / 2, curY);
-    curY += 18;
-
-    // Date value
     ctx.fillStyle = 'rgba(255, 255, 255, 0.85)';
     ctx.font = 'bold 16px "DejaVu Sans", sans-serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'top';
     ctx.fillText(formatDate(startDate), width / 2, curY);
     curY += 24;
   }
