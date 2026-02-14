@@ -2,6 +2,7 @@ import 'package:shadcn_flutter/shadcn_flutter.dart';
 import '../../core/config/config_service.dart';
 import '../../services/launcher/plutonium_launcher.dart';
 import '../../services/anticheat/detection_engine.dart';
+import '../../services/anticheat/prevention_service.dart';
 import '../../services/anticheat/scanners/overlay_scanner.dart';
 import '../../services/anticheat/scanners/adapter_detector.dart';
 import '../../services/auth/auth_service.dart';
@@ -26,6 +27,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
   final DetectionEngine _detectionEngine = DetectionEngine();
   final AuthService _authService = AuthService();
   final logger_pkg.Logger _logger = logger_pkg.Logger();
+  MemoryProtectionService? _memoryProtectionService;
 
   bool _isAntiCheatActive = false;
   bool _isPlutoniumRunning = false;
@@ -52,7 +54,61 @@ class _DashboardScreenState extends State<DashboardScreen> {
     _windowCheckTimer?.cancel();
     _adapterScanTimer?.cancel();
     _detectionSubscription?.cancel();
+    _memoryTamperingTimer?.cancel();
     super.dispose();
+  }
+
+  Timer? _memoryTamperingTimer;
+
+  /// Start periodic memory tampering detection
+  void _startMemoryTamperingDetection() {
+    if (_memoryProtectionService == null) {
+      _logger.w(
+        '[Memory Tampering Detection] Cannot start detection: service not initialized',
+      );
+      return;
+    }
+
+    // Cancel existing timer if any
+    _memoryTamperingTimer?.cancel();
+
+    _logger.i(
+      '[Memory Tampering Detection] Starting periodic memory tampering detection (every 10 seconds)',
+    );
+
+    // Check for memory tampering every 10 seconds
+    _memoryTamperingTimer = Timer.periodic(const Duration(seconds: 10), (
+      timer,
+    ) async {
+      if (_memoryProtectionService == null || !_isPlutoniumRunning) {
+        _logger.d(
+          '[Memory Tampering Detection] Stopping detection timer (service: ${_memoryProtectionService != null}, running: $_isPlutoniumRunning)',
+        );
+        timer.cancel();
+        return;
+      }
+
+      try {
+        _logger.d(
+          '[Memory Tampering Detection] Running periodic memory tampering check...',
+        );
+        final detections = await _memoryProtectionService!
+            .detectMemoryTampering();
+        if (detections.isNotEmpty && mounted) {
+          _logger.w(
+            '[Memory Tampering Detection] 🚨 Memory tampering detected: ${detections.length} detection(s) 🚨',
+          );
+          
+          // Report detections through the detection engine
+          // This ensures they get reported to Discord and handled properly
+          await _detectionEngine.reportDetections(detections);
+        }
+      } catch (e) {
+        _logger.e(
+          '[Memory Tampering Detection] Error during memory tampering detection: $e',
+        );
+      }
+    });
   }
 
   Future<void> _loadConfig() async {
@@ -91,6 +147,46 @@ class _DashboardScreenState extends State<DashboardScreen> {
           });
           _logger.i('Detected Plutonium game window on launch');
 
+          // Check if launcher already has a process handle (game was launched by us)
+          // If not, attach to the already-running game
+          if (!_launcher.isRunning()) {
+            _logger.i(
+              '[Memory Protection] Game already running - attaching to existing process...',
+            );
+            try {
+              // Attach to the already-running game process
+              await _launcher.attachToGameProcess();
+              _logger.i(
+                '[Memory Protection] Successfully attached to already-running game',
+              );
+            } catch (e) {
+              _logger.e(
+                '[Memory Protection] Failed to attach to already-running game: $e',
+              );
+            }
+          }
+
+          // Initialize memory protection service if not already initialized
+          if (_memoryProtectionService == null) {
+            _logger.i(
+              '[Memory Protection] Initializing MemoryProtectionService for already-running game...',
+            );
+            _memoryProtectionService = MemoryProtectionService(_launcher);
+
+            // Establish baseline checksums
+            _logger.i(
+              '[Memory Protection] Establishing baseline checksums for already-running game...',
+            );
+            _memoryProtectionService!.protectChildProcessMemory().catchError((
+              e,
+            ) {
+              _logger.e('[Memory Protection] Error establishing baseline: $e');
+            });
+
+            // Start periodic memory tampering detection
+            _startMemoryTamperingDetection();
+          }
+
           // If anti-cheat is enabled, start scanning
           // Note: startScanning() checks if already scanning, so safe to call multiple times
           if (_isAntiCheatActive && !_detectionEngine.isScanning) {
@@ -107,6 +203,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
             setState(() {
               _isPlutoniumRunning = false;
             });
+            // Clear memory protection service when game closes
+            _memoryProtectionService = null;
+            _memoryTamperingTimer?.cancel();
             _logger.d('Plutonium game window closed');
           }
         }
@@ -149,6 +248,24 @@ class _DashboardScreenState extends State<DashboardScreen> {
         setState(() {
           _isPlutoniumRunning = true;
         });
+
+        // Initialize memory protection service for the child process
+        _logger.i(
+          '[Memory Protection] Initializing MemoryProtectionService for child process...',
+        );
+        _memoryProtectionService = MemoryProtectionService(_launcher);
+
+        // Protect child process memory (fire-and-forget to avoid blocking UI)
+        _logger.i('[Memory Protection] Starting memory protection process...');
+        _memoryProtectionService!.protectChildProcessMemory().catchError((e) {
+          _logger.e(
+            '[Memory Protection] Error protecting child process memory: $e',
+          );
+        });
+
+        // Start periodic memory tampering detection
+        // This runs in the background and checks for memory tampering
+        _startMemoryTamperingDetection();
 
         // Start anti-cheat scanning if enabled (fire-and-forget to avoid blocking UI)
         // Note: startScanning() checks if already scanning, so safe to call multiple times

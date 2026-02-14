@@ -174,8 +174,9 @@ class OverlayScanner {
       final width = rect.ref.right - rect.ref.left;
       final height = rect.ref.bottom - rect.ref.top;
 
-      // Skip very small or very large windows (likely not overlays)
-      if (width < 50 || height < 50 || width > 5000 || height > 5000) {
+      // More lenient size check for ESP overlays - they can be small menus
+      // ESP menus are often small (100-500px) but can also be larger
+      if (width < 30 || height < 30 || width > 10000 || height > 10000) {
         free(title);
         calloc.free(rect);
         return;
@@ -207,19 +208,23 @@ class OverlayScanner {
       // Detection criteria for ESP overlays:
       // 1. Has overlay styles (layered/transparent/topmost)
       // 2. Overlaps with game window OR is topmost
-      // 3. Reasonable size (not too small, not full screen)
+      // 3. Reasonable size (ESP menus can be small)
       // 4. Different process than game
+      // More lenient: ESP overlays often have topmost flag even if they don't overlap exactly
       final isSuspicious =
           (isLayered || isTransparent || isTopmost) &&
           (overlapsGame || isTopmost) &&
-          width >= 50 &&
-          width <= 5000 &&
-          height >= 50 &&
-          height <= 5000;
+          width >= 30 &&
+          width <= 10000 &&
+          height >= 30 &&
+          height <= 10000;
 
       if (isSuspicious) {
         _logger.w(
-          'Detected suspicious overlay window: "$titleStr" (${width}x$height) from $processName',
+          '🚨 Detected suspicious overlay window: "$titleStr" (${width}x$height) from $processName',
+        );
+        _logger.w(
+          '  Overlay details: layered=$isLayered, transparent=$isTransparent, topmost=$isTopmost, overlaps=$overlapsGame',
         );
         detections.add(
           DetectionReport(
@@ -233,10 +238,18 @@ class OverlayScanner {
               'isTransparent': isTransparent,
               'isTopmost': isTopmost,
               'overlapsGame': overlapsGame,
+              'processName': processName,
             },
             processName: processName,
           ),
         );
+      } else {
+        // Log windows that were checked but didn't match (for debugging)
+        if (isLayered || isTransparent || isTopmost) {
+          _logger.d(
+            'Checked overlay-style window but not suspicious: "$titleStr" (${width}x$height) from $processName - overlaps=$overlapsGame',
+          );
+        }
       }
 
       free(title);

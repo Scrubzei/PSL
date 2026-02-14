@@ -49,4 +49,7 @@ app.*.map.json
 .env.local
 .env.*.local
 
+# Local compile-time config (contains secrets; do not commit)
+lib/core/config/local_config.dart
+
 ref/

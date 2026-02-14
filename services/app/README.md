@@ -23,16 +23,35 @@ A comprehensive Windows desktop application built with Flutter and Dart that ser
 
 - **Discord OAuth2 Authentication**: Secure user authentication via Discord OAuth2 with PKCE (Proof Key for Code Exchange)
 - **Guild Membership Verification**: Ensures users are members of the required Discord server before accessing features
-- **Plutonium Launcher**: Launch and manage Plutonium client processes with automatic game window detection
+- **Plutonium Launcher**: Launch and manage Plutonium client processes independently, then attach for memory protection with automatic game window detection
 - **Anti-Cheat Detection Engine**: Comprehensive detection system running in isolated Dart isolates for performance and security
-- **Discord Reporting**: Automatically report detected cheats to Discord channels with detailed evidence and user mentions
+- **Discord Reporting**: Automatically report detected cheats to Discord channels with detailed evidence and user mentions (including memory tampering detections)
 - **1v1 Matchmaking**: Queue system for 1v1 matches with API integration for player pairing and score reporting
 - **Modern UI**: Clean, responsive interface built with shadcn_flutter components and Material Design principles
 
 ### 🛡️ Anti-Cheat Features
 
 - **Real-time Scanning**: Continuous background scanning during gameplay with configurable intervals
-- **Multiple Detection Vectors**: Detects various cheat types including host menus, DLL injections, overlays, DMA devices, game adapters, and more
+- **Multiple Detection Vectors**: Detects various cheat types including host menus, DLL injections, overlays, DMA devices, game adapters, memory tampering, process cloning, and more
+- **Memory Tampering Detection**: Comprehensive memory tampering detection for game processes:
+  - **Independent Launch & Attachment**: Launches Plutonium independently, then attaches to the game process after the game window appears
+  - **Checksum-Based Detection**: SHA256 checksum verification for executable code regions (.text sections)
+  - **Data Section Monitoring**: Detects hooks and modifications in data sections (.data, .rdata) where ESP overlays often place hooks
+  - **Suspicious Memory Detection**: Identifies executable+writable memory regions (PAGE_EXECUTE_READWRITE) commonly used by cheats
+  - **Periodic Scans**: Runs tampering detection scans every 10 seconds
+  - **Automatic Baseline**: Establishes baseline checksums on first scan for comparison
+  - **Already-Running Game Support**: Automatically attaches to games that are already running when the anti-cheat starts
+  - **Discord Reporting**: All memory tampering detections are automatically reported to Discord
+- **Enhanced DMA Detection**: Comprehensive PCI/USB device enumeration using Windows SetupAPI:
+  - PCI device scanning for suspicious hardware IDs
+  - USB device scanning for DMA-capable devices
+  - Detection of known DMA device signatures (Xilinx, FTDI, etc.)
+  - Generic device description detection with missing serial numbers
+- **Process Cloning Detection**: Detects processes created via RtlCloneUserProcess or similar techniques:
+  - Duplicate process name detection with different parent processes
+  - Unexpected parent process identification
+  - Handle count mismatch detection between duplicate processes
+  - Suspicious child process detection
 - **Game Adapter Detection**: Comprehensive detection of hardware game adapters (Cronus Zen, Titan Two, XIM Matrix, etc.) including:
   - Input mode detection (when adapters spoof legitimate controller IDs)
   - Multi-input device support (XInput, HID, DirectInput, MnK-as-controller emulation)
@@ -91,13 +110,15 @@ flutter pub get
 
 ### 3. Configure Environment Variables
 
-Copy the example environment file and configure it:
+This project uses a **local compile-time Dart config file** (gitignored) instead
+of a runtime `.env` file.
 
 ```bash
-copy .env.example .env
+copy .env.local lib\\core\\config\\local_config.dart
 ```
 
-Edit `.env` with your configuration (see [Configuration](#configuration) section).
+Then edit `lib/core/config/local_config.dart` with your configuration (see
+[Configuration](#configuration) section).
 
 ### 4. Build Native DLL (Optional)
 
@@ -125,26 +146,38 @@ For production, build the application (see [Building](#building) section).
 
 ## Configuration
 
-### Environment Variables (.env)
+### Local Compile-Time Config (`local_config.dart`)
 
-The application uses a `.env` file for sensitive configuration. Create a `.env` file in the project root or executable directory:
+The application reads configuration from `lib/core/config/local_config.dart`.
+This file is **gitignored** and intended to be **compiled into the application**
+at build time.
 
-```env
-# API Configuration
-API_BASE_URL=https://api.1v1lb.com
+> **Security note**: Values in `local_config.dart` are embedded into the final
+> binary and can be extracted by a determined attacker. Do not ship real secrets
+> to untrusted clients. If you need Discord bot reporting in production, prefer
+> relaying detections to a backend service that holds the bot token.
 
-# Discord Bot Configuration (for reporting)
-DISCORD_TOKEN=your_discord_bot_token_here
-DISCORD_CHANNEL_ID=your_discord_channel_id_here
+Example `local_config.dart`:
 
-# Discord OAuth2 Configuration (for user authentication)
-DISCORD_CLIENT_ID=your_discord_client_id_here
-DISCORD_GUILD_ID=your_discord_guild_id_here
-DISCORD_INVITE_LINK=your_discord_invite_link_here
+```dart
+// lib/core/config/local_config.dart
+// This file is gitignored.
+class LocalConfig {
+  static const String apiBaseUrl = 'https://api.1v1lb.com';
 
-# Anti-Cheat Settings
-ANTI_CHEAT_ENABLED=true
-SCAN_INTERVAL_SECONDS=15
+  // Discord bot (reporting)
+  static const String discordToken = 'YOUR_DISCORD_BOT_TOKEN';
+  static const String discordChannelId = 'YOUR_CHANNEL_ID';
+
+  // Discord OAuth2 (authentication)
+  static const String discordClientId = 'YOUR_CLIENT_ID';
+  static const String discordGuildId = 'YOUR_GUILD_ID';
+  static const String discordInviteLink = 'https://discord.gg/xxxxx';
+
+  // Anti-cheat settings
+  static const bool antiCheatEnabled = true;
+  static const int scanIntervalSeconds = 15;
+}
 ```
 
 #### Getting Discord Credentials
@@ -203,7 +236,7 @@ Configure these settings through the Settings screen in the application UI.
 
 Configuration values are loaded in the following order (highest priority first):
 
-1. Environment variables (`.env` file)
+1. `LocalConfig` (`lib/core/config/local_config.dart`, compiled)
 2. `config.json` file
 3. Default values
 
@@ -241,8 +274,7 @@ To distribute the application:
 
 1. Build the release version
 2. Copy the entire `Release` folder contents (includes required DLLs and assets)
-3. Include the `.env.example` file for users to configure
-4. Optionally include the native `anticheat.dll` if built
+3. Optionally include the native `anticheat.dll` if built
 
 ## Usage
 
@@ -277,8 +309,13 @@ After authentication, the dashboard will display:
 1. Ensure Plutonium path is configured in Settings
 2. Click "Launch Plutonium" button on the dashboard
    - If not authenticated, you'll be redirected to the login screen
-3. The application will automatically detect when the game window appears
-4. Anti-cheat scanning will begin automatically if enabled
+3. Plutonium will launch independently (detached mode)
+4. The application will automatically detect when the game window appears
+5. Once the game window is detected, the anti-cheat attaches to the game process
+6. Memory tampering detection establishes baseline checksums automatically
+7. Anti-cheat scanning will begin automatically if enabled
+8. Memory tampering detection runs periodically (every 10 seconds) to detect any modifications
+9. **Note**: Memory tampering protection also works if the game is already running when you start the anti-cheat - it will automatically attach and begin monitoring
 
 ### Joining the Queue
 
@@ -343,7 +380,8 @@ The application follows a layered architecture:
 
 - **Auth Service**: Handles Discord OAuth2 authentication, user ID storage, and guild membership verification
 - **Detection Engine**: Coordinates all scanners and handles detections
-- **Plutonium Launcher**: Manages game process lifecycle
+- **Plutonium Launcher**: Manages game process lifecycle (launches independently, then attaches to game process for memory protection)
+- **Memory Protection Service**: Detects memory tampering via comprehensive checksum verification (executable code, data sections, suspicious memory regions)
 - **Discord Reporter**: Handles Discord bot communication and user mentions in reports
 - **Queue Service**: Manages matchmaking API interactions
 
@@ -351,10 +389,11 @@ The application follows a layered architecture:
 
 Individual detection modules:
 
-- `host_menu_scanner.dart`: Detects GSC file modifications
+- `plutonium_ad_dll_and_gsc_scanner.dart`: Detects suspicious `.dll` / `.gsc` files in `%LOCALAPPDATA%\Plutonium` (not in allowlist)
 - `overlay_scanner.dart`: Detects overlay windows and ESP
 - `process_scanner.dart`: Scans for suspicious processes
-- `dma_scanner.dart`: Detects DMA (Direct Memory Access) devices
+- `dma_scanner.dart`: Detects DMA (Direct Memory Access) devices via SetupAPI (PCI/USB enumeration)
+- `process_cloning_scanner.dart`: Detects process cloning and stealth process creation
 - `dll_injection_scanner.dart`: Detects DLL injection
 - `adapter_detector.dart`: Detects game adapter devices (Cronus Zen, Titan Two, XIM Matrix, etc.)
   - Input mode detection (spoofed controller IDs)
@@ -388,15 +427,23 @@ Individual detection modules:
 ### Detection Engine Flow
 
 1. **Initialization**: Detection engine spawns an isolate for scanning
-2. **Window Detection**: Waits for Plutonium game window to appear
-3. **Scanner Initialization**: Initializes all scanners in the isolate
-4. **Scan Loop**: Continuously runs scanners at configured intervals
-5. **Detection Handling**: When detections are found:
+2. **Process Launch**: Plutonium launches independently (detached mode)
+3. **Game Window Detection**: Waits for Plutonium game window to appear (up to 60 seconds)
+4. **Process Attachment**: Once game window is detected, attaches to game process using OpenProcess
+5. **Memory Baseline**: Memory protection service establishes baseline checksums for executable and data sections
+6. **Window Detection**: Application monitors for game window (also detects already-running games)
+7. **Scanner Initialization**: Initializes all scanners in the isolate
+8. **Scan Loop**: Continuously runs scanners at configured intervals
+   - Most scanners run every scan cycle
+   - Expensive scanners (manual mapping, hypervisor, registry) run every 5-10 cycles
+   - Process cloning scanner runs every 5th cycle
+   - Memory tampering detection runs every 10 seconds (separate from main scan loop)
+9. **Detection Handling**: When detections are found:
    - Generates detection reports
    - Checks for duplicates
-   - Reports to Discord
+   - Reports to Discord (including memory tampering detections)
    - Terminates game process
-6. **Cleanup**: Stops scanning when game closes
+10. **Cleanup**: Stops scanning when game closes, releases process handles
 
 ### Isolate Architecture
 
@@ -441,7 +488,7 @@ The application can detect the following types of cheats and modifications:
 
 - **Description**: In-game mods that edit command values (like `sv_cheats`) without memory modification
 - **Detection Method**: GSC file checksum verification and file system monitoring
-- **Scanner**: `HostMenuScanner`
+- **Scanner**: `PlutoniumAdDllAndGscScanner` (appdata DLL/GSC allowlist enforcement)
 
 ### Non-Host Menus
 
@@ -470,7 +517,12 @@ The application can detect the following types of cheats and modifications:
 ### DMA Devices
 
 - **Description**: Direct Memory Access devices used for hardware-based memory reading
-- **Detection Method**: PCI device enumeration, driver detection
+- **Detection Methods**:
+  - PCI device enumeration via SetupAPI
+  - USB device enumeration via SetupAPI
+  - Hardware ID matching against known DMA device signatures (Xilinx, FTDI, etc.)
+  - Generic device description detection with missing serial numbers
+  - Suspicious device class detection
 - **Scanner**: `DmaScanner`
 
 ### Debugger Detection
@@ -493,16 +545,26 @@ The application can detect the following types of cheats and modifications:
   - Known debugger processes
 - **Scanner**: `AntiDebugScanner`
 
-### Code Tampering
+### Code Tampering & Memory Protection
 
-- **Description**: Detection of code modification and tampering
+- **Description**: Detection of code modification and memory tampering
 - **Detection Methods**:
   - Page protection remapping
   - `.text` section integrity checks
   - DLL tampering detection
   - IAT (Import Address Table) hooking
   - Manual DLL mapping
-- **Scanners**: `AntiTamperScanner`, `ManualMappingScanner`
+  - **Memory Tampering Detection** (via `MemoryProtectionService`):
+    - **Independent Launch & Attachment**: Launches Plutonium independently, then attaches to game process after window appears
+    - **Checksum-Based Detection**: SHA256 checksum verification of executable memory regions (.text sections)
+    - **Data Section Monitoring**: Detects modifications in data sections (.data, .rdata) where hooks are often placed
+    - **Suspicious Memory Detection**: Identifies executable+writable memory (PAGE_EXECUTE_READWRITE) used by ESP overlays and hooks
+    - **Baseline Generation**: Automatic baseline hash generation on first scan
+    - **Periodic Scans**: Runs tampering detection scans every 10 seconds
+    - **Already-Running Game Support**: Automatically attaches to games already running when anti-cheat starts
+    - **Discord Reporting**: All detections are automatically reported to Discord
+- **Scanners**: `AntiTamperScanner`, `ManualMappingScanner`, `MemoryProtectionService`
+- **Note**: Memory protection via VirtualProtectEx is disabled to prevent game crashes. Detection uses checksum comparison only.
 
 ### Process-Based Detections
 
@@ -512,7 +574,11 @@ The application can detect the following types of cheats and modifications:
   - Suspended threads
   - Blacklisted processes
   - External illegal programs
-- **Scanners**: `HandleScanner`, `ThreadScanner`, `BlacklistScanner`, `ProcessScanner`
+  - Process cloning detection (RtlCloneUserProcess, stealth process creation)
+  - Duplicate process names with different parent processes
+  - Handle count mismatches between duplicate processes
+  - Unexpected child processes
+- **Scanners**: `HandleScanner`, `ThreadScanner`, `BlacklistScanner`, `ProcessScanner`, `ProcessCloningScanner`
 
 ### System-Level Detections
 
@@ -568,7 +634,9 @@ plutonium_anticheat/
 │   │   ├── anticheat/       # Anti-cheat detection engine
 │   │   │   ├── scanners/   # Individual detection scanners
 │   │   │   └── native/     # FFI bindings
-│   │   ├── launcher/       # Plutonium launcher
+│   │   ├── launcher/       # Plutonium launcher (child process management)
+│   │   ├── anticheat/      # Anti-cheat detection engine
+│   │   │   └── prevention_service.dart  # Memory protection service
 │   │   ├── matchmaking/    # Queue service
 │   │   └── reporting/      # Discord reporter
 │   ├── ui/
@@ -579,6 +647,8 @@ plutonium_anticheat/
 ├── windows/              # Windows-specific code
 ├── DISCORD_OAUTH_SETUP.md # Discord OAuth2 setup guide
 ├── DISCORD_INTEGRATION.md # Discord integration documentation
+├── CHILD_PROCESS_DMA_MEMOR_TAMPER_PROTECTION_SPECIFICATION.md # Memory protection and DMA detection specification
+├── CHILD_PROCESS_MEMORY_TAMPER_PROTECTION_REFACTOR_SPECIFICATION.md # Independent launch and attachment-based memory protection specification
 ├── pubspec.yaml          # Dependencies
 └── README.md            # This file
 ```
@@ -665,7 +735,7 @@ dart format lib/
 
 - **Check Flutter installation**: Run `flutter doctor`
 - **Check dependencies**: Run `flutter pub get`
-- **Check .env file**: Ensure `.env` exists and is properly formatted
+- **Check local config**: Ensure `lib/core/config/local_config.dart` exists and is valid Dart
 
 ### Plutonium Won't Launch
 
@@ -683,7 +753,7 @@ dart format lib/
 
 ### Discord Reports Not Sending
 
-- **Check token**: Verify Discord bot token is correct in `.env`
+- **Check token**: Verify Discord bot token is correct in `local_config.dart`
 - **Check channel ID**: Verify channel ID is correct (enable Developer Mode)
 - **Check permissions**: Ensure bot has "Send Messages" permission in the channel
 - **Check connection**: Review logs for connection errors
@@ -693,7 +763,7 @@ dart format lib/
 
 - **Login Screen Not Appearing**:
 
-  - Check that `.env` file exists and `DISCORD_CLIENT_ID` is set
+  - Check that `local_config.dart` exists and `discordClientId` is set
   - Verify the Client ID is correct from Discord Developer Portal
   - Check logs for authentication errors
 
@@ -713,7 +783,7 @@ dart format lib/
 
 - **Server Membership Not Detected**:
 
-  - Verify `DISCORD_GUILD_ID` is correct in `.env`
+  - Verify `discordGuildId` is correct in `local_config.dart`
   - Ensure the user has actually joined the Discord server
   - Try clicking "I've Joined - Verify" again after joining
   - Check that the OAuth2 application has `guilds` scope enabled
@@ -785,6 +855,7 @@ For more detailed information on specific features:
 
 - **[DISCORD_OAUTH_SETUP.md](DISCORD_OAUTH_SETUP.md)**: Step-by-step guide for setting up Discord OAuth2
 - **[DISCORD_INTEGRATION.md](DISCORD_INTEGRATION.md)**: Technical details on Discord authentication integration
+- **[CHILD_PROCESS_MEMORY_TAMPER_PROTECTION_REFACTOR_SPECIFICATION.md](CHILD_PROCESS_MEMORY_TAMPER_PROTECTION_REFACTOR_SPECIFICATION.md)**: Technical specification for independent launch and attachment-based memory protection
 
 ---
 
