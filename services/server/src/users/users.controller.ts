@@ -5,6 +5,12 @@ import { UsersService } from './users.service';
 export class UsersController {
   constructor(private readonly usersService: UsersService) {}
 
+  @Get('recent-wins')
+  async getRecentWins(@Query('limit') limit?: string) {
+    const parsedLimit = limit ? parseInt(limit, 10) : 10;
+    return this.usersService.getGlobalRecentWins(Math.min(parsedLimit, 50));
+  }
+
   @Get()
   async findAll(@Query('username') username?: string) {
     if (username) {
@@ -25,6 +31,30 @@ export class UsersController {
     return result;
   }
 
+  @Get('by-discord/:discordId')
+  async findByDiscordId(@Param('discordId') discordId: string) {
+    const user = await this.usersService.findByDiscordId(discordId);
+    if (!user) {
+      return null;
+    }
+    const { password, ...result } = user;
+    return result;
+  }
+
+  @Get('by-discord/:discordId/stats')
+  async getStatsByDiscordId(@Param('discordId') discordId: string) {
+    const user = await this.usersService.findByDiscordId(discordId);
+    if (!user) {
+      return null;
+    }
+    const dashboardStats = await this.usersService.getUserDashboardStats(user.id);
+    const { password, ...userWithoutPassword } = user;
+    return {
+      user: userWithoutPassword,
+      stats: dashboardStats,
+    };
+  }
+
   @Get(':id')
   async findOne(@Param('id') id: string) {
     const user = await this.usersService.findById(id);
@@ -38,6 +68,11 @@ export class UsersController {
   @Get(':id/stats')
   async getStats(@Param('id') id: string) {
     return this.usersService.getUserProfileStats(id);
+  }
+
+  @Get(':id/dashboard-stats')
+  async getDashboardStats(@Param('id') id: string) {
+    return this.usersService.getUserDashboardStats(id);
   }
 
   @Get(':id/head-to-head/:opponentId')

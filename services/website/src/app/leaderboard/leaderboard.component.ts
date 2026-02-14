@@ -27,13 +27,14 @@ interface GameLeaderboard {
   styleUrls: ['./leaderboard.component.scss']
 })
 export class LeaderboardComponent implements OnInit {
-  platforms: Platform[] = ['Plutonium', 'Xbox', 'PS3'];
+  platforms: Platform[] = ['Plutonium', 'IW4X', 'Xbox', 'PS3'];
   selectedPlatform: Platform = 'Plutonium';
   hoveredGame: string | null = null;
 
   // Game availability per platform
   private gamesByPlatform: Record<string, string[]> = {
     'Plutonium': ['Bo2', 'Mw3', 'Bo1'],
+    'IW4X': ['Mw2'],
     'Xbox': ['Bo2', 'Mw3', 'Mw2', 'Bo1'],
     'PS3': ['Bo2', 'Mw3', 'Mw2', 'Bo1']
   };

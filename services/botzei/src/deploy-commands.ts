@@ -1,16 +1,20 @@
 import { REST, Routes } from 'discord.js';
 import { config } from 'dotenv';
 import { readdirSync } from 'fs';
-import { join } from 'path';
+import { join, dirname } from 'path';
+import { fileURLToPath } from 'url';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
 
 config();
 
 const commands: any[] = [];
 const commandsPath = join(__dirname, 'commands');
-const commandFiles = readdirSync(commandsPath).filter(file => file.endsWith('.ts') || file.endsWith('.js'));
+const commandFiles = readdirSync(commandsPath).filter(file => (file.endsWith('.js') || file.endsWith('.ts')) && !file.endsWith('.d.ts') && !file.endsWith('.map'));
 
 for (const file of commandFiles) {
-  const command = require(join(commandsPath, file));
+  const command = await import(join(commandsPath, file));
   if ('data' in command) {
     commands.push(command.data.toJSON());
     console.log(`Prepared command: ${command.data.name}`);

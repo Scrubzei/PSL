@@ -60,11 +60,12 @@ body {
   font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
   background: #121212;
   color: #e0e0e0;
-  min-height: 100vh;
+  min-height: 100dvh;
 
   // Default theme variables (Plutonium - Red)
   --theme-primary: #bf2120;
   --theme-primary-bright: #ff4444;
+  --theme-primary-dark: #8B1615;
   --theme-primary-rgb: 191, 33, 32;
   --theme-glow: rgba(191, 33, 32, 0.4);
   --theme-transition: 200ms ease;
@@ -79,26 +80,38 @@ body {
       fill var(--theme-transition);
   }
 
-  // Xbox theme (Green)
+  // Xbox theme (Emerald Green)
   &.theme-xbox {
-    --theme-primary: #107C10;
-    --theme-primary-bright: #00e676;
-    --theme-primary-rgb: 16, 124, 16;
-    --theme-glow: rgba(16, 124, 16, 0.4);
+    --theme-primary: #059669;
+    --theme-primary-bright: #10B981;
+    --theme-primary-dark: #047857;
+    --theme-primary-rgb: 5, 150, 105;
+    --theme-glow: rgba(5, 150, 105, 0.4);
   }
 
-  // PS3 theme (Blue)
+  // PS3 theme (Deep Blue)
   &.theme-ps3 {
-    --theme-primary: #003791;
-    --theme-primary-bright: #448aff;
-    --theme-primary-rgb: 0, 55, 145;
-    --theme-glow: rgba(0, 55, 145, 0.4);
+    --theme-primary: #2563EB;
+    --theme-primary-bright: #3B82F6;
+    --theme-primary-dark: #1D4ED8;
+    --theme-primary-rgb: 37, 99, 235;
+    --theme-glow: rgba(37, 99, 235, 0.4);
+  }
+
+  // IW4X theme (Purple)
+  &.theme-iw4x {
+    --theme-primary: #7C3AED;
+    --theme-primary-bright: #A78BFA;
+    --theme-primary-dark: #5B21B6;
+    --theme-primary-rgb: 124, 58, 237;
+    --theme-glow: rgba(124, 58, 237, 0.4);
   }
 
   // Plutonium theme (Red) - explicit
   &.theme-plutonium {
     --theme-primary: #bf2120;
     --theme-primary-bright: #ff4444;
+    --theme-primary-dark: #8B1615;
     --theme-primary-rgb: 191, 33, 32;
     --theme-glow: rgba(191, 33, 32, 0.4);
   }
@@ -126,7 +139,8 @@ body {
     .platform-tab.active,
     .platform-tab.active.xbox,
     .platform-tab.active.ps3,
-    .platform-tab.active.plutonium {
+    .platform-tab.active.plutonium,
+    .platform-tab.active.iw4x {
       background: #ff8c00 !important;
       border-color: transparent !important;
       box-shadow: 0 4px 20px rgba(255, 140, 0, 0.4) !important;
@@ -169,7 +183,7 @@ body {
   display: flex;
   justify-content: center;
   align-items: center;
-  min-height: 100vh;
+  min-height: 100dvh;
 }
 
 .auth-card {
@@ -206,6 +220,8 @@ body {
 // Dark mode snackbar
 .mat-mdc-snack-bar-container {
   --mdc-snackbar-container-color: #1e1e1e;
+  --mdc-snackbar-supporting-text-color: #ffffff;
+  --mat-snack-bar-button-color: #ef4444;
   border: 1px solid #2d2d2d;
 }
 
@@ -342,6 +358,23 @@ body {
   }
 }
 
+// Active match modal dialog styling
+.active-match-dialog {
+  .mat-mdc-dialog-container {
+    border-radius: 20px;
+    overflow: hidden;
+    box-shadow:
+      0 25px 80px rgba(0, 0, 0, 0.6),
+      0 0 60px rgba(34, 211, 238, 0.15);
+
+    .mat-mdc-dialog-surface {
+      padding: 0 !important;
+      background: transparent;
+      border: 1px solid rgba(34, 211, 238, 0.2);
+    }
+  }
+}
+
 // Mobile dialog adjustments
 @media (max-width: 768px) {
   .mat-mdc-dialog-container {
@@ -371,11 +404,37 @@ body {
     }
   }
 
+  // Tournament join modal - fullscreen on mobile
+  .cdk-overlay-pane.tournament-join-panel {
+    width: 100vw !important;
+    max-width: 100vw !important;
+    height: 100dvh !important;
+    max-height: 100dvh !important;
+    position: fixed !important;
+    top: 0 !important;
+    left: 0 !important;
+
+    .mat-mdc-dialog-container {
+      border-radius: 0;
+
+      .mat-mdc-dialog-surface {
+        padding: 0 !important;
+        border-radius: 0;
+      }
+    }
+
+    .join-modal {
+      max-width: 100%;
+      max-height: 100dvh;
+      border-radius: 0;
+    }
+  }
+
   // Fullscreen notification menu on mobile
   .cdk-overlay-pane:has(.notification-menu) {
     max-width: 100vw !important;
     width: 100vw !important;
-    height: 100vh !important;
+    height: 100dvh !important;
     position: fixed !important;
     top: 0 !important;
     left: 0 !important;

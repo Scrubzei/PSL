@@ -82,7 +82,7 @@ import { environment } from '../../../environments/environment';
   `,
   styles: [`
     .dev-login-page {
-      min-height: 100vh;
+      min-height: 100dvh;
       display: flex;
       align-items: center;
       justify-content: center;
@@ -192,7 +192,7 @@ export class DevLoginComponent implements OnInit {
     }
 
     if (this.authService.isAuthenticated()) {
-      this.router.navigate(['/']);
+      this.router.navigate(['/dashboard']);
     }
   }
 
@@ -203,7 +203,7 @@ export class DevLoginComponent implements OnInit {
     this.authService.devLogin(this.username.trim()).subscribe({
       next: () => {
         this.snackBar.open(`Logged in as ${this.username}`, 'Close', { duration: 3000 });
-        this.router.navigate(['/']);
+        this.router.navigate(['/dashboard']);
       },
       error: (err) => {
         this.loading = false;

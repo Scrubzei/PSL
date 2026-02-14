@@ -1,6 +1,6 @@
 import {
   SlashCommandBuilder,
-  CommandInteraction,
+  ChatInputCommandInteraction,
   EmbedBuilder,
   ActionRowBuilder,
   StringSelectMenuBuilder,
@@ -9,11 +9,16 @@ import {
   ButtonStyle,
   ButtonInteraction,
 } from 'discord.js';
+import { api } from '../utils/api.js';
+
+const FRONTEND_URL = process.env.FRONTEND_URL || 'http://localhost:4200';
+const LOGIN_URL = process.env.LOGIN_URL || 'http://localhost:3000/auth/discord';
 
 const PLATFORMS = [
   { name: 'Xbox', value: 'xbox' },
   { name: 'PlayStation', value: 'ps3' },
   { name: 'Plutonium', value: 'plutonium' },
+  { name: 'IW4X', value: 'iw4x' },
 ];
 
 const PLATFORM_COLORS: Record<string, number> = {
@@ -21,6 +26,7 @@ const PLATFORM_COLORS: Record<string, number> = {
   ps3: 0x003791,
   playstation: 0x003791,
   plutonium: 0xBF2120,
+  iw4x: 0x7C3AED,
 };
 
 const GAMES = [
@@ -99,17 +105,19 @@ const pendingChallenges = new Map<string, {
   opponentUsername: string;
   platform: string;
   game: string;
+  matchType: 'XP' | 'RANKED';
   bestOf?: number;
   selectedMaps: string[];
   currentMapIndex: number;
 }>();
 
-// Store active challenges awaiting opponent response
+// Store confirmed challenges awaiting opponent response
 const activeChallenges = new Map<string, {
   challengerId: string;
   opponentId: string;
   platform: string;
   game: string;
+  matchType: 'XP' | 'RANKED';
   bestOf: number;
   maps: string[];
 }>();
@@ -138,13 +146,12 @@ export const data = new SlashCommandBuilder()
       .addChoices(...GAMES)
   );
 
-export async function execute(interaction: CommandInteraction) {
+export async function execute(interaction: ChatInputCommandInteraction) {
   const challenger = interaction.user;
   const opponent = interaction.options.getUser('user', true);
-  const platform = interaction.options.get('platform', true).value as string;
-  const game = interaction.options.get('game', true).value as string;
+  const platform = interaction.options.getString('platform', true);
+  const game = interaction.options.getString('game', true);
 
-  // Validation
   if (opponent.id === challenger.id) {
     await interaction.reply({ content: "You can't challenge yourself.", ephemeral: true });
     return;
@@ -155,10 +162,19 @@ export async function execute(interaction: CommandInteraction) {
     return;
   }
 
+  // Challenger must have an account
+  const challengerAccount = await api.getUserByDiscordId(challenger.id).catch(() => null);
+  if (!challengerAccount) {
+    await interaction.reply({
+      content: `You need to create an account first! Sign in here: ${LOGIN_URL}`,
+      ephemeral: true,
+    });
+    return;
+  }
+
   const platformDisplay = PLATFORMS.find(p => p.value === platform)?.name || platform;
   const gameDisplay = GAMES.find(g => g.value === game)?.name || game;
 
-  // Store pending challenge
   const challengeId = `${challenger.id}_${Date.now()}`;
   pendingChallenges.set(challengeId, {
     challengerId: challenger.id,
@@ -166,23 +182,18 @@ export async function execute(interaction: CommandInteraction) {
     opponentUsername: opponent.username,
     platform,
     game,
+    matchType: 'RANKED',
     selectedMaps: [],
     currentMapIndex: 0,
   });
 
-  // Create best of select menu
+  // Show best-of select
   const bestOfSelect = new StringSelectMenuBuilder()
     .setCustomId(`chall_bestof_${challengeId}`)
     .setPlaceholder('Select series length')
-    .addOptions(
-      BEST_OF_OPTIONS.map(b => ({
-        label: b.name,
-        value: b.value,
-      }))
-    );
+    .addOptions(BEST_OF_OPTIONS.map(b => ({ label: b.name, value: b.value })));
 
   const row = new ActionRowBuilder<StringSelectMenuBuilder>().addComponents(bestOfSelect);
-
   const platformColor = PLATFORM_COLORS[platform] || 0x5865F2;
 
   const embed = new EmbedBuilder()
@@ -202,6 +213,8 @@ export async function execute(interaction: CommandInteraction) {
   });
 }
 
+// --- Helpers ---
+
 function getMapName(game: string, mapValue: string): string {
   const maps = MAPS[game] || [];
   return maps.find(m => m.value === mapValue)?.name || mapValue;
@@ -213,7 +226,6 @@ function buildMapSelectionEmbed(pending: NonNullable<ReturnType<typeof pendingCh
   const maps = MAPS[pending.game] || [];
   const platformColor = PLATFORM_COLORS[pending.platform] || 0x5865F2;
 
-  // Build map list display
   let mapListDisplay = '';
   for (let i = 0; i < pending.bestOf!; i++) {
     const mapName = pending.selectedMaps[i] ? getMapName(pending.game, pending.selectedMaps[i]) : '---';
@@ -233,7 +245,6 @@ function buildMapSelectionEmbed(pending: NonNullable<ReturnType<typeof pendingCh
       `Select map for Game ${pending.currentMapIndex + 1}:`
     );
 
-  // Map select dropdown
   const mapSelect = new StringSelectMenuBuilder()
     .setCustomId(`chall_map_${challengeId}`)
     .setPlaceholder(`Select map for Game ${pending.currentMapIndex + 1}`)
@@ -247,7 +258,6 @@ function buildMapSelectionEmbed(pending: NonNullable<ReturnType<typeof pendingCh
 
   const selectRow = new ActionRowBuilder<StringSelectMenuBuilder>().addComponents(mapSelect);
 
-  // Navigation buttons
   const allMapsSelected = pending.selectedMaps.length === pending.bestOf &&
     pending.selectedMaps.every(m => m !== undefined);
 
@@ -272,7 +282,7 @@ function buildMapSelectionEmbed(pending: NonNullable<ReturnType<typeof pendingCh
   return { embed, components: [selectRow, buttonRow] };
 }
 
-// Handle best of selection
+// Best-of selected → show map selection
 export async function handleBestOfSelect(interaction: StringSelectMenuInteraction) {
   const challengeId = interaction.customId.replace('chall_bestof_', '');
   const pending = pendingChallenges.get(challengeId);
@@ -281,26 +291,20 @@ export async function handleBestOfSelect(interaction: StringSelectMenuInteractio
     await interaction.reply({ content: 'Challenge expired. Please start over.', ephemeral: true });
     return;
   }
-
   if (interaction.user.id !== pending.challengerId) {
     await interaction.reply({ content: 'This is not your challenge.', ephemeral: true });
     return;
   }
 
-  const bestOf = parseInt(interaction.values[0]);
-  pending.bestOf = bestOf;
+  pending.bestOf = parseInt(interaction.values[0]);
   pending.selectedMaps = [];
   pending.currentMapIndex = 0;
 
   const { embed, components } = buildMapSelectionEmbed(pending, challengeId);
-
-  await interaction.update({
-    embeds: [embed],
-    components,
-  });
+  await interaction.update({ embeds: [embed], components });
 }
 
-// Handle map selection
+// Step 4: Map selection
 export async function handleMapSelect(interaction: StringSelectMenuInteraction) {
   const challengeId = interaction.customId.replace('chall_map_', '');
   const pending = pendingChallenges.get(challengeId);
@@ -309,32 +313,25 @@ export async function handleMapSelect(interaction: StringSelectMenuInteraction) 
     await interaction.reply({ content: 'Challenge expired. Please start over.', ephemeral: true });
     return;
   }
-
   if (interaction.user.id !== pending.challengerId) {
     await interaction.reply({ content: 'This is not your challenge.', ephemeral: true });
     return;
   }
 
-  // Set the map for current index
   pending.selectedMaps[pending.currentMapIndex] = interaction.values[0];
 
-  // Auto-advance to next if not at end and next slot is empty
   if (pending.currentMapIndex < pending.bestOf! - 1 && !pending.selectedMaps[pending.currentMapIndex + 1]) {
     pending.currentMapIndex++;
   }
 
   const { embed, components } = buildMapSelectionEmbed(pending, challengeId);
-
-  await interaction.update({
-    embeds: [embed],
-    components,
-  });
+  await interaction.update({ embeds: [embed], components });
 }
 
-// Handle navigation buttons
+// Navigation + Confirm buttons
 export async function handleNavButton(interaction: ButtonInteraction) {
   const parts = interaction.customId.split('_');
-  const action = parts[1]; // prev, next, or confirm
+  const action = parts[1];
   const challengeId = parts.slice(2).join('_');
 
   const pending = pendingChallenges.get(challengeId);
@@ -343,7 +340,6 @@ export async function handleNavButton(interaction: ButtonInteraction) {
     await interaction.reply({ content: 'Challenge expired. Please start over.', ephemeral: true });
     return;
   }
-
   if (interaction.user.id !== pending.challengerId) {
     await interaction.reply({ content: 'This is not your challenge.', ephemeral: true });
     return;
@@ -358,32 +354,30 @@ export async function handleNavButton(interaction: ButtonInteraction) {
     const { embed, components } = buildMapSelectionEmbed(pending, challengeId);
     await interaction.update({ embeds: [embed], components });
   } else if (action === 'confirm') {
-    const mapNames = pending.selectedMaps.map(m => getMapName(pending.game, m));
+    const mapNames = pending.selectedMaps.map((m: string) => getMapName(pending.game, m));
     const platformDisplay = PLATFORMS.find(p => p.value === pending.platform)?.name || pending.platform;
     const gameDisplay = GAMES.find(g => g.value === pending.game)?.name || pending.game;
 
-    // Move to active challenges (awaiting response)
-    const activeChallengeId = `active_${challengeId}`;
+    // Store in active challenges (backend match created on accept)
+    const activeChallengeId = `${pending.challengerId}_${Date.now()}`;
     activeChallenges.set(activeChallengeId, {
       challengerId: pending.challengerId,
       opponentId: pending.opponentId,
       platform: pending.platform,
       game: pending.game,
+      matchType: pending.matchType,
       bestOf: pending.bestOf!,
       maps: pending.selectedMaps,
     });
 
-    // Clean up pending
     pendingChallenges.delete(challengeId);
 
-    // Update ephemeral message
     await interaction.update({
       content: 'Challenge sent!',
       embeds: [],
       components: [],
     });
 
-    // Send public challenge embed with Accept/Decline buttons
     const platformColor = PLATFORM_COLORS[pending.platform] || 0x5865F2;
     const embed = new EmbedBuilder()
       .setColor(platformColor)
@@ -393,8 +387,9 @@ export async function handleNavButton(interaction: ButtonInteraction) {
         `**Challenger:** <@${pending.challengerId}>\n` +
         `**Platform:** ${platformDisplay}\n` +
         `**Game:** ${gameDisplay}\n` +
+        `**Type:** ${pending.matchType}\n` +
         `**Series:** Best of ${pending.bestOf}\n\n` +
-        `**Maps:**\n${mapNames.map((m, i) => `Game ${i + 1}: ${m}`).join('\n')}`
+        `**Maps:**\n${mapNames.map((m: string, i: number) => `Game ${i + 1}: ${m}`).join('\n')}`
       )
       .setFooter({ text: 'Waiting for response...' });
 
@@ -409,18 +404,20 @@ export async function handleNavButton(interaction: ButtonInteraction) {
         .setStyle(ButtonStyle.Danger),
     );
 
-    await interaction.channel?.send({
-      content: `<@${pending.opponentId}>`,
-      embeds: [embed],
-      components: [buttonRow],
-    });
+    if (interaction.channel?.isSendable()) {
+      await interaction.channel.send({
+        content: `<@${pending.opponentId}>`,
+        embeds: [embed],
+        components: [buttonRow],
+      });
+    }
   }
 }
 
 // Handle accept/decline buttons
 export async function handleChallengeResponse(interaction: ButtonInteraction) {
   const parts = interaction.customId.split('_');
-  const action = parts[1]; // accept or decline
+  const action = parts[1];
   const activeChallengeId = parts.slice(2).join('_');
 
   const challenge = activeChallenges.get(activeChallengeId);
@@ -430,7 +427,6 @@ export async function handleChallengeResponse(interaction: ButtonInteraction) {
     return;
   }
 
-  // Only the opponent can accept or decline
   if (interaction.user.id !== challenge.opponentId) {
     await interaction.reply({ content: 'Only the challenged player can accept or decline.', ephemeral: true });
     return;
@@ -438,11 +434,53 @@ export async function handleChallengeResponse(interaction: ButtonInteraction) {
 
   const platformDisplay = PLATFORMS.find(p => p.value === challenge.platform)?.name || challenge.platform;
   const gameDisplay = GAMES.find(g => g.value === challenge.game)?.name || challenge.game;
-  const mapNames = challenge.maps.map(m => getMapName(challenge.game, m));
+  const mapNames = challenge.maps.map((m: string) => getMapName(challenge.game, m));
   const platformColor = PLATFORM_COLORS[challenge.platform] || 0x5865F2;
 
   if (action === 'accept') {
-    // Clean up
+    // Check both users have accounts before creating the match
+    const [challengerAccount, opponentAccount] = await Promise.all([
+      api.getUserByDiscordId(challenge.challengerId).catch(() => null),
+      api.getUserByDiscordId(challenge.opponentId).catch(() => null),
+    ]);
+
+    if (!challengerAccount) {
+      await interaction.reply({
+        content: `The challenger needs to create an account first. Sign in here: ${LOGIN_URL}`,
+        ephemeral: true,
+      });
+      return;
+    }
+
+    if (!opponentAccount) {
+      await interaction.reply({
+        content: `You need to create an account before accepting! Sign in here: ${LOGIN_URL} then come back and click Accept.`,
+        ephemeral: true,
+      });
+      return;
+    }
+
+    // Create the match and accept it in the backend
+    let match: any;
+    try {
+      match = await api.createMatch({
+        challengerDiscordId: challenge.challengerId,
+        challengeeDiscordId: challenge.opponentId,
+        game: challenge.game,
+        platform: challenge.platform,
+        type: challenge.matchType,
+        bestOf: challenge.bestOf,
+        selectedMaps: challenge.maps,
+      });
+      match = await api.acceptMatch(match.id, interaction.user.id);
+    } catch (error: any) {
+      const msg = error.message?.includes('already an active challenge')
+        ? 'There is already an active challenge between you and this player for this game mode.'
+        : `Failed to create match: ${error.message}`;
+      await interaction.reply({ content: msg, ephemeral: true });
+      return;
+    }
+
     activeChallenges.delete(activeChallengeId);
 
     const embed = new EmbedBuilder()
@@ -453,18 +491,25 @@ export async function handleChallengeResponse(interaction: ButtonInteraction) {
         `**Opponent:** <@${challenge.opponentId}>\n` +
         `**Platform:** ${platformDisplay}\n` +
         `**Game:** ${gameDisplay}\n` +
+        `**Type:** ${challenge.matchType}\n` +
         `**Series:** Best of ${challenge.bestOf}\n\n` +
-        `**Maps:**\n${mapNames.map((m, i) => `Game ${i + 1}: ${m}`).join('\n')}`
+        `**Maps:**\n${mapNames.map((m: string, i: number) => `Game ${i + 1}: ${m}`).join('\n')}`
       )
-      .setFooter({ text: 'Match accepted - awaiting further implementation' });
+      .setFooter({ text: 'Report results at 1v1leaderboards.com' });
+
+    const viewRow = new ActionRowBuilder<ButtonBuilder>().addComponents(
+      new ButtonBuilder()
+        .setLabel('View Match')
+        .setStyle(ButtonStyle.Link)
+        .setURL(`${FRONTEND_URL}/matches/${match.id}`),
+    );
 
     await interaction.update({
       content: '',
       embeds: [embed],
-      components: [],
+      components: [viewRow],
     });
   } else if (action === 'decline') {
-    // Clean up
     activeChallenges.delete(activeChallengeId);
 
     const embed = new EmbedBuilder()

@@ -15,7 +15,9 @@
       "WebFetch(domain:raw.githubusercontent.com)",
       "Bash(docker compose exec:*)",
       "Bash(ssh slb:*)",
-      "Bash(curl:*)"
+      "Bash(curl:*)",
+      "Bash(magick:*)",
+      "Bash(git push:*)"
     ],
     "deny": [],
     "ask": []

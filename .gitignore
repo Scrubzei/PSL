@@ -17,6 +17,7 @@ out/
 .env.*.local
 .env.production
 deploy/.env.production
+deploy/.env.production.botzei
 
 # IDE
 .vscode/

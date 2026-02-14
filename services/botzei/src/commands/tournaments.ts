@@ -9,7 +9,7 @@ import {
   ButtonBuilder,
   ButtonStyle,
 } from 'discord.js';
-import { generateBracketImage } from '../utils/bracketCanvas';
+import { generateBracketImage } from '../utils/bracketCanvas.js';
 
 interface Tournament {
   id: string;
@@ -72,7 +72,7 @@ export async function execute(interaction: CommandInteraction) {
       throw new Error(`API error: ${res.status}`);
     }
 
-    const tournaments: Tournament[] = await res.json();
+    const tournaments = (await res.json()) as Tournament[];
 
     if (tournaments.length === 0) {
       await interaction.editReply({ content: 'No tournaments found.' });
@@ -123,7 +123,7 @@ export async function buildBracketResponse(tournamentId: string) {
     throw new Error(`API error: ${res.status}`);
   }
 
-  const tournament: Tournament = await res.json();
+  const tournament = (await res.json()) as Tournament;
   const platform = tournament.platform?.name || 'unknown';
   const color = PLATFORM_COLORS[platform] || 0x5865F2;
 

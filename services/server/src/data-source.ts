@@ -19,6 +19,13 @@ import { AddTournamentSystem1737700000000 } from './migrations/1737700000000-Add
 import { AddDiscordAuth1737800000000 } from './migrations/1737800000000-AddDiscordAuth';
 import { AddMatchLinkOnly1737900000000 } from './migrations/1737900000000-AddMatchLinkOnly';
 import { RemoveWinsLossesColumns1738000000000 } from './migrations/1738000000000-RemoveWinsLossesColumns';
+import { AddTournamentMatchMaps1738600000000 } from './migrations/1738600000000-AddTournamentMatchMaps';
+import { AddTournamentSlug1738700000000 } from './migrations/1738700000000-AddTournamentSlug';
+import { SeedGamesPlatformsMaps1738800000000 } from './migrations/1738800000000-SeedGamesPlatformsMaps';
+import { AddPlutoniumUsername1738900000000 } from './migrations/1738900000000-AddPlutoniumUsername';
+import { AddTournamentRoundDeadlines1739000000000 } from './migrations/1739000000000-AddTournamentRoundDeadlines';
+import { AddWithdrawalCooldown1739100000000 } from './migrations/1739100000000-AddWithdrawalCooldown';
+import { AddTournamentPrizePool1739200000000 } from './migrations/1739200000000-AddTournamentPrizePool';
 
 export const AppDataSource = new DataSource({
   type: 'postgres',
@@ -37,6 +44,13 @@ export const AppDataSource = new DataSource({
     AddDiscordAuth1737800000000,
     AddMatchLinkOnly1737900000000,
     RemoveWinsLossesColumns1738000000000,
+    AddTournamentMatchMaps1738600000000,
+    AddTournamentSlug1738700000000,
+    SeedGamesPlatformsMaps1738800000000,
+    AddPlutoniumUsername1738900000000,
+    AddTournamentRoundDeadlines1739000000000,
+    AddWithdrawalCooldown1739100000000,
+    AddTournamentPrizePool1739200000000,
   ],
   synchronize: false,
 });

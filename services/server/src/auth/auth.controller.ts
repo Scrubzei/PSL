@@ -1,7 +1,8 @@
-import { Controller, Post, Body, UseGuards, Request, Get, Res } from '@nestjs/common';
+import { Controller, Post, Body, UseGuards, Request, Get, Patch, Res } from '@nestjs/common';
 import { Response } from 'express';
 import { AuthService } from './auth.service';
 import { UsersService } from '../users/users.service';
+
 import { LocalAuthGuard } from './guards/local-auth.guard';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
 import { DiscordAuthGuard } from './guards/discord-auth.guard';
@@ -39,6 +40,7 @@ export class AuthController {
       username: user.username,
       role: user.role,
       avatar: user.avatar || user.discordAvatar,
+      plutoniumUsername: user.plutoniumUsername,
     };
   }
 
@@ -66,6 +68,20 @@ export class AuthController {
     }
 
     res.redirect(`${frontendUrl}/discord-callback?${params.toString()}`);
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Patch('profile')
+  async updateProfile(@Request() req, @Body() body: { plutoniumUsername?: string }) {
+    const user = await this.usersService.updateProfile(req.user.userId, body);
+    return {
+      id: user.id,
+      email: user.email,
+      username: user.username,
+      role: user.role,
+      avatar: user.avatar || user.discordAvatar,
+      plutoniumUsername: user.plutoniumUsername,
+    };
   }
 
   @UseGuards(JwtAuthGuard)

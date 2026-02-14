@@ -12,6 +12,7 @@
     "docker:logs": "docker-compose logs -f",
     "docker:restart": "docker-compose restart",
     "db:seed": "docker-compose exec server npm run seed",
+    "db:seed:tournaments": "docker-compose exec server npm run seed:tournaments --",
     "start": "docker-compose up --build"
   },
   "keywords": [

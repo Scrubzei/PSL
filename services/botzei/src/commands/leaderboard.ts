@@ -1,6 +1,6 @@
 import {
   SlashCommandBuilder,
-  CommandInteraction,
+  ChatInputCommandInteraction,
   EmbedBuilder,
   ActionRowBuilder,
   StringSelectMenuBuilder,
@@ -30,6 +30,7 @@ const PLATFORM_COLORS: Record<string, number> = {
   ps3: 0x003791,
   playstation: 0x003791,
   plutonium: 0xBF2120,
+  iw4x: 0x7C3AED,
 };
 
 const PLATFORM_DISPLAY: Record<string, string> = {
@@ -37,6 +38,7 @@ const PLATFORM_DISPLAY: Record<string, string> = {
   ps3: 'PS3',
   playstation: 'PS3',
   plutonium: 'Plutonium',
+  iw4x: 'IW4X',
 };
 
 const PLATFORM_BUTTON_STYLE: Record<string, ButtonStyle> = {
@@ -44,6 +46,7 @@ const PLATFORM_BUTTON_STYLE: Record<string, ButtonStyle> = {
   ps3: ButtonStyle.Primary,
   playstation: ButtonStyle.Primary,
   plutonium: ButtonStyle.Danger,
+  iw4x: ButtonStyle.Primary,
 };
 
 const GAMES = [
@@ -56,6 +59,7 @@ const PLATFORMS = [
   { name: 'Xbox', value: 'xbox' },
   { name: 'PlayStation', value: 'ps3' },
   { name: 'Plutonium', value: 'plutonium' },
+  { name: 'IW4X', value: 'iw4x' },
 ];
 
 const ENTRIES_PER_PAGE = 10;
@@ -67,6 +71,7 @@ const ANSI = {
   green: '\u001b[1;92m',
   blue: '\u001b[34m',
   red: '\u001b[31m',
+  cyan: '\u001b[1;36m',
   gold: '\u001b[33m',
   silver: '\u001b[37m',
   bronze: '\u001b[38;5;208m',
@@ -78,6 +83,7 @@ const PLATFORM_ANSI: Record<string, string> = {
   ps3: ANSI.blue,
   playstation: ANSI.blue,
   plutonium: ANSI.red,
+  iw4x: ANSI.cyan,
 };
 
 const MEDAL_COLORS: Record<number, string> = {
@@ -176,7 +182,7 @@ export async function buildLeaderboardResponse(game: string, platform: string, p
     throw new Error(`API error: ${leaderboardRes.status}`);
   }
 
-  const leaderboard: Leaderboard = await leaderboardRes.json();
+  const leaderboard = (await leaderboardRes.json()) as Leaderboard;
 
   // Get entries
   const entriesRes = await fetch(
@@ -187,7 +193,7 @@ export async function buildLeaderboardResponse(game: string, platform: string, p
     throw new Error(`API error: ${entriesRes.status}`);
   }
 
-  const allEntries: LeaderboardEntry[] = await entriesRes.json();
+  const allEntries = (await entriesRes.json()) as LeaderboardEntry[];
 
   // Pagination
   const totalPages = Math.max(1, Math.ceil(allEntries.length / ENTRIES_PER_PAGE));
@@ -265,11 +271,11 @@ export async function buildLeaderboardResponse(game: string, platform: string, p
   };
 }
 
-export async function execute(interaction: CommandInteraction) {
+export async function execute(interaction: ChatInputCommandInteraction) {
   await interaction.deferReply();
 
-  const game = interaction.options.get('game')?.value as string;
-  const platform = interaction.options.get('platform')?.value as string;
+  const game = interaction.options.getString('game') || 'bo2';
+  const platform = interaction.options.getString('platform') || 'xbox';
 
   try {
     const response = await buildLeaderboardResponse(game, platform, 1);

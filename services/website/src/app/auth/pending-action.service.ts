@@ -24,6 +24,13 @@ export class PendingActionService {
     const action = this.authService.getPendingAction();
     if (!action) return;
 
+    // For tournament signup, set the flag BEFORE navigating so the component picks it up
+    if (action.type === 'TOURNAMENT_SIGNUP') {
+      localStorage.setItem('pending_tournament_join', 'true');
+      await this.router.navigate([action.returnUrl]);
+      return;
+    }
+
     // Navigate to return URL first
     await this.router.navigate([action.returnUrl]);
 
@@ -108,4 +115,5 @@ export class PendingActionService {
       }
     });
   }
+
 }

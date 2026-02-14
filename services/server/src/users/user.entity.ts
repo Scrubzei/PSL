@@ -28,6 +28,9 @@ export class User {
   @Column({ nullable: true })
   discordAvatar: string;
 
+  @Column({ nullable: true })
+  plutoniumUsername: string;
+
   @Column({ default: 0 })
   goldTrophies: number;
 

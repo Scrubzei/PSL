@@ -1,13 +1,21 @@
-import { Controller, Get, Post, Patch, Param, Body, Query, Request, UseGuards } from '@nestjs/common';
+import { Controller, Get, Post, Patch, Param, Body, Query, Request, UseGuards, BadRequestException } from '@nestjs/common';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { JwtAuthOptionalGuard } from '../auth/guards/jwt-auth-optional.guard';
+import { ApiKeyGuard } from '../auth/guards/api-key.guard';
 import { MatchesService } from './matches.service';
 import { CreateMatchDto } from './dto/create-match.dto';
+import { BotCreateMatchDto } from './dto/bot-create-match.dto';
 import { MatchStatus } from './match.entity';
+import { UsersService } from '../users/users.service';
+import { LeaderboardsService } from '../leaderboards/leaderboards.service';
 
 @Controller('matches')
 export class MatchesController {
-  constructor(private readonly matchesService: MatchesService) {}
+  constructor(
+    private readonly matchesService: MatchesService,
+    private readonly usersService: UsersService,
+    private readonly leaderboardsService: LeaderboardsService,
+  ) {}
 
   // Public endpoint - no auth required
   @Get('share/:token')
@@ -102,5 +110,54 @@ export class MatchesController {
   @UseGuards(JwtAuthGuard)
   async concedeDispute(@Param('id') id: string, @Request() req) {
     return this.matchesService.concedeDispute(id, req.user.userId);
+  }
+
+  // Bot-authenticated endpoints (API key instead of JWT)
+
+  @Post('bot/create')
+  @UseGuards(ApiKeyGuard)
+  async botCreateMatch(@Body() dto: BotCreateMatchDto) {
+    const challenger = await this.usersService.findByDiscordId(dto.challengerDiscordId);
+    if (!challenger) {
+      throw new BadRequestException('Challenger does not have an account');
+    }
+
+    const challengee = await this.usersService.findByDiscordId(dto.challengeeDiscordId);
+    if (!challengee) {
+      throw new BadRequestException('Challengee does not have an account');
+    }
+
+    const leaderboard = await this.leaderboardsService.findByGameAndPlatform(dto.game, dto.platform);
+
+    const createMatchDto: CreateMatchDto = {
+      challengeeId: challengee.id,
+      leaderboardId: leaderboard.id,
+      type: dto.type,
+      bestOf: dto.bestOf,
+      selectedMaps: dto.selectedMaps,
+      message: dto.message,
+    };
+
+    return this.matchesService.create(challenger.id, createMatchDto);
+  }
+
+  @Patch('bot/:id/accept')
+  @UseGuards(ApiKeyGuard)
+  async botAcceptMatch(@Param('id') id: string, @Body('discordId') discordId: string) {
+    const user = await this.usersService.findByDiscordId(discordId);
+    if (!user) {
+      throw new BadRequestException('User does not have an account');
+    }
+    return this.matchesService.accept(id, user.id);
+  }
+
+  @Patch('bot/:id/decline')
+  @UseGuards(ApiKeyGuard)
+  async botDeclineMatch(@Param('id') id: string, @Body('discordId') discordId: string) {
+    const user = await this.usersService.findByDiscordId(discordId);
+    if (!user) {
+      throw new BadRequestException('User does not have an account');
+    }
+    return this.matchesService.decline(id, user.id);
   }
 }

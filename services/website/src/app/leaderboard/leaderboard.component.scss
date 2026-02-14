@@ -197,6 +197,14 @@
     font-weight: 700;
     box-shadow: 0 4px 20px rgba(191, 33, 32, 0.4);
   }
+
+  &.active.iw4x {
+    background: #7C3AED;
+    border-color: transparent;
+    color: white;
+    font-weight: 700;
+    box-shadow: 0 4px 20px rgba(124, 58, 237, 0.4);
+  }
 }
 
 // Games Grid
@@ -216,6 +224,14 @@
   width: 100%;
   max-width: 300px;
   perspective: 1000px;
+
+  &:only-child {
+    max-width: 460px;
+
+    .game-image {
+      height: 240px;
+    }
+  }
 
   .card-inner {
     background: rgba(255, 255, 255, 0.02);

@@ -83,7 +83,7 @@ import { AuthService } from '../auth/auth.service';
                 </div>
               </div>
 
-              <div class="featured-card" [routerLink]="['/tournaments', ft.id]">
+              <div class="featured-card" [routerLink]="['/tournaments', ft.slug]">
                 <div class="featured-bg" [style.background-image]="'url(' + getGameImage(ft) + ')'"></div>
                 <div class="featured-overlay"></div>
                 <div class="featured-glow"></div>
@@ -138,7 +138,7 @@ import { AuthService } from '../auth/auth.service';
 
             <div class="tournaments-grid">
               @for (tournament of tournaments; track tournament.id) {
-                <div class="tournament-card" [routerLink]="['/tournaments', tournament.id]" [class.is-active]="tournament.status === 'REGISTRATION' || tournament.status === 'IN_PROGRESS'">
+                <div class="tournament-card" [routerLink]="['/tournaments', tournament.slug]" [class.is-active]="tournament.status === 'REGISTRATION' || tournament.status === 'IN_PROGRESS'">
                   <!-- Card background -->
                   <div class="card-bg" [style.background-image]="'url(' + getGameImage(tournament) + ')'"></div>
                   <div class="card-overlay"></div>

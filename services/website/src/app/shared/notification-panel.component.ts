@@ -3,7 +3,6 @@ import { CommonModule } from '@angular/common';
 import { Router } from '@angular/router';
 import { MatIconModule } from '@angular/material/icon';
 import { MatButtonModule } from '@angular/material/button';
-import { MatBadgeModule } from '@angular/material/badge';
 import { MatMenuModule, MatMenuTrigger } from '@angular/material/menu';
 import { MatDividerModule } from '@angular/material/divider';
 import { NotificationsService, Notification } from '../notifications/notifications.service';
@@ -15,7 +14,6 @@ import { NotificationsService, Notification } from '../notifications/notificatio
     CommonModule,
     MatIconModule,
     MatButtonModule,
-    MatBadgeModule,
     MatMenuModule,
     MatDividerModule
   ],
@@ -25,11 +23,12 @@ import { NotificationsService, Notification } from '../notifications/notificatio
       [matMenuTriggerFor]="notificationMenu"
       #menuTrigger="matMenuTrigger"
       class="notification-button"
-      [matBadge]="notificationsService.unreadCount()"
-      [matBadgeHidden]="notificationsService.unreadCount() === 0"
-      matBadgeColor="warn"
-      matBadgeSize="small">
+      [class.has-unread]="notificationsService.unreadCount() > 0"
+      (click)="onBellClick()">
       <mat-icon>notifications</mat-icon>
+      @if (notificationsService.unreadCount() > 0) {
+        <span class="unread-dot"></span>
+      }
     </button>
 
     <mat-menu #notificationMenu="matMenu" class="notification-menu">
@@ -38,9 +37,6 @@ import { NotificationsService, Notification } from '../notifications/notificatio
           <mat-icon>close</mat-icon>
         </button>
         <span>Notifications</span>
-        @if (notificationsService.unreadCount() > 0) {
-          <button mat-button color="primary" (click)="markAllAsRead()">Mark all read</button>
-        }
       </div>
       <mat-divider></mat-divider>
 
@@ -84,6 +80,7 @@ import { NotificationsService, Notification } from '../notifications/notificatio
     }
 
     .notification-button {
+      position: relative;
       margin-right: 8px;
       color: rgba(255, 255, 255, 0.7);
 
@@ -91,14 +88,44 @@ import { NotificationsService, Notification } from '../notifications/notificatio
         color: rgba(255, 255, 255, 0.9);
       }
 
-      ::ng-deep .mat-badge-content {
-        top: 4px !important;
-        right: 4px !important;
-        font-size: 10px;
-        width: 18px;
-        height: 18px;
-        line-height: 18px;
+      &.has-unread {
+        color: #f44336;
+        animation: bellPulse 2s ease-in-out infinite;
+
+        mat-icon {
+          animation: bellShake 0.5s ease-in-out;
+        }
       }
+
+      .unread-dot {
+        position: absolute;
+        top: 8px;
+        right: 8px;
+        width: 10px;
+        height: 10px;
+        background: #f44336;
+        border-radius: 50%;
+        border: 2px solid #1a1a1a;
+        animation: dotPulse 2s ease-in-out infinite;
+      }
+    }
+
+    @keyframes bellPulse {
+      0%, 100% { color: #f44336; }
+      50% { color: #ff6659; }
+    }
+
+    @keyframes dotPulse {
+      0%, 100% { transform: scale(1); opacity: 1; }
+      50% { transform: scale(1.2); opacity: 0.8; }
+    }
+
+    @keyframes bellShake {
+      0%, 100% { transform: rotate(0); }
+      20% { transform: rotate(15deg); }
+      40% { transform: rotate(-15deg); }
+      60% { transform: rotate(10deg); }
+      80% { transform: rotate(-10deg); }
     }
 
     ::ng-deep .notification-menu {
@@ -228,8 +255,8 @@ import { NotificationsService, Notification } from '../notifications/notificatio
         width: 100vw !important;
         max-width: 100vw !important;
         min-width: 100vw !important;
-        height: 100vh !important;
-        max-height: 100vh !important;
+        height: 100dvh !important;
+        max-height: 100dvh !important;
         border-radius: 0 !important;
         margin: 0 !important;
       }
@@ -294,8 +321,10 @@ export class NotificationPanelComponent implements OnInit {
     }
   }
 
-  markAllAsRead(): void {
-    this.notificationsService.markAllNotificationsAsRead();
+  onBellClick(): void {
+    if (this.notificationsService.unreadCount() > 0) {
+      this.notificationsService.markAllNotificationsAsRead();
+    }
   }
 
   getIcon(type: string): string {

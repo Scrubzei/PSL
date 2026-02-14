@@ -33,6 +33,7 @@ services:
       JWT_EXPIRATION: 24h
       FRONTEND_URL: http://localhost:4200
       BOT_API_KEY: ${BOT_API_KEY}
+      BOTZEI_URL: http://botzei:3001
       DISCORD_CLIENT_ID: ${DISCORD_CLIENT_ID}
       DISCORD_CLIENT_SECRET: ${DISCORD_CLIENT_SECRET}
       DISCORD_CALLBACK_URL: ${DISCORD_CALLBACK_URL}
@@ -71,12 +72,16 @@ services:
     container_name: botzei
     environment:
       DISCORD_TOKEN: ${DISCORD_TOKEN}
-      DISCORD_CLIENT_ID: 1464437209850445884
+      DISCORD_CLIENT_ID: 1469896838856441979
       DISCORD_GUILD_ID: 1459142539142627562
       BACKEND_URL: http://server:3000
       FRONTEND_URL: ${FRONTEND_URL:-http://localhost:4200}
+      LOGIN_URL: http://localhost:3000/auth/discord
       BOT_API_KEY: ${BOT_API_KEY}
       ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY}
+      API_PORT: 3001
+    ports:
+      - "3001:3001"
     depends_on:
       - server
     networks:

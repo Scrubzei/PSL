@@ -1,6 +1,6 @@
 import { Injectable, signal } from '@angular/core';
 
-export type Platform = 'Plutonium' | 'Xbox' | 'PS3';
+export type Platform = 'Plutonium' | 'IW4X' | 'Xbox' | 'PS3';
 
 const PLATFORM_KEY = 'selected_platform';
 
@@ -20,7 +20,7 @@ export class ThemeService {
     const body = document.body;
 
     // Remove existing platform classes
-    body.classList.remove('theme-plutonium', 'theme-xbox', 'theme-ps3', 'theme-gold');
+    body.classList.remove('theme-plutonium', 'theme-iw4x', 'theme-xbox', 'theme-ps3', 'theme-gold');
 
     // Add new platform class
     body.classList.add(`theme-${platform.toLowerCase()}`);
@@ -28,7 +28,7 @@ export class ThemeService {
 
   applyGoldTheme(): void {
     const body = document.body;
-    body.classList.remove('theme-plutonium', 'theme-xbox', 'theme-ps3');
+    body.classList.remove('theme-plutonium', 'theme-iw4x', 'theme-xbox', 'theme-ps3');
     body.classList.add('theme-gold');
   }
 
@@ -41,7 +41,7 @@ export class ThemeService {
     }
 
     const saved = localStorage.getItem(PLATFORM_KEY) as Platform | null;
-    if (saved && ['Plutonium', 'Xbox', 'PS3'].includes(saved)) {
+    if (saved && ['Plutonium', 'IW4X', 'Xbox', 'PS3'].includes(saved)) {
       this.currentPlatform.set(saved);
     }
     this.applyTheme(this.currentPlatform());

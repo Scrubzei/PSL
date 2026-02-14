@@ -35,12 +35,6 @@ import { forkJoin } from 'rxjs';
           </button>
         </div>
         <div class="profile-header" [class.hall-of-fame]="user.hallOfFame">
-          <div class="avatar-wrapper" [class.hof]="user.hallOfFame">
-            <img
-              [src]="user.avatar || getAvatarUrl(user.username)"
-              [alt]="user.username"
-              class="avatar">
-          </div>
           <div class="user-info">
             <h1>{{ user.username }}</h1>
             @if (user.hallOfFame) {
@@ -185,20 +179,6 @@ import { forkJoin } from 'rxjs';
       flex-direction: column;
       align-items: center;
       margin-bottom: 32px;
-    }
-
-    .avatar-wrapper {
-      position: relative;
-      margin-bottom: 16px;
-    }
-
-    .avatar {
-      width: 120px;
-      height: 120px;
-      border-radius: 50%;
-      border: 1px solid #2a2a2a;
-      box-shadow: 0 2px 12px rgba(0, 0, 0, 0.4);
-      object-fit: cover;
     }
 
     .hof-badge {
@@ -452,10 +432,6 @@ import { forkJoin } from 'rxjs';
         grid-template-columns: 1fr;
       }
 
-      .avatar-section {
-        flex-direction: column;
-        text-align: center;
-      }
 
       .profile-header {
         flex-direction: column;
@@ -474,24 +450,6 @@ export class UserProfileComponent implements OnInit {
   user: UserProfile | null = null;
   stats: UserStats | null = null;
   loading = true;
-
-  // Different DiceBear avatar styles for variety
-  private avatarStyles = [
-    'adventurer',
-    'adventurer-neutral',
-    'avataaars',
-    'big-ears',
-    'big-smile',
-    'bottts',
-    'croodles',
-    'fun-emoji',
-    'lorelei',
-    'micah',
-    'miniavs',
-    'open-peeps',
-    'personas',
-    'pixel-art'
-  ];
 
   constructor(
     private usersService: UsersService,
@@ -524,24 +482,6 @@ export class UserProfileComponent implements OnInit {
         this.loading = false;
       }
     });
-  }
-
-  getAvatarUrl(username: string): string {
-    // Use username to deterministically pick a style and seed
-    const hash = this.hashString(username);
-    const styleIndex = hash % this.avatarStyles.length;
-    const style = this.avatarStyles[styleIndex];
-    return `https://api.dicebear.com/7.x/${style}/svg?seed=${encodeURIComponent(username)}`;
-  }
-
-  private hashString(str: string): number {
-    let hash = 0;
-    for (let i = 0; i < str.length; i++) {
-      const char = str.charCodeAt(i);
-      hash = ((hash << 5) - hash) + char;
-      hash = hash & hash;
-    }
-    return Math.abs(hash);
   }
 
   getTimeAgo(dateString: string): string {

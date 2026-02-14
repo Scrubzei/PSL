@@ -26,7 +26,7 @@ export interface AuthModalData {
 
       <div class="modal-content">
         <div class="icon-wrapper">
-          <mat-icon>sports_esports</mat-icon>
+          <img src="/assets/logo.png" alt="1v1 Leaderboards" class="modal-logo" />
         </div>
 
         <h2>Sign in to continue</h2>
@@ -73,21 +73,12 @@ export interface AuthModalData {
     }
 
     .icon-wrapper {
-      width: 64px;
-      height: 64px;
-      background: linear-gradient(135deg, var(--theme-primary-bright, #64b5f6) 0%, #5865F2 100%);
-      border-radius: 16px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
       margin-bottom: 20px;
-      box-shadow: 0 8px 24px rgba(88, 101, 242, 0.3);
 
-      mat-icon {
-        font-size: 32px;
-        width: 32px;
-        height: 32px;
-        color: white;
+      .modal-logo {
+        height: 48px;
+        width: auto;
+        object-fit: contain;
       }
     }
 

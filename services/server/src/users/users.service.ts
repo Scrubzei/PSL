@@ -22,6 +22,38 @@ export interface HeadToHeadStats {
   recentMatches: any[];
 }
 
+export interface LeaderboardRanking {
+  leaderboardId: string;
+  game: string;
+  platform: string;
+  rank: number;
+  totalPlayers: number;
+  xp: number;
+  rankScore: number;
+  wins: number;
+  losses: number;
+}
+
+export interface UserDashboardStats {
+  totalWins: number;
+  totalLosses: number;
+  winRate: number;
+  totalXp: number;
+  level: number;
+  xpToNextLevel: number;
+  leaderboardRankings: LeaderboardRanking[];
+}
+
+export interface GlobalRecentWin {
+  matchId: string;
+  winner: { id: string; username: string; avatar?: string };
+  loser: { id: string; username: string; avatar?: string };
+  game: string;
+  platform: string;
+  matchType: 'XP' | 'RANKED';
+  completedAt: Date;
+}
+
 @Injectable()
 export class UsersService {
   constructor(
@@ -85,6 +117,17 @@ export class UsersService {
       throw new Error('User not found');
     }
     user.username = username;
+    return this.usersRepository.save(user);
+  }
+
+  async updateProfile(userId: string, data: { plutoniumUsername?: string }): Promise<User> {
+    const user = await this.findById(userId);
+    if (!user) {
+      throw new Error('User not found');
+    }
+    if (data.plutoniumUsername !== undefined) {
+      user.plutoniumUsername = data.plutoniumUsername;
+    }
     return this.usersRepository.save(user);
   }
 
@@ -210,5 +253,147 @@ export class UsersService {
         updatedAt: match.updatedAt,
       })),
     };
+  }
+
+  // Calculate level from XP: Level = floor(sqrt(totalXP / 100)) + 1
+  // This means: Level 1 = 0 XP, Level 2 = 100 XP, Level 3 = 400 XP, Level 4 = 900 XP, etc.
+  private calculateLevel(totalXp: number): { level: number; xpToNextLevel: number } {
+    const level = Math.floor(Math.sqrt(totalXp / 100)) + 1;
+    const xpForNextLevel = Math.pow(level, 2) * 100;
+    const xpToNextLevel = xpForNextLevel - totalXp;
+    return { level, xpToNextLevel };
+  }
+
+  async getUserDashboardStats(userId: string): Promise<UserDashboardStats> {
+    // Get user's leaderboard entries
+    const entries = await this.leaderboardEntriesRepository
+      .createQueryBuilder('entry')
+      .leftJoinAndSelect('entry.leaderboard', 'leaderboard')
+      .leftJoinAndSelect('leaderboard.game', 'game')
+      .leftJoinAndSelect('leaderboard.platform', 'platform')
+      .where('entry.userId = :userId', { userId })
+      .getMany();
+
+    // Calculate total XP across all leaderboards
+    const totalXp = entries.reduce((sum, entry) => sum + entry.xp, 0);
+    const { level, xpToNextLevel } = this.calculateLevel(totalXp);
+
+    // Get rankings for each leaderboard
+    const leaderboardRankings: LeaderboardRanking[] = [];
+
+    for (const entry of entries) {
+      // Get all entries for this leaderboard to calculate rank
+      const allEntries = await this.leaderboardEntriesRepository
+        .createQueryBuilder('e')
+        .where('e.leaderboardId = :leaderboardId', { leaderboardId: entry.leaderboardId })
+        .orderBy('e.rankScore', 'DESC')
+        .addOrderBy('e.createdAt', 'ASC')
+        .getMany();
+
+      const rank = allEntries.findIndex(e => e.userId === userId) + 1;
+      const totalPlayers = allEntries.length;
+
+      // Get wins/losses for this leaderboard
+      const completedMatches = await this.matchesRepository.find({
+        where: {
+          leaderboardId: entry.leaderboardId,
+          status: 'COMPLETED' as const,
+        },
+      });
+
+      let wins = 0;
+      let losses = 0;
+      for (const match of completedMatches) {
+        const isParticipant = match.challengerId === userId || match.challengeeId === userId;
+        if (isParticipant && match.winnerId) {
+          if (match.winnerId === userId) {
+            wins++;
+          } else {
+            losses++;
+          }
+        }
+      }
+
+      leaderboardRankings.push({
+        leaderboardId: entry.leaderboardId,
+        game: entry.leaderboard.game.name,
+        platform: entry.leaderboard.platform.name,
+        rank,
+        totalPlayers,
+        xp: entry.xp,
+        rankScore: entry.rankScore,
+        wins,
+        losses,
+      });
+    }
+
+    // Get total wins/losses across all leaderboards
+    const completedMatches = await this.matchesRepository.find({
+      where: [
+        { challengerId: userId, status: 'COMPLETED' as const },
+        { challengeeId: userId, status: 'COMPLETED' as const },
+      ],
+    });
+
+    let totalWins = 0;
+    let totalLosses = 0;
+    for (const match of completedMatches) {
+      if (match.winnerId === userId) {
+        totalWins++;
+      } else if (match.winnerId) {
+        totalLosses++;
+      }
+    }
+    const totalMatches = totalWins + totalLosses;
+    const winRate = totalMatches > 0 ? Math.round((totalWins / totalMatches) * 100) : 0;
+
+    return {
+      totalWins,
+      totalLosses,
+      winRate,
+      totalXp,
+      level,
+      xpToNextLevel,
+      leaderboardRankings,
+    };
+  }
+
+  async getGlobalRecentWins(limit: number = 10): Promise<GlobalRecentWin[]> {
+    const recentMatches = await this.matchesRepository
+      .createQueryBuilder('match')
+      .leftJoinAndSelect('match.challenger', 'challenger')
+      .leftJoinAndSelect('match.challengee', 'challengee')
+      .leftJoinAndSelect('match.winner', 'winner')
+      .leftJoinAndSelect('match.leaderboard', 'leaderboard')
+      .leftJoinAndSelect('leaderboard.game', 'game')
+      .leftJoinAndSelect('leaderboard.platform', 'platform')
+      .where('match.status = :status', { status: 'COMPLETED' })
+      .andWhere('match.winnerId IS NOT NULL')
+      .orderBy('match.updatedAt', 'DESC')
+      .take(limit)
+      .getMany();
+
+    return recentMatches.map(match => {
+      const winner = match.winner;
+      const loser = match.winnerId === match.challengerId ? match.challengee : match.challenger;
+
+      return {
+        matchId: match.id,
+        winner: {
+          id: winner.id,
+          username: winner.username,
+          avatar: winner.avatar
+        },
+        loser: {
+          id: loser.id,
+          username: loser.username,
+          avatar: loser.avatar
+        },
+        game: match.leaderboard.game.name,
+        platform: match.leaderboard.platform.name,
+        matchType: match.type,
+        completedAt: match.updatedAt,
+      };
+    });
   }
 }

@@ -1,7 +1,8 @@
 import { Events, Interaction } from 'discord.js';
-import { handleSelectMenu, handleButton } from '../commands/leaderboard';
-import { handleMapSelect, handleBestOfSelect, handleNavButton, handleChallengeResponse } from '../commands/chall';
-import { handleTournamentSelect } from '../commands/tournaments';
+import { handleSelectMenu, handleButton } from '../commands/leaderboard.js';
+import { handleMapSelect, handleBestOfSelect, handleNavButton, handleChallengeResponse } from '../commands/chall.js';
+import { handleTournamentSelect } from '../commands/tournaments.js';
+import { handleAnnounceSelect, handleAnnounceButton } from '../commands/announce.js';
 
 export const name = Events.InteractionCreate;
 export const once = false;
@@ -68,6 +69,16 @@ export async function execute(interaction: Interaction) {
       return;
     }
 
+    // Announce tournament selection
+    if (interaction.customId.startsWith('announce_select_')) {
+      try {
+        await handleAnnounceSelect(interaction);
+      } catch (error) {
+        console.error('Error handling announce select:', error);
+      }
+      return;
+    }
+
     // Tournament selection
     if (interaction.customId.startsWith('tournament_select_')) {
       try {
@@ -101,6 +112,16 @@ export async function execute(interaction: Interaction) {
         await handleNavButton(interaction);
       } catch (error) {
         console.error('Error handling nav button:', error);
+      }
+      return;
+    }
+
+    // Announce signup button
+    if (interaction.customId.startsWith('announce_signup_')) {
+      try {
+        await handleAnnounceButton(interaction);
+      } catch (error) {
+        console.error('Error handling announce button:', error);
       }
       return;
     }

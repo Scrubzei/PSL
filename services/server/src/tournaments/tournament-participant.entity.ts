@@ -36,6 +36,9 @@ export class TournamentParticipant {
   @JoinColumn({ name: 'userId' })
   user: User;
 
+  @Column({ type: 'timestamp', nullable: true })
+  withdrawnAt: Date;
+
   @CreateDateColumn()
   createdAt: Date;
 }

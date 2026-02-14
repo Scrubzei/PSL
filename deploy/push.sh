@@ -21,6 +21,10 @@ cd "$REPO_ROOT/services/server"
 npm install
 npm run build
 
+cd "$REPO_ROOT/services/botzei"
+npm install
+npm run build
+
 echo "=== Pushing to $SERVER ==="
 
 # Create remote directory
@@ -35,19 +39,26 @@ rsync -avz --delete \
   "$REPO_ROOT/" \
   $SERVER:$REMOTE_PATH/
 
-# Copy production .env file for server
-echo "=== Copying .env file ==="
+# Copy production .env files
+echo "=== Copying .env files ==="
 scp "$REPO_ROOT/deploy/.env.production" $SERVER:$REMOTE_PATH/services/server/.env
+scp "$REPO_ROOT/deploy/.env.production.botzei" $SERVER:$REMOTE_PATH/services/botzei/.env
 
-echo "=== Starting server ==="
+echo "=== Starting services ==="
 
 ssh $SERVER << 'EOF'
+  # Backend
   cd /var/www/slb/services/server
   npm install --production
   npm run migration:run
-
-  # Start or restart with PM2
   pm2 describe slb-backend > /dev/null 2>&1 && pm2 restart slb-backend || pm2 start dist/main.js --name slb-backend
+
+  # Botzei
+  cd /var/www/slb/services/botzei
+  npm install --production
+  node dist/deploy-commands.js
+  pm2 describe slb-botzei > /dev/null 2>&1 && pm2 restart slb-botzei || pm2 start dist/index.js --name slb-botzei
+
   pm2 save
 EOF
 

@@ -8,13 +8,71 @@ on:
 jobs:
   deploy:
     runs-on: ubuntu-latest
+
     steps:
-      - name: Deploy via SSH
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Build website
+        run: |
+          cd services/website
+          npm ci
+          npm run build
+
+      - name: Build server
+        run: |
+          cd services/server
+          npm ci
+          npm run build
+
+      - name: Build botzei
+        run: |
+          cd services/botzei
+          npm ci
+          npm run build
+
+      - name: Setup SSH key
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/id_ed25519
+          chmod 600 ~/.ssh/id_ed25519
+          ssh-keyscan -H ${{ secrets.SERVER_HOST }} >> ~/.ssh/known_hosts
+
+      - name: Rsync to server
+        run: |
+          rsync -avz --delete \
+            --exclude 'node_modules' \
+            --exclude '.git' \
+            --exclude '.env' \
+            --exclude '*.log' \
+            ./ ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }}:/var/www/slb/
+
+      - name: Write env files
+        run: |
+          ssh ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }} "cat > /var/www/slb/services/server/.env" <<< "${{ secrets.ENV_PRODUCTION }}"
+          ssh ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }} "cat > /var/www/slb/services/botzei/.env" <<< "${{ secrets.ENV_PRODUCTION_BOTZEI }}"
+
+      - name: Install deps, migrate, and restart services
         uses: appleboy/ssh-action@v1.0.3
         with:
           host: ${{ secrets.SERVER_HOST }}
           username: ${{ secrets.SERVER_USER }}
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           script: |
-            cd /var/www/slb
-            bash deploy/deploy.sh
+            cd /var/www/slb/services/server
+            npm install --production
+            npm run migration:run
+
+            pm2 describe slb-backend > /dev/null 2>&1 && pm2 restart slb-backend || pm2 start dist/main.js --name slb-backend
+
+            cd /var/www/slb/services/botzei
+            npm install --production
+            node dist/deploy-commands.js
+            pm2 describe slb-botzei > /dev/null 2>&1 && pm2 restart slb-botzei || pm2 start dist/index.js --name slb-botzei
+
+            pm2 save

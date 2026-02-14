@@ -80,7 +80,7 @@ import { AuthService } from '../auth/auth.service';
   `,
   styles: [`
     .share-page {
-      min-height: 100vh;
+      min-height: 100dvh;
       background: #121212;
       display: flex;
       align-items: center;

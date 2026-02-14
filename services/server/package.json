@@ -12,6 +12,7 @@
     "migration:run": "npm run typeorm -- -d src/data-source.ts migration:run",
     "migration:revert": "npm run typeorm -- -d src/data-source.ts migration:revert",
     "seed": "ts-node src/seed.ts",
+    "seed:tournaments": "ts-node src/seed-tournaments.ts",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "keywords": [],

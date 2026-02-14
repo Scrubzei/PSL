@@ -9,6 +9,7 @@ import { NotificationsModule } from './notifications/notifications.module';
 import { LeaderboardsModule } from './leaderboards/leaderboards.module';
 import { TournamentsModule } from './tournaments/tournaments.module';
 import { PlatformsModule } from './platforms/platforms.module';
+import { BotzeiModule } from './botzei/botzei.module';
 import { User } from './users/user.entity';
 import { Game } from './games/game.entity';
 import { GameMap } from './games/game-map.entity';
@@ -46,6 +47,7 @@ import { TournamentMatch } from './tournaments/tournament-match.entity';
     NotificationsModule,
     LeaderboardsModule,
     TournamentsModule,
+    BotzeiModule,
   ],
 })
 export class AppModule {}

@@ -5,6 +5,7 @@ import { environment } from '../../environments/environment';
 
 export interface Tournament {
   id: string;
+  slug: string;
   name: string;
   description: string | null;
   gameId: string;
@@ -15,6 +16,8 @@ export interface Tournament {
   createdById: string;
   registrationDeadline: string | null;
   startDate: string | null;
+  roundDeadlines: { name: string; deadline: string | null }[] | null;
+  prizePool: { place: number; prize: string }[] | null;
   createdAt: string;
   updatedAt: string;
   game: { id: string; name: string };
@@ -42,6 +45,41 @@ export interface TournamentMatch {
   player1: { id: string; username: string } | null;
   player2: { id: string; username: string } | null;
   winner: { id: string; username: string } | null;
+  gameMap?: { id: string; mapName: string } | null;
+}
+
+export interface MyMatch {
+  id: string;
+  round: number;
+  matchNumber: number;
+  status: 'PENDING' | 'READY' | 'IN_PROGRESS' | 'COMPLETED';
+  player1: { id: string; username: string } | null;
+  player2: { id: string; username: string } | null;
+  winner: { id: string; username: string } | null;
+  gameMap: { id: string; mapName: string } | null;
+}
+
+export interface MyMatchResponse {
+  match: MyMatch | null;
+}
+
+export interface ActiveTournamentMatch {
+  match: {
+    id: string;
+    round: number;
+    matchNumber: number;
+    status: string;
+    player1: { id: string; username: string } | null;
+    player2: { id: string; username: string } | null;
+    gameMap: { id: string; mapName: string } | null;
+  };
+  tournament: {
+    id: string;
+    slug: string;
+    name: string;
+    game: { id: string; name: string } | null;
+    platform: { id: string; name: string } | null;
+  };
 }
 
 export interface BracketResponse {
@@ -51,6 +89,7 @@ export interface BracketResponse {
 
 export interface CreateTournamentDto {
   name: string;
+  slug: string;
   description?: string;
   gameId: string;
   platformId: string;
@@ -58,6 +97,7 @@ export interface CreateTournamentDto {
   maxParticipants: number;
   registrationDeadline?: string;
   startDate?: string;
+  roundDeadlines?: { name: string; deadline: string | null }[];
 }
 
 @Injectable({ providedIn: 'root' })
@@ -98,5 +138,13 @@ export class TournamentsService {
     return this.http.patch<TournamentMatch>(`${this.API_URL}/matches/${matchId}/result`, {
       winnerId,
     });
+  }
+
+  getMyMatch(tournamentId: string): Observable<MyMatchResponse> {
+    return this.http.get<MyMatchResponse>(`${this.API_URL}/${tournamentId}/my-match`);
+  }
+
+  getActiveMatches(): Observable<ActiveTournamentMatch[]> {
+    return this.http.get<ActiveTournamentMatch[]>(`${this.API_URL}/user/active-matches`);
   }
 }

@@ -24,16 +24,16 @@ import { HallOfFameService } from './hall-of-fame.service';
   template: `
     <mat-toolbar class="navbar">
       <div class="nav-brand">
-        <mat-icon class="brand-icon">sports_esports</mat-icon>
-        <a routerLink="/dashboard" class="brand-text">1v1Leaderboards</a>
+        <a routerLink="/dashboard" class="brand-link">
+          <img src="/assets/logo.png" alt="1v1 Leaderboards" class="brand-logo" />
+        </a>
       </div>
 
       <!-- Desktop Navigation -->
       <nav class="nav-links desktop-only">
-        <a routerLink="/users" routerLinkActive="active">Users</a>
         <a routerLink="/leaderboards" routerLinkActive="active">Leaderboards</a>
-        <a routerLink="/challenges" routerLinkActive="active">Challenges</a>
         <a routerLink="/tournaments" routerLinkActive="active">Tournaments</a>
+        <a routerLink="/rules" routerLinkActive="active">Rules</a>
       </nav>
 
       <span class="spacer"></span>
@@ -45,11 +45,7 @@ import { HallOfFameService } from './hall-of-fame.service';
         @if (authService.currentUser(); as user) {
           <app-notification-panel></app-notification-panel>
           <button mat-button [matMenuTriggerFor]="userMenu" class="user-menu-trigger desktop-only">
-            @if (user.avatar) {
-              <img [src]="user.avatar" [alt]="user.username" class="user-avatar" />
-            } @else {
-              <mat-icon class="user-icon">account_circle</mat-icon>
-            }
+            <mat-icon class="user-icon">account_circle</mat-icon>
             <span class="username">{{ user.username || user.email || 'Account' }}</span>
             <mat-icon>arrow_drop_down</mat-icon>
           </button>
@@ -123,21 +119,17 @@ import { HallOfFameService } from './hall-of-fame.service';
       }
 
       <div class="mobile-nav-links">
-        <a routerLink="/users" routerLinkActive="active" (click)="closeMobileMenu()">
-          <mat-icon>people</mat-icon>
-          Users
-        </a>
         <a routerLink="/leaderboards" routerLinkActive="active" (click)="closeMobileMenu()">
           <mat-icon>leaderboard</mat-icon>
           Leaderboards
         </a>
-        <a routerLink="/challenges" routerLinkActive="active" (click)="closeMobileMenu()">
-          <mat-icon>sports_kabaddi</mat-icon>
-          Challenges
-        </a>
         <a routerLink="/tournaments" routerLinkActive="active" (click)="closeMobileMenu()">
           <mat-icon>emoji_events</mat-icon>
           Tournaments
+        </a>
+        <a routerLink="/rules" routerLinkActive="active" (click)="closeMobileMenu()">
+          <mat-icon>gavel</mat-icon>
+          Rules
         </a>
         <a (click)="goToHallOfFame()" class="hall-of-fame-mobile">
           <mat-icon>military_tech</mat-icon>
@@ -164,25 +156,29 @@ import { HallOfFameService } from './hall-of-fame.service';
     .nav-brand {
       display: flex;
       align-items: center;
-      gap: 8px;
 
-      .brand-icon {
-        color: var(--theme-primary-bright, #64b5f6);
-        font-size: 28px;
-        width: 28px;
-        height: 28px;
-        transition: color 0.3s ease;
+      .brand-link {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        text-decoration: none;
+
+        &:hover {
+          opacity: 0.9;
+        }
+      }
+
+      .brand-logo {
+        height: 32px;
+        width: auto;
+        object-fit: contain;
+        margin-left: 1rem;
       }
 
       .brand-text {
         font-size: 18px;
         font-weight: 700;
         color: white;
-        text-decoration: none;
-
-        &:hover {
-          opacity: 0.9;
-        }
       }
     }
 
@@ -253,11 +249,10 @@ import { HallOfFameService } from './hall-of-fame.service';
       color: rgba(255, 255, 255, 0.9);
       transition: all 0.2s ease;
 
-      .user-avatar {
-        width: 28px;
-        height: 28px;
-        border-radius: 50%;
-        object-fit: cover;
+      ::ng-deep .mdc-button__label {
+        display: flex;
+        align-items: center;
+        gap: 8px;
       }
 
       .user-icon {
@@ -358,7 +353,7 @@ import { HallOfFameService } from './hall-of-fame.service';
       right: 0;
       width: 280px;
       max-width: 85vw;
-      height: 100vh;
+      height: 100dvh;
       background: #1a1a1a;
       border-left: 1px solid #2d2d2d;
       transform: translateX(100%);

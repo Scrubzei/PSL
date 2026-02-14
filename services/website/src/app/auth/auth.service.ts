@@ -13,6 +13,7 @@ export interface User {
   username: string | null;
   role: UserRole;
   avatar?: string;
+  plutoniumUsername?: string | null;
 }
 
 export interface AuthResponse {
@@ -32,9 +33,10 @@ export interface RegisterRequest {
 }
 
 export interface PendingAuthAction {
-  type: 'LEADERBOARD_SIGNUP' | 'CHALLENGE_USER';
+  type: 'LEADERBOARD_SIGNUP' | 'CHALLENGE_USER' | 'TOURNAMENT_SIGNUP';
   payload: {
     leaderboardId?: string;
+    tournamentId?: string;
     opponentId?: string;
     opponentUsername?: string;
     game?: string;
@@ -105,7 +107,7 @@ export class AuthService {
       localStorage.removeItem('pendingMatchRedirect');
       this.router.navigate([pendingRedirect]);
     } else {
-      this.router.navigate(['/']);
+      this.router.navigate(['/dashboard']);
     }
   }
 
@@ -168,7 +170,7 @@ export class AuthService {
         localStorage.removeItem('pendingMatchRedirect');
         this.router.navigate([pendingRedirect]);
       } else {
-        this.router.navigate(['/']);
+        this.router.navigate(['/dashboard']);
       }
     }
   }
@@ -185,7 +187,7 @@ export class AuthService {
           localStorage.removeItem('pendingMatchRedirect');
           this.router.navigate([pendingRedirect]);
         } else {
-          this.router.navigate(['/']);
+          this.router.navigate(['/dashboard']);
         }
       })
     );

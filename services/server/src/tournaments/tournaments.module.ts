@@ -7,12 +7,14 @@ import { TournamentsService } from './tournaments.service';
 import { TournamentsController } from './tournaments.controller';
 import { NotificationsModule } from '../notifications/notifications.module';
 import { UsersModule } from '../users/users.module';
+import { GamesModule } from '../games/games.module';
 
 @Module({
   imports: [
     TypeOrmModule.forFeature([Tournament, TournamentParticipant, TournamentMatch]),
     NotificationsModule,
     UsersModule,
+    GamesModule,
   ],
   providers: [TournamentsService],
   controllers: [TournamentsController],

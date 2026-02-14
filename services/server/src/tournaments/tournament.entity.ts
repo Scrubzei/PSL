@@ -22,6 +22,9 @@ export class Tournament {
   @Column()
   name: string;
 
+  @Column({ unique: true })
+  slug: string;
+
   @Column({ nullable: true })
   description: string;
 
@@ -48,6 +51,12 @@ export class Tournament {
 
   @Column({ type: 'timestamp', nullable: true })
   startDate: Date;
+
+  @Column({ type: 'jsonb', nullable: true })
+  roundDeadlines: { name: string; deadline: string | null }[];
+
+  @Column({ type: 'jsonb', nullable: true })
+  prizePool: { place: number; prize: string }[];
 
   @ManyToOne(() => Game)
   @JoinColumn({ name: 'gameId' })

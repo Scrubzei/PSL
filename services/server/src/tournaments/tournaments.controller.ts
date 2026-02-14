@@ -44,11 +44,12 @@ export class TournamentsController {
   @UseGuards(JwtAuthOptionalGuard)
   async findOne(@Param('id') id: string, @Request() req) {
     const tournament = await this.tournamentsService.findOne(id);
-    const participantCount = await this.tournamentsService.getParticipantCount(id);
+    const tournamentId = tournament.id;
+    const participantCount = await this.tournamentsService.getParticipantCount(tournamentId);
     const isSignedUp = req.user
-      ? await this.tournamentsService.isUserSignedUp(id, req.user.userId)
+      ? await this.tournamentsService.isUserSignedUp(tournamentId, req.user.userId)
       : false;
-    const participants = await this.tournamentsService.getParticipants(id);
+    const participants = await this.tournamentsService.getParticipants(tournamentId);
 
     return {
       ...tournament,
@@ -106,6 +107,7 @@ export class TournamentsController {
         player1: m.player1 ? { id: m.player1.id, username: m.player1.username } : null,
         player2: m.player2 ? { id: m.player2.id, username: m.player2.username } : null,
         winner: m.winner ? { id: m.winner.id, username: m.winner.username } : null,
+        gameMap: m.gameMap ? { id: m.gameMap.id, mapName: m.gameMap.mapName } : null,
       })),
     };
   }
@@ -118,12 +120,67 @@ export class TournamentsController {
   }
 
   @Patch('matches/:matchId/result')
-  @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles('admin', 'ref')
+  @UseGuards(JwtAuthGuard)
   async reportResult(
     @Param('matchId') matchId: string,
     @Body() body: { winnerId: string },
+    @Request() req,
   ) {
-    return this.tournamentsService.reportMatchResult(matchId, body.winnerId);
+    const userRole = req.user.role;
+    const userId = req.user.userId;
+
+    // Admin/ref can report any match (pass null to skip participant check)
+    // Regular users must be participants in the match
+    const reporterId = (userRole === 'admin' || userRole === 'ref') ? null : userId;
+
+    return this.tournamentsService.reportMatchResult(matchId, body.winnerId, reporterId);
+  }
+
+  @Get(':id/my-match')
+  @UseGuards(JwtAuthGuard)
+  async getMyMatch(@Param('id') id: string, @Request() req) {
+    const match = await this.tournamentsService.getMyCurrentMatch(id, req.user.userId);
+
+    if (!match) {
+      return { match: null };
+    }
+
+    return {
+      match: {
+        id: match.id,
+        round: match.round,
+        matchNumber: match.matchNumber,
+        status: match.status,
+        player1: match.player1 ? { id: match.player1.id, username: match.player1.username } : null,
+        player2: match.player2 ? { id: match.player2.id, username: match.player2.username } : null,
+        winner: match.winner ? { id: match.winner.id, username: match.winner.username } : null,
+        gameMap: match.gameMap ? { id: match.gameMap.id, mapName: match.gameMap.mapName } : null,
+      },
+    };
+  }
+
+  @Get('user/active-matches')
+  @UseGuards(JwtAuthGuard)
+  async getActiveMatches(@Request() req) {
+    const results = await this.tournamentsService.getActiveMatchesForUser(req.user.userId);
+
+    return results.map(({ match, tournament }) => ({
+      match: {
+        id: match.id,
+        round: match.round,
+        matchNumber: match.matchNumber,
+        status: match.status,
+        player1: match.player1 ? { id: match.player1.id, username: match.player1.username } : null,
+        player2: match.player2 ? { id: match.player2.id, username: match.player2.username } : null,
+        gameMap: match.gameMap ? { id: match.gameMap.id, mapName: match.gameMap.mapName } : null,
+      },
+      tournament: {
+        id: tournament.id,
+        slug: tournament.slug,
+        name: tournament.name,
+        game: tournament.game ? { id: tournament.game.id, name: tournament.game.name } : null,
+        platform: tournament.platform ? { id: tournament.platform.id, name: tournament.platform.name } : null,
+      },
+    }));
   }
 }

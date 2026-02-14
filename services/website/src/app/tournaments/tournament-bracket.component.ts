@@ -1,4 +1,4 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, OnInit, OnDestroy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { MatCardModule } from '@angular/material/card';
@@ -7,8 +7,10 @@ import { MatIconModule } from '@angular/material/icon';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { MatDialog, MatDialogModule } from '@angular/material/dialog';
+import { MatTooltipModule } from '@angular/material/tooltip';
 import { TournamentsService, TournamentMatch, BracketResponse } from './tournaments.service';
 import { AuthService } from '../auth/auth.service';
+import { ThemeService, Platform } from '../shared/theme.service';
 import { ReportResultDialogComponent } from './report-result-dialog.component';
 
 interface RoundData {
@@ -28,222 +30,336 @@ interface RoundData {
     MatIconModule,
     MatProgressSpinnerModule,
     MatSnackBarModule,
-    MatDialogModule
+    MatDialogModule,
+    MatTooltipModule
   ],
   template: `
-    <div class="bracket-container">
+    <div class="bracket-page">
       @if (loading) {
         <div class="loading-container">
-          <mat-spinner diameter="40"></mat-spinner>
+          <div class="loader">
+            <div class="loader-ring"></div>
+            <mat-icon class="loader-icon">account_tree</mat-icon>
+          </div>
           <p>Loading bracket...</p>
         </div>
       } @else if (bracketData) {
-        <div class="header">
-          <div class="title-section">
-            <button mat-icon-button [routerLink]="['/tournaments', bracketData.tournament.id]">
+        <!-- Hero Header -->
+        <div class="hero-header">
+          <div class="hero-bg" [style.background-image]="'url(' + getGameImage() + ')'"></div>
+          <div class="hero-overlay"></div>
+          <div class="hero-glow"></div>
+
+          <div class="hero-content">
+            <button mat-icon-button class="back-btn" [routerLink]="['/tournaments', bracketData.tournament.slug]" matTooltip="Back to tournament">
               <mat-icon>arrow_back</mat-icon>
             </button>
-            <div>
+
+            <div class="tournament-info">
+              <div class="tournament-badge">
+                <mat-icon>emoji_events</mat-icon>
+                <span>Tournament Bracket</span>
+              </div>
               <h1>{{ bracketData.tournament.name }}</h1>
-              <p class="subtitle">{{ bracketData.tournament.game.name }} - {{ bracketData.tournament.platform.name }}</p>
+              <div class="meta-row">
+                <span class="meta-item">
+                  <mat-icon>sports_esports</mat-icon>
+                  {{ bracketData.tournament.game.name }}
+                </span>
+                <span class="meta-divider"></span>
+                <span class="meta-item">
+                  <mat-icon>devices</mat-icon>
+                  {{ bracketData.tournament.platform.name }}
+                </span>
+                <span class="meta-divider"></span>
+                <span class="meta-item status" [class]="'status-' + bracketData.tournament.status.toLowerCase()">
+                  <mat-icon>{{ getStatusIcon() }}</mat-icon>
+                  {{ getStatusLabel() }}
+                </span>
+              </div>
             </div>
           </div>
         </div>
 
-        <div class="bracket-wrapper">
-          <div class="bracket">
-            @for (round of rounds; track round.roundNumber) {
-              <div class="round">
-                <div class="round-header">{{ round.roundName }}</div>
-                <div class="matches">
-                  @for (match of round.matches; track match.id) {
-                    <div class="match" [class.ready]="match.status === 'READY'" [class.completed]="match.status === 'COMPLETED'">
-                      <div class="player"
-                           [class.winner]="match.winner?.id === match.player1?.id"
-                           [class.loser]="match.status === 'COMPLETED' && match.winner?.id !== match.player1?.id && match.player1">
-                        @if (match.player1) {
-                          {{ match.player1.username }}
-                        } @else {
-                          <span class="tbd">TBD</span>
-                        }
-                      </div>
-                      <div class="vs">VS</div>
-                      <div class="player"
-                           [class.winner]="match.winner?.id === match.player2?.id"
-                           [class.loser]="match.status === 'COMPLETED' && match.winner?.id !== match.player2?.id && match.player2">
-                        @if (match.player2) {
-                          {{ match.player2.username }}
-                        } @else {
-                          <span class="tbd">TBD</span>
-                        }
-                      </div>
-                      @if (canReportResult && match.status === 'READY') {
-                        <button mat-stroked-button class="report-btn" (click)="openReportDialog(match)">
-                          Report Result
-                        </button>
-                      }
-                      @if (match.status === 'COMPLETED' && match.winner) {
-                        <div class="winner-label">
-                          <mat-icon>emoji_events</mat-icon>
-                          {{ match.winner.username }}
-                        </div>
-                      }
-                    </div>
-                  }
-                </div>
+        <!-- Champion Banner (if completed) -->
+        @if (bracketData.tournament.status === 'COMPLETED' && getChampion()) {
+          <div class="champion-section">
+            <div class="champion-glow"></div>
+            <div class="champion-content">
+              <div class="crown-container">
+                <mat-icon class="crown">workspace_premium</mat-icon>
               </div>
-            }
-          </div>
-        </div>
-
-        @if (bracketData.tournament.status === 'COMPLETED') {
-          <div class="champion-banner">
-            <mat-icon>emoji_events</mat-icon>
-            <span>Champion: {{ getChampion()?.username || 'TBD' }}</span>
+              <div class="champion-text">
+                <span class="champion-label">Tournament Champion</span>
+                <span class="champion-name">{{ getChampion()?.username }}</span>
+              </div>
+              <div class="trophy-container">
+                <mat-icon class="trophy">emoji_events</mat-icon>
+              </div>
+            </div>
           </div>
         }
+
+        <!-- Bracket Display -->
+        <div class="bracket-section">
+          <div class="bracket-scroll">
+            <div class="bracket">
+              @for (round of rounds; track round.roundNumber; let roundIndex = $index; let isLast = $last) {
+                <div class="round" [class.finals]="round.roundNumber === 1">
+                  <div class="round-header">
+                    <span class="round-name">{{ round.roundName }}</span>
+                    <span class="match-count">{{ round.matches.length }} {{ round.matches.length === 1 ? 'match' : 'matches' }}</span>
+                  </div>
+
+                  <div class="matches-column">
+                    @for (match of round.matches; track match.id; let matchIndex = $index) {
+                      <div class="match-wrapper">
+                        <!-- Connector lines -->
+                        @if (!isLast) {
+                          <div class="connector">
+                            <div class="connector-line horizontal"></div>
+                            <div class="connector-line vertical" [class.top]="matchIndex % 2 === 0" [class.bottom]="matchIndex % 2 === 1"></div>
+                          </div>
+                        }
+
+                        <div class="match-card"
+                             [class.pending]="match.status === 'PENDING'"
+                             [class.ready]="match.status === 'READY'"
+                             [class.completed]="match.status === 'COMPLETED'"
+                             [class.finals]="round.roundNumber === 1">
+
+                          @if (match.status === 'READY') {
+                            <div class="live-indicator">
+                              <span class="live-dot"></span>
+                              <span>LIVE</span>
+                            </div>
+                          }
+
+                          <div class="match-number">Match {{ match.matchNumber }}</div>
+
+                          @if (match.gameMap) {
+                            <div class="match-map">
+                              <mat-icon>map</mat-icon>
+                              <span>{{ match.gameMap.mapName }}</span>
+                            </div>
+                          }
+
+                          <div class="players">
+                            <!-- Player 1 -->
+                            <div class="player-slot"
+                                 [class.winner]="match.status === 'COMPLETED' && match.winner?.id === match.player1?.id"
+                                 [class.loser]="match.status === 'COMPLETED' && match.player1 && match.winner?.id !== match.player1?.id">
+                              @if (match.player1) {
+                                <div class="player-avatar">
+                                  <span>{{ match.player1.username.charAt(0).toUpperCase() }}</span>
+                                </div>
+                                <span class="player-name">{{ match.player1.username }}</span>
+                                @if (match.status === 'COMPLETED' && match.winner?.id === match.player1?.id) {
+                                  <mat-icon class="winner-icon">emoji_events</mat-icon>
+                                }
+                              } @else {
+                                <div class="player-avatar tbd">
+                                  <mat-icon>help_outline</mat-icon>
+                                </div>
+                                <span class="player-name tbd">TBD</span>
+                              }
+                            </div>
+
+                            <div class="vs-divider">
+                              <span>VS</span>
+                            </div>
+
+                            <!-- Player 2 -->
+                            <div class="player-slot"
+                                 [class.winner]="match.status === 'COMPLETED' && match.winner?.id === match.player2?.id"
+                                 [class.loser]="match.status === 'COMPLETED' && match.player2 && match.winner?.id !== match.player2?.id">
+                              @if (match.player2) {
+                                <div class="player-avatar">
+                                  <span>{{ match.player2.username.charAt(0).toUpperCase() }}</span>
+                                </div>
+                                <span class="player-name">{{ match.player2.username }}</span>
+                                @if (match.status === 'COMPLETED' && match.winner?.id === match.player2?.id) {
+                                  <mat-icon class="winner-icon">emoji_events</mat-icon>
+                                }
+                              } @else {
+                                <div class="player-avatar tbd">
+                                  <mat-icon>help_outline</mat-icon>
+                                </div>
+                                <span class="player-name tbd">TBD</span>
+                              }
+                            </div>
+                          </div>
+
+                          @if ((canReportResult || isUserInMatch(match)) && match.status === 'READY') {
+                            <button class="report-btn" (click)="openReportDialog(match)">
+                              <mat-icon>sports_score</mat-icon>
+                              Report Winner
+                            </button>
+                          }
+                        </div>
+                      </div>
+                    }
+                  </div>
+                </div>
+              }
+            </div>
+          </div>
+        </div>
       }
     </div>
   `,
   styles: [`
-    .bracket-container {
-      padding: 24px;
-      max-width: 100%;
-      margin: 0 auto;
+    /* Color Palette Variables - Uses theme variables from global styles */
+    :host {
+      /* Primary colors from platform theme */
+      --color-primary: var(--theme-primary, #bf2120);
+      --color-primary-bright: var(--theme-primary-bright, #ff4444);
+      --color-primary-dark: var(--theme-primary-dark, #8B1615);
+      --color-primary-rgb: var(--theme-primary-rgb, 191, 33, 32);
+
+      /* Neutral palette - consistent across themes */
+      --color-platinum: #E2E8F0;
+      --color-silver: #94A3B8;
+      --color-steel: #64748B;
+
+      /* Status colors - consistent across themes */
+      --color-cyan: #22D3EE;
+      --color-cyan-dim: #06B6D4;
+      --color-live: #22D3EE;
+      --color-in-progress: #F59E0B;
+      --color-completed: #10B981;
+      --color-pending: #64748B;
+
+      /* Surface colors */
+      --surface-dark: #0f172a;
+      --surface-card: #1e293b;
+      --surface-elevated: #334155;
     }
 
+    .bracket-page {
+      min-height: 100dvh;
+      background: #0a0a0b;
+    }
+
+    /* Loading */
     .loading-container {
       display: flex;
       flex-direction: column;
       align-items: center;
-      padding: 48px;
-      color: rgba(255, 255, 255, 0.5);
+      justify-content: center;
+      min-height: 60vh;
+      color: var(--color-silver);
 
-      p {
-        margin-top: 16px;
-      }
-    }
-
-    .header {
-      margin-bottom: 24px;
-
-      .title-section {
+      .loader {
+        position: relative;
+        width: 80px;
+        height: 80px;
         display: flex;
         align-items: center;
-        gap: 8px;
+        justify-content: center;
+      }
 
-        h1 {
-          margin: 0;
-          color: white;
-        }
+      .loader-ring {
+        position: absolute;
+        width: 100%;
+        height: 100%;
+        border: 3px solid transparent;
+        border-top-color: var(--color-primary);
+        border-radius: 50%;
+        animation: spin 1s linear infinite;
+      }
 
-        .subtitle {
-          margin: 4px 0 0;
-          color: var(--theme-primary-bright, #64b5f6);
-        }
+      .loader-icon {
+        font-size: 32px;
+        width: 32px;
+        height: 32px;
+        color: var(--color-primary);
+      }
+
+      p {
+        margin-top: 20px;
+        font-size: 14px;
       }
     }
 
-    .bracket-wrapper {
-      overflow-x: auto;
-      padding: 16px 0;
+    @keyframes spin {
+      to { transform: rotate(360deg); }
     }
 
-    .bracket {
-      display: flex;
-      gap: 48px;
-      min-width: fit-content;
+    /* Hero Header */
+    .hero-header {
+      position: relative;
+      padding: 32px;
+      overflow: hidden;
     }
 
-    .round {
-      display: flex;
-      flex-direction: column;
-      min-width: 220px;
-
-      .round-header {
-        text-align: center;
-        padding: 8px;
-        margin-bottom: 16px;
-        background: rgba(100, 181, 246, 0.1);
-        border-radius: 4px;
-        color: var(--theme-primary-bright, #64b5f6);
-        font-weight: 500;
-        text-transform: uppercase;
-        letter-spacing: 1px;
-        font-size: 12px;
-      }
+    .hero-bg {
+      position: absolute;
+      inset: 0;
+      background-size: cover;
+      background-position: center;
+      opacity: 0.3;
+      filter: blur(2px);
     }
 
-    .matches {
-      display: flex;
-      flex-direction: column;
-      justify-content: space-around;
-      flex: 1;
-      gap: 16px;
+    .hero-overlay {
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(180deg,
+        rgba(10, 10, 11, 0.7) 0%,
+        rgba(10, 10, 11, 0.9) 70%,
+        rgba(10, 10, 11, 1) 100%
+      );
     }
 
-    .match {
-      background: #1e1e1e;
-      border: 1px solid #2d2d2d;
-      border-radius: 8px;
-      padding: 12px;
-      transition: border-color 0.2s;
-
-      &.ready {
-        border-color: #4caf50;
-      }
-
-      &.completed {
-        border-color: #607d8b;
-      }
+    .hero-glow {
+      position: absolute;
+      inset: 0;
+      background: radial-gradient(ellipse at 50% 0%, rgba(var(--color-primary-rgb), 0.15) 0%, transparent 60%);
     }
 
-    .player {
-      padding: 8px 12px;
+    .hero-content {
+      position: relative;
+      z-index: 1;
+      max-width: 1200px;
+      margin: 0 auto;
+    }
+
+    .back-btn {
+      position: absolute;
+      top: 0;
+      left: 0;
       background: rgba(255, 255, 255, 0.05);
-      border-radius: 4px;
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      backdrop-filter: blur(10px);
+      transition: all 0.2s ease;
+
+      &:hover {
+        background: rgba(255, 255, 255, 0.1);
+        border-color: var(--color-primary);
+        transform: translateX(-2px);
+      }
+    }
+
+    .tournament-info {
       text-align: center;
-      transition: background 0.2s;
-
-      &.winner {
-        background: rgba(76, 175, 80, 0.2);
-        color: #81c784;
-        font-weight: 500;
-      }
-
-      &.loser {
-        opacity: 0.5;
-        text-decoration: line-through;
-      }
-
-      .tbd {
-        color: rgba(255, 255, 255, 0.3);
-        font-style: italic;
-      }
+      padding-top: 20px;
     }
 
-    .vs {
-      text-align: center;
-      padding: 4px;
-      color: rgba(255, 255, 255, 0.3);
-      font-size: 10px;
-    }
-
-    .report-btn {
-      width: 100%;
-      margin-top: 8px;
-      font-size: 12px;
-    }
-
-    .winner-label {
-      display: flex;
+    .tournament-badge {
+      display: inline-flex;
       align-items: center;
-      justify-content: center;
-      gap: 4px;
-      margin-top: 8px;
-      padding: 4px;
-      color: #ffd700;
+      gap: 8px;
+      padding: 6px 16px;
+      background: rgba(var(--color-primary-rgb), 0.1);
+      border: 1px solid rgba(var(--color-primary-rgb), 0.3);
+      border-radius: 20px;
+      color: var(--color-primary-bright);
       font-size: 12px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      margin-bottom: 16px;
 
       mat-icon {
         font-size: 16px;
@@ -252,29 +368,553 @@ interface RoundData {
       }
     }
 
-    .champion-banner {
+    .tournament-info h1 {
+      margin: 0 0 16px;
+      font-size: 2.5rem;
+      font-weight: 700;
+      color: white;
+      text-shadow: 0 2px 20px rgba(0, 0, 0, 0.5);
+    }
+
+    .meta-row {
       display: flex;
       align-items: center;
       justify-content: center;
-      gap: 12px;
-      margin-top: 32px;
-      padding: 24px;
-      background: linear-gradient(135deg, rgba(255, 215, 0, 0.1), rgba(255, 193, 7, 0.05));
-      border: 2px solid #ffd700;
-      border-radius: 12px;
-      color: #ffd700;
-      font-size: 24px;
-      font-weight: 500;
+      gap: 16px;
+      flex-wrap: wrap;
+    }
+
+    .meta-item {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      color: var(--color-silver);
+      font-size: 14px;
 
       mat-icon {
-        font-size: 32px;
-        width: 32px;
-        height: 32px;
+        font-size: 18px;
+        width: 18px;
+        height: 18px;
+        opacity: 0.7;
+      }
+
+      &.status {
+        padding: 4px 12px;
+        border-radius: 12px;
+        font-weight: 500;
+
+        &.status-in_progress {
+          background: rgba(245, 158, 11, 0.15);
+          color: var(--color-in-progress);
+          border: 1px solid rgba(245, 158, 11, 0.3);
+        }
+
+        &.status-completed {
+          background: rgba(16, 185, 129, 0.15);
+          color: var(--color-completed);
+          border: 1px solid rgba(16, 185, 129, 0.3);
+        }
+      }
+    }
+
+    .meta-divider {
+      width: 4px;
+      height: 4px;
+      border-radius: 50%;
+      background: var(--color-steel);
+    }
+
+    /* Champion Section - Platinum + Red Glow */
+    .champion-section {
+      position: relative;
+      margin: 0 24px 24px;
+      padding: 32px;
+      background: linear-gradient(145deg, var(--surface-card), var(--surface-dark));
+      border: 2px solid rgba(226, 232, 240, 0.3);
+      border-radius: 20px;
+      overflow: hidden;
+      box-shadow:
+        0 0 60px rgba(var(--color-primary-rgb), 0.2),
+        inset 0 1px 0 rgba(226, 232, 240, 0.1);
+    }
+
+    .champion-glow {
+      position: absolute;
+      inset: 0;
+      background: radial-gradient(circle at 50% 50%, rgba(var(--color-primary-rgb), 0.15) 0%, transparent 70%);
+      animation: championPulse 3s ease-in-out infinite;
+    }
+
+    @keyframes championPulse {
+      0%, 100% { opacity: 0.5; }
+      50% { opacity: 1; }
+    }
+
+    .champion-content {
+      position: relative;
+      z-index: 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 24px;
+    }
+
+    .crown-container, .trophy-container {
+      .crown, .trophy {
+        font-size: 48px;
+        width: 48px;
+        height: 48px;
+        color: var(--color-platinum);
+        filter: drop-shadow(0 0 20px rgba(var(--color-primary-rgb), 0.5));
+        animation: float 3s ease-in-out infinite;
+      }
+
+      .trophy {
+        animation-delay: 0.5s;
+      }
+    }
+
+    @keyframes float {
+      0%, 100% { transform: translateY(0); }
+      50% { transform: translateY(-8px); }
+    }
+
+    .champion-text {
+      text-align: center;
+    }
+
+    .champion-label {
+      display: block;
+      font-size: 12px;
+      color: var(--color-silver);
+      text-transform: uppercase;
+      letter-spacing: 2px;
+      margin-bottom: 4px;
+    }
+
+    .champion-name {
+      display: block;
+      font-size: 2rem;
+      font-weight: 700;
+      color: var(--color-platinum);
+      text-shadow: 0 0 30px rgba(var(--color-primary-rgb), 0.5);
+    }
+
+    /* Bracket Section */
+    .bracket-section {
+      padding: 0 24px 48px;
+    }
+
+    .bracket-scroll {
+      overflow-x: auto;
+      padding: 24px 0;
+
+      &::-webkit-scrollbar {
+        height: 8px;
+      }
+
+      &::-webkit-scrollbar-track {
+        background: rgba(255, 255, 255, 0.03);
+        border-radius: 4px;
+      }
+
+      &::-webkit-scrollbar-thumb {
+        background: var(--color-steel);
+        border-radius: 4px;
+
+        &:hover {
+          background: var(--color-silver);
+        }
+      }
+    }
+
+    .bracket {
+      display: flex;
+      gap: 60px;
+      min-width: fit-content;
+      padding: 20px;
+    }
+
+    .round {
+      display: flex;
+      flex-direction: column;
+      min-width: 280px;
+
+      &.finals {
+        .round-header {
+          background: linear-gradient(135deg, rgba(var(--color-primary-rgb), 0.15), rgba(var(--color-primary-rgb), 0.05));
+          border-color: rgba(var(--color-primary-rgb), 0.4);
+
+          .round-name {
+            color: var(--color-platinum);
+          }
+        }
+      }
+    }
+
+    .round-header {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 12px 20px;
+      margin-bottom: 24px;
+      background: rgba(255, 255, 255, 0.03);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: 12px;
+
+      .round-name {
+        font-size: 14px;
+        font-weight: 700;
+        color: var(--color-silver);
+        text-transform: uppercase;
+        letter-spacing: 1.5px;
+      }
+
+      .match-count {
+        font-size: 11px;
+        color: var(--color-steel);
+        margin-top: 2px;
+      }
+    }
+
+    .matches-column {
+      display: flex;
+      flex-direction: column;
+      justify-content: space-around;
+      flex: 1;
+      gap: 24px;
+    }
+
+    .match-wrapper {
+      position: relative;
+      display: flex;
+      align-items: center;
+    }
+
+    /* Connector Lines */
+    .connector {
+      position: absolute;
+      right: -60px;
+      width: 60px;
+      height: 100%;
+      pointer-events: none;
+
+      .connector-line {
+        position: absolute;
+        background: rgba(255, 255, 255, 0.08);
+
+        &.horizontal {
+          top: 50%;
+          left: 0;
+          width: 30px;
+          height: 2px;
+          transform: translateY(-50%);
+        }
+
+        &.vertical {
+          left: 30px;
+          width: 2px;
+          height: 50%;
+
+          &.top {
+            top: 50%;
+          }
+
+          &.bottom {
+            bottom: 50%;
+          }
+        }
+      }
+    }
+
+    /* Match Card */
+    .match-card {
+      flex: 1;
+      position: relative;
+      background: linear-gradient(145deg, var(--surface-card), var(--surface-dark));
+      border: 1px solid rgba(255, 255, 255, 0.06);
+      border-radius: 16px;
+      padding: 16px;
+      transition: all 0.3s ease;
+
+      &:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 8px 30px rgba(0, 0, 0, 0.4);
+        border-color: rgba(255, 255, 255, 0.1);
+      }
+
+      &.pending {
+        opacity: 0.5;
+      }
+
+      &.ready {
+        border-color: var(--color-cyan);
+        box-shadow: 0 0 20px rgba(34, 211, 238, 0.15);
+        animation: readyPulse 2s ease-in-out infinite;
+      }
+
+      &.completed {
+        border-color: rgba(16, 185, 129, 0.3);
+      }
+
+      &.finals {
+        background: linear-gradient(145deg, #1a1520, #12101a);
+        border-color: rgba(var(--color-primary-rgb), 0.3);
+
+        &.completed {
+          border-color: rgba(226, 232, 240, 0.3);
+          box-shadow: 0 0 40px rgba(var(--color-primary-rgb), 0.2);
+        }
+      }
+    }
+
+    @keyframes readyPulse {
+      0%, 100% { box-shadow: 0 0 20px rgba(34, 211, 238, 0.15); }
+      50% { box-shadow: 0 0 30px rgba(34, 211, 238, 0.25); }
+    }
+
+    /* LIVE Indicator - Cyan */
+    .live-indicator {
+      position: absolute;
+      top: -8px;
+      right: 12px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      padding: 4px 12px;
+      background: linear-gradient(135deg, var(--color-cyan), var(--color-cyan-dim));
+      border-radius: 12px;
+      font-size: 10px;
+      font-weight: 700;
+      color: #0f172a;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+
+      .live-dot {
+        width: 6px;
+        height: 6px;
+        background: #0f172a;
+        border-radius: 50%;
+        animation: liveBlink 1s ease-in-out infinite;
+      }
+    }
+
+    @keyframes liveBlink {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.3; }
+    }
+
+    .match-number {
+      font-size: 10px;
+      color: var(--color-steel);
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      margin-bottom: 8px;
+    }
+
+    .match-map {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 11px;
+      color: var(--color-silver);
+      margin-bottom: 10px;
+      padding: 4px 8px;
+      background: rgba(255, 255, 255, 0.03);
+      border-radius: 6px;
+      width: fit-content;
+
+      mat-icon {
+        font-size: 14px;
+        width: 14px;
+        height: 14px;
+        color: var(--color-primary);
+      }
+    }
+
+    .players {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .player-slot {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 10px 12px;
+      background: rgba(255, 255, 255, 0.02);
+      border: 1px solid transparent;
+      border-radius: 10px;
+      transition: all 0.3s ease;
+
+      &.winner {
+        background: rgba(226, 232, 240, 0.08);
+        border-color: rgba(226, 232, 240, 0.2);
+
+        .player-name {
+          color: var(--color-platinum);
+          font-weight: 600;
+        }
+
+        .player-avatar {
+          background: linear-gradient(135deg, var(--color-primary), var(--color-primary-dark));
+          box-shadow: 0 0 15px rgba(var(--color-primary-rgb), 0.4);
+        }
+      }
+
+      &.loser {
+        opacity: 0.35;
+
+        .player-name {
+          text-decoration: line-through;
+          color: var(--color-steel);
+        }
+      }
+    }
+
+    .player-avatar {
+      width: 36px;
+      height: 36px;
+      border-radius: 10px;
+      background: linear-gradient(135deg, var(--surface-elevated), var(--surface-card));
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 700;
+      font-size: 14px;
+      color: var(--color-silver);
+      flex-shrink: 0;
+      transition: all 0.3s ease;
+
+      &.tbd {
+        background: rgba(255, 255, 255, 0.03);
+        border-color: rgba(255, 255, 255, 0.05);
+
+        mat-icon {
+          font-size: 18px;
+          width: 18px;
+          height: 18px;
+          color: var(--color-steel);
+        }
+      }
+    }
+
+    .player-name {
+      flex: 1;
+      font-size: 14px;
+      font-weight: 500;
+      color: rgba(255, 255, 255, 0.9);
+
+      &.tbd {
+        color: var(--color-steel);
+        font-style: italic;
+      }
+    }
+
+    /* Winner Trophy - Platinum */
+    .winner-icon {
+      font-size: 20px;
+      width: 20px;
+      height: 20px;
+      color: var(--color-platinum);
+      filter: drop-shadow(0 0 8px rgba(var(--color-primary-rgb), 0.5));
+      animation: trophyBounce 0.6s ease-out;
+    }
+
+    @keyframes trophyBounce {
+      0% { transform: scale(0); }
+      50% { transform: scale(1.3); }
+      100% { transform: scale(1); }
+    }
+
+    .vs-divider {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 2px 0;
+
+      span {
+        font-size: 10px;
+        font-weight: 700;
+        color: var(--color-steel);
+        letter-spacing: 2px;
+      }
+    }
+
+    /* Report Button - Red */
+    .report-btn {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      width: 100%;
+      margin-top: 12px;
+      padding: 10px 16px;
+      background: linear-gradient(135deg, var(--color-primary), var(--color-primary-dark));
+      border: none;
+      border-radius: 10px;
+      color: white;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.3s ease;
+
+      mat-icon {
+        font-size: 18px;
+        width: 18px;
+        height: 18px;
+      }
+
+      &:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 20px rgba(var(--color-primary-rgb), 0.4);
+      }
+    }
+
+    /* Mobile */
+    @media (max-width: 768px) {
+      .hero-header {
+        padding: 24px 16px;
+      }
+
+      .tournament-info h1 {
+        font-size: 1.5rem;
+      }
+
+      .champion-section {
+        margin: 0 16px 16px;
+        padding: 20px;
+      }
+
+      .champion-name {
+        font-size: 1.5rem;
+      }
+
+      .crown-container, .trophy-container {
+        .crown, .trophy {
+          font-size: 32px;
+          width: 32px;
+          height: 32px;
+        }
+      }
+
+      .bracket-section {
+        padding: 0 16px 32px;
+      }
+
+      .bracket {
+        gap: 40px;
+      }
+
+      .round {
+        min-width: 240px;
       }
     }
   `]
 })
-export class TournamentBracketComponent implements OnInit {
+export class TournamentBracketComponent implements OnInit, OnDestroy {
   bracketData: BracketResponse | null = null;
   rounds: RoundData[] = [];
   loading = true;
@@ -286,11 +926,18 @@ export class TournamentBracketComponent implements OnInit {
     private authService: AuthService,
     private snackBar: MatSnackBar,
     private dialog: MatDialog,
+    private themeService: ThemeService,
   ) {}
 
   get canReportResult(): boolean {
     const role = this.authService.currentUser()?.role;
     return role === 'admin' || role === 'ref';
+  }
+
+  isUserInMatch(match: TournamentMatch): boolean {
+    const userId = this.authService.currentUser()?.id;
+    if (!userId) return false;
+    return match.player1?.id === userId || match.player2?.id === userId;
   }
 
   ngOnInit(): void {
@@ -300,12 +947,53 @@ export class TournamentBracketComponent implements OnInit {
     }
   }
 
+  ngOnDestroy(): void {
+    // Reset theme if needed
+  }
+
+  getGameImage(): string {
+    if (!this.bracketData) return '';
+    const gameName = this.bracketData.tournament.game.name.toLowerCase();
+    return `/assets/games/${gameName}.webp`;
+  }
+
+  private setThemeFromPlatform(): void {
+    if (!this.bracketData) return;
+    const platformMap: Record<string, Platform> = {
+      'plutonium': 'Plutonium',
+      'xbox': 'Xbox',
+      'ps3': 'PS3'
+    };
+    const platformName = this.bracketData.tournament.platform.name.toLowerCase();
+    const themePlatform = platformMap[platformName];
+    if (themePlatform) {
+      this.themeService.setPlatform(themePlatform);
+    }
+  }
+
+  getStatusIcon(): string {
+    switch (this.bracketData?.tournament.status) {
+      case 'IN_PROGRESS': return 'play_circle';
+      case 'COMPLETED': return 'emoji_events';
+      default: return 'info';
+    }
+  }
+
+  getStatusLabel(): string {
+    switch (this.bracketData?.tournament.status) {
+      case 'IN_PROGRESS': return 'In Progress';
+      case 'COMPLETED': return 'Completed';
+      default: return this.bracketData?.tournament.status || '';
+    }
+  }
+
   loadBracket(id: string): void {
     this.loading = true;
     this.tournamentsService.getBracket(id).subscribe({
       next: (data) => {
         this.bracketData = data;
         this.organizeBracket(data.matches);
+        this.setThemeFromPlatform();
         this.loading = false;
       },
       error: (err) => {
@@ -317,7 +1005,6 @@ export class TournamentBracketComponent implements OnInit {
   }
 
   organizeBracket(matches: TournamentMatch[]): void {
-    // Group matches by round
     const roundMap = new Map<number, TournamentMatch[]>();
 
     for (const match of matches) {
@@ -327,7 +1014,6 @@ export class TournamentBracketComponent implements OnInit {
       roundMap.get(match.round)!.push(match);
     }
 
-    // Sort rounds (highest first = first round, 1 = finals)
     const sortedRounds = Array.from(roundMap.keys()).sort((a, b) => b - a);
 
     this.rounds = sortedRounds.map(roundNum => {
@@ -343,7 +1029,7 @@ export class TournamentBracketComponent implements OnInit {
   }
 
   getRoundName(round: number, totalRounds: number): string {
-    if (round === 1) return 'Finals';
+    if (round === 1) return 'Grand Finals';
     if (round === 2) return 'Semi-Finals';
     if (round === 3) return 'Quarter-Finals';
 

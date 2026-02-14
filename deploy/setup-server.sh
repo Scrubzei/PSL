@@ -14,6 +14,11 @@ apt update && apt upgrade -y
 echo "Installing packages..."
 apt install -y curl git nginx postgresql postgresql-contrib ufw
 
+# Install dependencies for node-canvas (used by botzei)
+echo "Installing canvas dependencies..."
+apt install -y build-essential libcairo2-dev libpango1.0-dev libjpeg-dev libgif-dev librsvg2-dev \
+  fonts-noto fonts-dejavu fonts-liberation fonts-freefont-ttf
+
 # Install Node.js 20
 echo "Installing Node.js 20..."
 curl -fsSL https://deb.nodesource.com/setup_20.x | bash -

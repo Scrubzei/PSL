@@ -16,14 +16,19 @@ import { TournamentBracketComponent } from './tournaments/tournament-bracket.com
 import { TournamentCreateComponent } from './tournaments/tournament-create.component';
 import { authGuard } from './auth/auth.guard';
 import { adminGuard } from './auth/admin.guard';
+import { RulesComponent } from './rules/rules.component';
+import { DownloadComponent } from './download/download.component';
+import { homeRedirectGuard } from './auth/home-redirect.guard';
 
 export const routes: Routes = [
-  { path: '', redirectTo: '/leaderboards', pathMatch: 'full' },
+  { path: '', canActivate: [homeRedirectGuard], children: [] },
   { path: 'discord-callback', component: DiscordCallbackComponent },
   { path: 'choose-username', component: UsernameSelectionComponent },
   { path: 'match/:token', component: MatchShareComponent },
   { path: 'dev-login', component: DevLoginComponent },
   // Public routes - viewable without login
+  { path: 'download', component: DownloadComponent },
+  { path: 'rules', component: RulesComponent },
   { path: 'leaderboards', component: LeaderboardComponent },
   { path: 'leaderboards/:game/:platform', component: LeaderboardDetailComponent },
   { path: 'users', component: UsersListComponent },

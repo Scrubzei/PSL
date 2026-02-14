@@ -9,6 +9,7 @@ import { MatIconModule } from '@angular/material/icon';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { AuthService } from '../auth.service';
+import { PendingActionService } from '../pending-action.service';
 
 interface Particle {
   x: number;
@@ -186,7 +187,7 @@ const religiousTermsList = [
   `,
   styles: [`
     .auth-page {
-      min-height: 100vh;
+      min-height: 100dvh;
       background: #121212;
       position: relative;
       overflow: hidden;
@@ -202,7 +203,7 @@ const religiousTermsList = [
     }
 
     .auth-container {
-      min-height: 100vh;
+      min-height: 100dvh;
       display: flex;
       justify-content: center;
       align-items: center;
@@ -380,7 +381,8 @@ export class UsernameSelectionComponent implements OnInit, AfterViewInit, OnDest
     private fb: FormBuilder,
     private authService: AuthService,
     private router: Router,
-    private snackBar: MatSnackBar
+    private snackBar: MatSnackBar,
+    private pendingActionService: PendingActionService
   ) {
     this.usernameForm = this.fb.group({
       username: ['', [
@@ -403,7 +405,7 @@ export class UsernameSelectionComponent implements OnInit, AfterViewInit, OnDest
     }
 
     if (!this.authService.needsUsername()) {
-      this.router.navigate(['/']);
+      this.router.navigate(['/dashboard']);
       return;
     }
 
@@ -549,7 +551,11 @@ export class UsernameSelectionComponent implements OnInit, AfterViewInit, OnDest
       this.authService.setUsername(this.usernameForm.value.username).subscribe({
         next: () => {
           this.snackBar.open('Username set successfully!', 'Close', { duration: 3000 });
-          this.router.navigate(['/']);
+          if (this.authService.hasPendingAction()) {
+            this.pendingActionService.executePendingAction();
+          } else {
+            this.router.navigate(['/dashboard']);
+          }
         },
         error: (error) => {
           this.loading = false;

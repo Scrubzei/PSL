@@ -11,10 +11,11 @@ import { MatIconModule } from '@angular/material/icon';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatDialog } from '@angular/material/dialog';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
-import { LeaderboardChallengeModalComponent } from './leaderboard-challenge-modal.component';
+// NOT RELEASED YET - Challenge feature imports
+// import { LeaderboardChallengeModalComponent } from './leaderboard-challenge-modal.component';
+// import { ChallengesService } from '../challenges/challenges.service';
 import { AuthService } from '../auth/auth.service';
 import { AuthModalComponent } from '../auth/auth-modal/auth-modal.component';
-import { ChallengesService } from '../challenges/challenges.service';
 import { LeaderboardsService, LeaderboardEntry, Leaderboard } from './leaderboards.service';
 import { ThemeService, Platform } from '../shared/theme.service';
 import { forkJoin } from 'rxjs';
@@ -27,6 +28,7 @@ interface DisplayEntry {
   score: number;
   wins: number;
   losses: number;
+  placeholder?: boolean;
 }
 
 @Component({
@@ -47,7 +49,9 @@ interface DisplayEntry {
   template: `
     <div class="page-wrapper">
       <!-- Background image -->
-      <div class="bg-image" [style.background-image]="'url(assets/games/' + game + '.webp)'"></div>
+      <div class="bg-image" [style.background-image]="'url(' + gameImage + ')'"></div>
+      <div class="bg-overlay"></div>
+      <div class="bg-glow"></div>
 
       <!-- Background decorations -->
       <div class="bg-decoration">
@@ -63,12 +67,6 @@ interface DisplayEntry {
           <h1>{{ game }}</h1>
           <span class="platform-badge">{{ platform }}</span>
         </div>
-        @if (!isSignedUp && !loading) {
-          <button mat-raised-button color="primary" class="signup-btn" (click)="signUp()">
-            <mat-icon>add</mat-icon>
-            <span>Sign Up</span>
-          </button>
-        }
       </div>
 
       @if (loading) {
@@ -83,15 +81,9 @@ interface DisplayEntry {
               <div class="table-container">
                 <div class="ranked-notice">
                   <mat-icon>info</mat-icon>
-                  <p>Ranks have not been set yet. XP games can be played in the meantime.</p>
+                  <p>The leaderboard system is currently being built. Stay tuned!</p>
                 </div>
-                @if (rankedData.length === 0) {
-                  <div class="empty-state">
-                    <mat-icon>leaderboard</mat-icon>
-                    <p>No players yet. Be the first to sign up!</p>
-                  </div>
-                } @else {
-                  <table mat-table [dataSource]="rankedData">
+                <table mat-table [dataSource]="rankedData">
                     <ng-container matColumnDef="rank">
                       <th mat-header-cell *matHeaderCellDef>Rank</th>
                       <td mat-cell *matCellDef="let entry" [class]="getRankClass(entry.rank)">
@@ -101,45 +93,45 @@ interface DisplayEntry {
 
                     <ng-container matColumnDef="username">
                       <th mat-header-cell *matHeaderCellDef>Player</th>
-                      <td mat-cell *matCellDef="let entry">{{ entry.username }}</td>
+                      <td mat-cell *matCellDef="let entry" [class.placeholder-cell]="entry.placeholder">
+                        {{ entry.placeholder ? '?' : entry.username }}
+                      </td>
                     </ng-container>
 
                     <ng-container matColumnDef="score">
                       <th mat-header-cell *matHeaderCellDef>ELO</th>
-                      <td mat-cell *matCellDef="let entry">{{ entry.score }}</td>
+                      <td mat-cell *matCellDef="let entry" [class.placeholder-cell]="entry.placeholder">
+                        {{ entry.placeholder ? '—' : entry.score }}
+                      </td>
                     </ng-container>
 
                     <ng-container matColumnDef="wins">
                       <th mat-header-cell *matHeaderCellDef>W</th>
-                      <td mat-cell *matCellDef="let entry" class="wins">{{ entry.wins }}</td>
+                      <td mat-cell *matCellDef="let entry" [class.placeholder-cell]="entry.placeholder" [class.wins]="!entry.placeholder">
+                        {{ entry.placeholder ? '—' : entry.wins }}
+                      </td>
                     </ng-container>
 
                     <ng-container matColumnDef="losses">
                       <th mat-header-cell *matHeaderCellDef>L</th>
-                      <td mat-cell *matCellDef="let entry" class="losses">{{ entry.losses }}</td>
-                    </ng-container>
-
-                    <ng-container matColumnDef="actions">
-                      <th mat-header-cell *matHeaderCellDef></th>
-                      <td mat-cell *matCellDef="let entry"></td>
+                      <td mat-cell *matCellDef="let entry" [class.placeholder-cell]="entry.placeholder" [class.losses]="!entry.placeholder">
+                        {{ entry.placeholder ? '—' : entry.losses }}
+                      </td>
                     </ng-container>
 
                     <tr mat-header-row *matHeaderRowDef="displayedColumns"></tr>
-                    <tr mat-row *matRowDef="let row; columns: displayedColumns;"></tr>
+                    <tr mat-row *matRowDef="let row; columns: displayedColumns;" [class.placeholder-row]="row.placeholder"></tr>
                   </table>
-                }
               </div>
             </mat-tab>
 
             <mat-tab label="XP">
               <div class="table-container">
-                @if (xpData.length === 0) {
-                  <div class="empty-state">
-                    <mat-icon>leaderboard</mat-icon>
-                    <p>No players yet. Be the first to sign up!</p>
-                  </div>
-                } @else {
-                  <table mat-table [dataSource]="xpData">
+                <div class="ranked-notice">
+                  <mat-icon>info</mat-icon>
+                  <p>The leaderboard system is currently being built. Stay tuned!</p>
+                </div>
+                <table mat-table [dataSource]="xpData">
                     <ng-container matColumnDef="rank">
                       <th mat-header-cell *matHeaderCellDef>Rank</th>
                       <td mat-cell *matCellDef="let entry" [class]="getRankClass(entry.rank)">
@@ -149,50 +141,35 @@ interface DisplayEntry {
 
                     <ng-container matColumnDef="username">
                       <th mat-header-cell *matHeaderCellDef>Player</th>
-                      <td mat-cell *matCellDef="let entry">{{ entry.username }}</td>
+                      <td mat-cell *matCellDef="let entry" [class.placeholder-cell]="entry.placeholder">
+                        {{ entry.placeholder ? '?' : entry.username }}
+                      </td>
                     </ng-container>
 
                     <ng-container matColumnDef="score">
                       <th mat-header-cell *matHeaderCellDef>XP</th>
-                      <td mat-cell *matCellDef="let entry">{{ entry.score | number }}</td>
+                      <td mat-cell *matCellDef="let entry" [class.placeholder-cell]="entry.placeholder">
+                        {{ entry.placeholder ? '—' : (entry.score | number) }}
+                      </td>
                     </ng-container>
 
                     <ng-container matColumnDef="wins">
                       <th mat-header-cell *matHeaderCellDef>W</th>
-                      <td mat-cell *matCellDef="let entry" class="wins">{{ entry.wins }}</td>
+                      <td mat-cell *matCellDef="let entry" [class.placeholder-cell]="entry.placeholder" [class.wins]="!entry.placeholder">
+                        {{ entry.placeholder ? '—' : entry.wins }}
+                      </td>
                     </ng-container>
 
                     <ng-container matColumnDef="losses">
                       <th mat-header-cell *matHeaderCellDef>L</th>
-                      <td mat-cell *matCellDef="let entry" class="losses">{{ entry.losses }}</td>
-                    </ng-container>
-
-                    <ng-container matColumnDef="actions">
-                      <th mat-header-cell *matHeaderCellDef></th>
-                      <td mat-cell *matCellDef="let entry">
-                        @if (entry.userId !== currentUserId && isSignedUp) {
-                          <button
-                            mat-icon-button
-                            color="accent"
-                            class="challenge-btn mobile-only"
-                            (click)="openChallengeModal(entry, 'XP')">
-                            <mat-icon fontSet="material-symbols-outlined">swords</mat-icon>
-                          </button>
-                          <button
-                            mat-raised-button
-                            color="accent"
-                            class="challenge-btn desktop-only"
-                            (click)="openChallengeModal(entry, 'XP')">
-                            Challenge
-                          </button>
-                        }
+                      <td mat-cell *matCellDef="let entry" [class.placeholder-cell]="entry.placeholder" [class.losses]="!entry.placeholder">
+                        {{ entry.placeholder ? '—' : entry.losses }}
                       </td>
                     </ng-container>
 
                     <tr mat-header-row *matHeaderRowDef="displayedColumns"></tr>
-                    <tr mat-row *matRowDef="let row; columns: displayedColumns;"></tr>
+                    <tr mat-row *matRowDef="let row; columns: displayedColumns;" [class.placeholder-row]="row.placeholder"></tr>
                   </table>
-                }
               </div>
             </mat-tab>
           </mat-tab-group>
@@ -216,13 +193,32 @@ interface DisplayEntry {
       background-position: center;
       z-index: 0;
       pointer-events: none;
+      opacity: 0.5;
+      transition: opacity 0.3s ease;
+    }
 
-      &::after {
-        content: '';
-        position: absolute;
-        inset: 0;
-        background: rgba(0, 0, 0, 0.8);
-      }
+    .bg-overlay {
+      position: fixed;
+      inset: 0;
+      top: 64px;
+      background: linear-gradient(
+        135deg,
+        rgba(0, 0, 0, 0.9) 0%,
+        rgba(0, 0, 0, 0.7) 50%,
+        rgba(0, 0, 0, 0.85) 100%
+      );
+      z-index: 0;
+      pointer-events: none;
+    }
+
+    .bg-glow {
+      position: fixed;
+      inset: 0;
+      top: 64px;
+      background: radial-gradient(ellipse at 50% 0%, rgba(var(--theme-primary-rgb), 0.15) 0%, transparent 50%);
+      z-index: 0;
+      pointer-events: none;
+      transition: background 0.5s ease;
     }
 
     .bg-decoration {
@@ -237,22 +233,22 @@ interface DisplayEntry {
       position: absolute;
       border-radius: 50%;
       filter: blur(120px);
-      opacity: 0.3;
+      opacity: 0.4;
       transition: background 0.5s ease;
 
       &.orb-1 {
-        width: 500px;
-        height: 500px;
-        background: radial-gradient(circle, rgba(var(--theme-primary-rgb, 0, 150, 255), 0.3) 0%, transparent 70%);
-        top: -150px;
-        right: -100px;
+        width: 600px;
+        height: 600px;
+        background: radial-gradient(circle, rgba(var(--theme-primary-rgb), 0.35) 0%, transparent 70%);
+        top: -200px;
+        right: -150px;
       }
 
       &.orb-2 {
-        width: 350px;
-        height: 350px;
-        background: radial-gradient(circle, rgba(var(--theme-primary-rgb, 0, 150, 255), 0.2) 0%, transparent 70%);
-        bottom: -100px;
+        width: 400px;
+        height: 400px;
+        background: radial-gradient(circle, rgba(var(--theme-primary-rgb), 0.25) 0%, transparent 70%);
+        bottom: -150px;
         left: -100px;
       }
     }
@@ -397,6 +393,14 @@ interface DisplayEntry {
       color: #f44336 !important;
     }
 
+    .placeholder-row {
+      opacity: 0.35;
+    }
+
+    .placeholder-cell {
+      color: rgba(255, 255, 255, 0.3) !important;
+    }
+
     mat-card {
       padding: 0;
     }
@@ -502,7 +506,8 @@ export class LeaderboardDetailComponent implements OnInit {
   game = '';
   platform = '';
   currentTab: 'RANKED' | 'XP' = 'RANKED';
-  displayedColumns = ['rank', 'username', 'score', 'wins', 'losses', 'actions'];
+  // NOT RELEASED YET - was ['rank', 'username', 'score', 'wins', 'losses', 'actions']
+  displayedColumns = ['rank', 'username', 'score', 'wins', 'losses'];
 
   leaderboard: Leaderboard | null = null;
   rankedData: DisplayEntry[] = [];
@@ -516,13 +521,19 @@ export class LeaderboardDetailComponent implements OnInit {
     private dialog: MatDialog,
     private snackBar: MatSnackBar,
     private authService: AuthService,
-    private challengesService: ChallengesService,
+    // NOT RELEASED YET
+    // private challengesService: ChallengesService,
     private leaderboardsService: LeaderboardsService,
     private themeService: ThemeService
   ) {}
 
   get currentUserId(): string | null {
     return this.authService.currentUser()?.id ?? null;
+  }
+
+  get gameImage(): string {
+    const gameLower = this.game.toLowerCase();
+    return `/assets/games/${gameLower}.webp`;
   }
 
   ngOnInit(): void {
@@ -556,8 +567,8 @@ export class LeaderboardDetailComponent implements OnInit {
           xp: this.leaderboardsService.getEntries(leaderboard.id, 'xp')
         }).subscribe({
           next: (results) => {
-            this.rankedData = results.ranked.map(e => this.mapToDisplayEntry(e, 'ranked'));
-            this.xpData = results.xp.map(e => this.mapToDisplayEntry(e, 'xp'));
+            this.rankedData = this.padToTen(results.ranked.map(e => this.mapToDisplayEntry(e, 'ranked')));
+            this.xpData = this.padToTen(results.xp.map(e => this.mapToDisplayEntry(e, 'xp')));
             this.loading = false;
 
             // Check if user is signed up (only if authenticated)
@@ -580,9 +591,16 @@ export class LeaderboardDetailComponent implements OnInit {
           }
         });
       },
-      error: () => {
-        this.snackBar.open('Failed to load leaderboard', 'Close', { duration: 3000 });
-        this.loading = false;
+      error: (err) => {
+        // If leaderboard doesn't exist yet (404), just show empty state
+        if (err.status === 404) {
+          this.rankedData = this.padToTen([]);
+          this.xpData = this.padToTen([]);
+          this.loading = false;
+        } else {
+          this.snackBar.open('Failed to load leaderboard', 'Close', { duration: 3000 });
+          this.loading = false;
+        }
       }
     });
   }
@@ -632,6 +650,23 @@ export class LeaderboardDetailComponent implements OnInit {
     this.currentTab = event.index === 0 ? 'RANKED' : 'XP';
   }
 
+  private padToTen(entries: DisplayEntry[]): DisplayEntry[] {
+    const padded = [...entries];
+    while (padded.length < 10) {
+      padded.push({
+        id: '',
+        rank: padded.length + 1,
+        userId: '',
+        username: '',
+        score: 0,
+        wins: 0,
+        losses: 0,
+        placeholder: true,
+      });
+    }
+    return padded;
+  }
+
   getRankClass(rank: number): string {
     if (rank <= 3) {
       return `rank-${rank}`;
@@ -639,69 +674,68 @@ export class LeaderboardDetailComponent implements OnInit {
     return '';
   }
 
-  openChallengeModal(entry: DisplayEntry, type: 'RANKED' | 'XP'): void {
-    // Check if user is authenticated
-    if (!this.authService.isAuthenticated()) {
-      // Store pending action and show auth modal
-      this.authService.storePendingAction({
-        type: 'CHALLENGE_USER',
-        payload: {
-          opponentId: entry.userId,
-          opponentUsername: entry.username,
-          game: this.game,
-          platform: this.platform,
-          matchType: type
-        },
-        returnUrl: this.router.url
-      });
-      this.dialog.open(AuthModalComponent, {
-        width: '400px',
-        data: { message: `Sign in to challenge ${entry.username}` }
-      });
-      return;
-    }
-
-    const dialogRef = this.dialog.open(LeaderboardChallengeModalComponent, {
-      width: '500px',
-      panelClass: 'challenge-modal-panel',
-      data: {
-        opponent: { id: entry.userId, username: entry.username },
-        game: this.game,
-        platform: this.platform,
-        type
-      }
-    });
-
-    dialogRef.afterClosed().subscribe(result => {
-      if (result && this.leaderboard) {
-        this.challengesService.createChallenge({
-          challengeeId: result.opponent.id,
-          leaderboardId: this.leaderboard.id,
-          type: result.type,
-          bestOf: result.bestOf,
-          selectedMaps: result.maps,
-          linkOnly: result.linkOnly || false
-        }).subscribe({
-          next: () => {
-            this.snackBar.open('Challenge sent!', 'Close', { duration: 3000 });
-          },
-          error: (err) => {
-            const existingChallengeId = err.error?.existingChallengeId;
-            if (existingChallengeId) {
-              const snackBarRef = this.snackBar.open(
-                err.error?.message || 'Active challenge already exists',
-                'View Challenge',
-                { duration: 8000 }
-              );
-              snackBarRef.onAction().subscribe(() => {
-                this.router.navigate(['/challenges', existingChallengeId]);
-              });
-            } else {
-              this.snackBar.open(err.error?.message || 'Failed to send challenge', 'Close', { duration: 3000 });
-            }
-          }
-        });
-      }
-    });
-  }
+  // NOT RELEASED YET - Challenge feature
+  // openChallengeModal(entry: DisplayEntry, type: 'RANKED' | 'XP'): void {
+  //   if (!this.authService.isAuthenticated()) {
+  //     this.authService.storePendingAction({
+  //       type: 'CHALLENGE_USER',
+  //       payload: {
+  //         opponentId: entry.userId,
+  //         opponentUsername: entry.username,
+  //         game: this.game,
+  //         platform: this.platform,
+  //         matchType: type
+  //       },
+  //       returnUrl: this.router.url
+  //     });
+  //     this.dialog.open(AuthModalComponent, {
+  //       width: '400px',
+  //       data: { message: `Sign in to challenge ${entry.username}` }
+  //     });
+  //     return;
+  //   }
+  //
+  //   const dialogRef = this.dialog.open(LeaderboardChallengeModalComponent, {
+  //     width: '500px',
+  //     panelClass: 'challenge-modal-panel',
+  //     data: {
+  //       opponent: { id: entry.userId, username: entry.username },
+  //       game: this.game,
+  //       platform: this.platform,
+  //       type
+  //     }
+  //   });
+  //
+  //   dialogRef.afterClosed().subscribe(result => {
+  //     if (result && this.leaderboard) {
+  //       this.challengesService.createChallenge({
+  //         challengeeId: result.opponent.id,
+  //         leaderboardId: this.leaderboard.id,
+  //         type: result.type,
+  //         bestOf: result.bestOf,
+  //         selectedMaps: result.maps,
+  //         linkOnly: result.linkOnly || false
+  //       }).subscribe({
+  //         next: () => {
+  //           this.snackBar.open('Challenge sent!', 'Close', { duration: 3000 });
+  //         },
+  //         error: (err) => {
+  //           const existingChallengeId = err.error?.existingChallengeId;
+  //           if (existingChallengeId) {
+  //             const snackBarRef = this.snackBar.open(
+  //               err.error?.message || 'Active challenge already exists',
+  //               'View Challenge',
+  //               { duration: 8000 }
+  //             );
+  //             snackBarRef.onAction().subscribe(() => {
+  //               this.router.navigate(['/challenges', existingChallengeId]);
+  //             });
+  //           } else {
+  //             this.snackBar.open(err.error?.message || 'Failed to send challenge', 'Close', { duration: 3000 });
+  //           }
+  //         }
+  //       });
+  //     }
+  //   });
+  // }
 }

@@ -27,7 +27,7 @@ export async function apiFetch<T>(endpoint: string, options: FetchOptions = {}):
     throw new Error(`API error ${response.status}: ${error}`);
   }
 
-  return response.json();
+  return response.json() as Promise<T>;
 }
 
 // Public endpoints (no auth needed)
@@ -40,7 +40,39 @@ export const api = {
   getLeaderboardEntries: (leaderboardId: string, type: 'ranked' | 'xp' = 'ranked') =>
     apiFetch<any[]>(`/leaderboards/${leaderboardId}/entries?type=${type}`),
 
+  getUserByDiscordId: (discordId: string) =>
+    apiFetch<any>(`/users/by-discord/${discordId}`),
+
+  getUserStatsByDiscordId: (discordId: string) =>
+    apiFetch<any>(`/users/by-discord/${discordId}/stats`),
+
   // Protected endpoints (require API key)
-  // Add future bot operations here, e.g.:
-  // postMatchResult: (data: any) => apiFetch('/matches', { method: 'POST', body: JSON.stringify(data), authenticated: true }),
+  createMatch: (data: {
+    challengerDiscordId: string;
+    challengeeDiscordId: string;
+    game: string;
+    platform: string;
+    type: 'XP' | 'RANKED';
+    bestOf: number;
+    selectedMaps: string[];
+    message?: string;
+  }) => apiFetch<any>('/matches/bot/create', {
+    method: 'POST',
+    body: JSON.stringify(data),
+    authenticated: true,
+  }),
+
+  acceptMatch: (matchId: string, discordId: string) =>
+    apiFetch<any>(`/matches/bot/${matchId}/accept`, {
+      method: 'PATCH',
+      body: JSON.stringify({ discordId }),
+      authenticated: true,
+    }),
+
+  declineMatch: (matchId: string, discordId: string) =>
+    apiFetch<any>(`/matches/bot/${matchId}/decline`, {
+      method: 'PATCH',
+      body: JSON.stringify({ discordId }),
+      authenticated: true,
+    }),
 };

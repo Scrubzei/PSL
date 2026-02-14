@@ -8,7 +8,10 @@ import { ThemeService } from './shared/theme.service';
 import { HallOfFameService } from './shared/hall-of-fame.service';
 import { NavbarComponent } from './shared/navbar.component';
 import { WelcomeModalComponent } from './shared/welcome-modal.component';
-import { TournamentSpotlightModalComponent } from './shared/tournament-spotlight-modal.component';
+
+import { ActiveMatchModalComponent } from './shared/active-match-modal.component';
+import { TournamentsService } from './tournaments/tournaments.service';
+import { AuthService } from './auth/auth.service';
 import { filter } from 'rxjs/operators';
 
 interface HallOfFamePlayer {
@@ -94,7 +97,7 @@ interface HallOfFamePlayer {
 
     .scene {
       width: 100vw;
-      height: 100vh;
+      height: 100dvh;
       perspective: 1200px;
       perspective-origin: center center;
       overflow: hidden;
@@ -426,7 +429,9 @@ export class AppComponent implements OnInit {
     private iconRegistry: MatIconRegistry,
     public hofService: HallOfFameService,
     private router: Router,
-    private dialog: MatDialog
+    private dialog: MatDialog,
+    private tournamentsService: TournamentsService,
+    private authService: AuthService,
   ) {
     // Register Material Symbols font
     this.iconRegistry.setDefaultFontSetClass('material-symbols-outlined');
@@ -439,11 +444,21 @@ export class AppComponent implements OnInit {
       }
     });
 
-    // Track route changes to show/hide navbar
+    // Check for active matches when user becomes available
+    effect(() => {
+      const user = this.authService.currentUser();
+      if (user) {
+        this.checkForActiveMatches();
+      }
+    });
+
+    // Track route changes to show/hide navbar and scroll to top
     this.router.events.pipe(
       filter(event => event instanceof NavigationEnd)
     ).subscribe((event: NavigationEnd) => {
       this.showNavbar = !this.noNavbarRoutes.some(route => event.urlAfterRedirects.startsWith(route));
+      const pageContent = document.querySelector('.page-content');
+      if (pageContent) pageContent.scrollTop = 0;
     });
   }
 
@@ -452,47 +467,74 @@ export class AppComponent implements OnInit {
     this.showWelcomeModal();
   }
 
-  private showWelcomeModal(): void {
-    const hasSeenWelcome = localStorage.getItem('hasSeenWelcome');
-    const hasSeenTournamentSpotlight = localStorage.getItem('hasSeenTournamentSpotlight');
+  private activeMatchCheckDone = false;
 
-    if (hasSeenWelcome && hasSeenTournamentSpotlight) return;
-
-    if (!hasSeenWelcome) {
-      // First time visitor: show welcome, then tournament spotlight
-      setTimeout(() => {
-        const dialogRef = this.dialog.open(WelcomeModalComponent, {
-          panelClass: 'welcome-dialog',
-          disableClose: true,
-          autoFocus: false
-        });
-
-        dialogRef.afterClosed().subscribe(() => {
-          localStorage.setItem('hasSeenWelcome', 'true');
-          // Show tournament spotlight after welcome modal
-          this.showTournamentSpotlight();
-        });
-      }, 500);
-    } else if (!hasSeenTournamentSpotlight) {
-      // Returning visitor who hasn't seen tournament spotlight
-      setTimeout(() => {
-        this.showTournamentSpotlight();
-      }, 500);
+  private checkForActiveMatches(): void {
+    // Only run once per session
+    if (this.activeMatchCheckDone) {
+      return;
     }
+    this.activeMatchCheckDone = true;
+
+    // Check if we've shown the modal recently (avoid spamming on every page load)
+    const lastShown = localStorage.getItem('activeMatchModalLastShown');
+    const now = Date.now();
+    const oneHour = 60 * 60 * 1000;
+
+    if (lastShown && (now - parseInt(lastShown, 10)) < oneHour) {
+      return;
+    }
+
+    this.tournamentsService.getActiveMatches().subscribe({
+      next: (matches) => {
+        if (matches.length > 0) {
+          // Show modal for the first active match
+          setTimeout(() => {
+            this.showActiveMatchModal(matches[0]);
+          }, 1000); // Delay to let other modals finish
+        }
+      },
+      error: () => {
+        // Silently fail - user might not be authenticated
+      }
+    });
   }
 
-  private showTournamentSpotlight(): void {
+  private showActiveMatchModal(matchData: any): void {
+    // Don't show if we're already on a tournament page
+    if (this.router.url.includes('/tournaments/')) {
+      return;
+    }
+
+    const dialogRef = this.dialog.open(ActiveMatchModalComponent, {
+      panelClass: 'active-match-dialog',
+      autoFocus: false,
+      data: {
+        ...matchData,
+        currentUserId: this.authService.currentUser()?.id
+      }
+    });
+
+    dialogRef.afterClosed().subscribe(() => {
+      localStorage.setItem('activeMatchModalLastShown', Date.now().toString());
+    });
+  }
+
+  private showWelcomeModal(): void {
+    const hasSeenWelcome = localStorage.getItem('hasSeenWelcome');
+    if (hasSeenWelcome) return;
+
     setTimeout(() => {
-      const dialogRef = this.dialog.open(TournamentSpotlightModalComponent, {
-        panelClass: 'tournament-spotlight-dialog',
-        autoFocus: false,
-        data: {}
+      const dialogRef = this.dialog.open(WelcomeModalComponent, {
+        panelClass: 'welcome-dialog',
+        disableClose: true,
+        autoFocus: false
       });
 
       dialogRef.afterClosed().subscribe(() => {
-        localStorage.setItem('hasSeenTournamentSpotlight', 'true');
+        localStorage.setItem('hasSeenWelcome', 'true');
       });
-    }, 300);
+    }, 500);
   }
 
   private openHof(): void {
