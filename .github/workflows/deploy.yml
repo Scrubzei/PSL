@@ -36,53 +36,27 @@ jobs:
           npm ci
           npm run build
 
-      - name: Package build artifacts
+      - name: Setup SSH key
         run: |
-          tar -czf ${{ runner.temp }}/deploy.tar.gz \
-            --exclude='node_modules' \
-            --exclude='.git' \
-            --exclude='.env' \
-            --exclude='*.log' \
-            .
-          cp ${{ runner.temp }}/deploy.tar.gz ./deploy.tar.gz
+          mkdir -p ~/.ssh
+          printf '%s\n' "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          ssh-keyscan -H ${{ secrets.SERVER_HOST }} >> ~/.ssh/known_hosts
 
-      - name: Copy to server
-        uses: appleboy/scp-action@v0.1.7
-        with:
-          host: ${{ secrets.SERVER_HOST }}
-          username: ${{ secrets.SERVER_USER }}
-          key: ${{ secrets.SSH_PRIVATE_KEY }}
-          source: deploy.tar.gz
-          target: /tmp
+      - name: Write inventory
+        run: |
+          cat > /tmp/inventory.ini << EOF
+          [production]
+          ${{ secrets.SERVER_HOST }} ansible_user=${{ secrets.SERVER_USER }} ansible_ssh_private_key_file=~/.ssh/deploy_key
+          EOF
 
-      - name: Deploy on server
-        uses: appleboy/ssh-action@v1.0.3
-        with:
-          host: ${{ secrets.SERVER_HOST }}
-          username: ${{ secrets.SERVER_USER }}
-          key: ${{ secrets.SSH_PRIVATE_KEY }}
-          command_timeout: 10m
-          script: |
-            mkdir -p /var/www/slb
-            tar -xzf /tmp/deploy.tar.gz -C /var/www/slb
-            rm /tmp/deploy.tar.gz
+      - name: Write env files
+        run: |
+          printf '%s\n' "${{ secrets.ENV_PRODUCTION }}" > deploy/.env.production
+          printf '%s\n' "${{ secrets.ENV_PRODUCTION_BOTZEI }}" > deploy/.env.production.botzei
 
-            cat > /var/www/slb/services/server/.env << 'ENVEOF'
-            ${{ secrets.ENV_PRODUCTION }}
-            ENVEOF
-
-            cat > /var/www/slb/services/botzei/.env << 'ENVEOF'
-            ${{ secrets.ENV_PRODUCTION_BOTZEI }}
-            ENVEOF
-
-            cd /var/www/slb/services/server
-            npm install --production
-            npm run migration:run
-            pm2 describe slb-backend > /dev/null 2>&1 && pm2 restart slb-backend || pm2 start dist/main.js --name slb-backend
-
-            cd /var/www/slb/services/botzei
-            npm install --production
-            node dist/deploy-commands.js
-            pm2 describe slb-botzei > /dev/null 2>&1 && pm2 restart slb-botzei || pm2 start dist/index.js --name slb-botzei
-
-            pm2 save
+      - name: Run Ansible playbook
+        run: |
+          ansible-playbook deploy/playbook.yml \
+            -i /tmp/inventory.ini \
+            --ssh-extra-args="-o StrictHostKeyChecking=no"

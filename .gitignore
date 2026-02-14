@@ -18,6 +18,7 @@ out/
 .env.production
 deploy/.env.production
 deploy/.env.production.botzei
+deploy/inventory.ini
 
 # IDE
 .vscode/

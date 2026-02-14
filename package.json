@@ -6,6 +6,7 @@
     "dev": "docker-compose up",
     "dev:build": "docker-compose up --build",
     "deploy": "bash deploy/push.sh",
+    "deploy:ansible": "ansible-playbook deploy/playbook.yml -i deploy/inventory.ini",
     "docker:up": "docker-compose up --build",
     "docker:down": "docker-compose down",
     "docker:down:volumes": "docker-compose down -v",

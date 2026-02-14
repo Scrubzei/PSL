@@ -1,0 +1,63 @@
+- name: Deploy 1v1 Leaderboards
+  hosts: production
+  vars:
+    deploy_path: /var/www/slb
+
+  tasks:
+    - name: Sync project files
+      ansible.builtin.synchronize:
+        src: "{{ playbook_dir }}/../"
+        dest: "{{ deploy_path }}/"
+        delete: true
+        rsync_opts:
+          - "--exclude=node_modules"
+          - "--exclude=.git"
+          - "--exclude=.env"
+          - "--exclude=*.log"
+
+    - name: Write server .env
+      ansible.builtin.copy:
+        src: "{{ playbook_dir }}/.env.production"
+        dest: "{{ deploy_path }}/services/server/.env"
+        mode: "0600"
+
+    - name: Write botzei .env
+      ansible.builtin.copy:
+        src: "{{ playbook_dir }}/.env.production.botzei"
+        dest: "{{ deploy_path }}/services/botzei/.env"
+        mode: "0600"
+
+    - name: Install server production deps
+      community.general.npm:
+        path: "{{ deploy_path }}/services/server"
+        production: true
+
+    - name: Run migrations
+      ansible.builtin.command:
+        cmd: npm run migration:run
+        chdir: "{{ deploy_path }}/services/server"
+
+    - name: Restart backend via PM2
+      ansible.builtin.shell: |
+        pm2 describe slb-backend > /dev/null 2>&1 && pm2 restart slb-backend || pm2 start dist/main.js --name slb-backend
+      args:
+        chdir: "{{ deploy_path }}/services/server"
+
+    - name: Install botzei production deps
+      community.general.npm:
+        path: "{{ deploy_path }}/services/botzei"
+        production: true
+
+    - name: Deploy Discord slash commands
+      ansible.builtin.command:
+        cmd: node dist/deploy-commands.js
+        chdir: "{{ deploy_path }}/services/botzei"
+
+    - name: Restart botzei via PM2
+      ansible.builtin.shell: |
+        pm2 describe slb-botzei > /dev/null 2>&1 && pm2 restart slb-botzei || pm2 start dist/index.js --name slb-botzei
+      args:
+        chdir: "{{ deploy_path }}/services/botzei"
+
+    - name: Save PM2 process list
+      ansible.builtin.command: pm2 save
