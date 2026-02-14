@@ -36,37 +36,36 @@ jobs:
           npm ci
           npm run build
 
-      - name: Setup SSH
-        env:
-          SSH_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
+      - name: Package build artifacts
         run: |
-          mkdir -p ~/.ssh
-          printf '%s\n' "$SSH_KEY" > ~/.ssh/deploy_key
-          chmod 600 ~/.ssh/deploy_key
-          ssh-keyscan -H ${{ secrets.SERVER_HOST }} >> ~/.ssh/known_hosts
-          echo "Host prod" >> ~/.ssh/config
-          echo "  HostName ${{ secrets.SERVER_HOST }}" >> ~/.ssh/config
-          echo "  User ${{ secrets.SERVER_USER }}" >> ~/.ssh/config
-          echo "  IdentityFile ~/.ssh/deploy_key" >> ~/.ssh/config
-          echo "  StrictHostKeyChecking no" >> ~/.ssh/config
+          tar -czf /tmp/deploy.tar.gz \
+            --exclude='node_modules' \
+            --exclude='.git' \
+            --exclude='.env' \
+            --exclude='*.log' \
+            .
 
-      - name: Rsync to server
-        run: |
-          rsync -avz --delete \
-            --exclude 'node_modules' \
-            --exclude '.git' \
-            --exclude '.env' \
-            --exclude '*.log' \
-            -e "ssh -i ~/.ssh/deploy_key" \
-            ./ ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }}:/var/www/slb/
+      - name: Copy to server
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ secrets.SERVER_HOST }}
+          username: ${{ secrets.SERVER_USER }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          source: /tmp/deploy.tar.gz
+          target: /tmp
+          strip_components: 0
 
-      - name: Write env files and restart services
+      - name: Deploy on server
         uses: appleboy/ssh-action@v1.0.3
         with:
           host: ${{ secrets.SERVER_HOST }}
           username: ${{ secrets.SERVER_USER }}
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           script: |
+            mkdir -p /var/www/slb
+            tar -xzf /tmp/deploy.tar.gz -C /var/www/slb
+            rm /tmp/deploy.tar.gz
+
             cat > /var/www/slb/services/server/.env << 'ENVEOF'
             ${{ secrets.ENV_PRODUCTION }}
             ENVEOF
