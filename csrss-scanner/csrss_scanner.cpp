@@ -354,7 +354,7 @@ int wmain(int argc, wchar_t* argv[]) {
     }
 
     // Step 5: Write to file
-    std::wofstream ofs(outFile);
+    std::wofstream ofs(outFile.c_str());
     for (const auto& p : paths) {
         if (ofs) ofs << p << L"\n";
     }
@@ -388,7 +388,7 @@ int wmain(int argc, wchar_t* argv[]) {
         // Save existing paths to separate file
         if (!existing.empty()) {
             std::wstring existFile = L"paths_existing.txt";
-            std::wofstream ef(existFile);
+            std::wofstream ef(existFile.c_str());
             for (const auto& p : existing)
                 ef << p << L"\n";
             ef.close();
