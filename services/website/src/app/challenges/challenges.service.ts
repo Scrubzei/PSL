@@ -34,12 +34,10 @@ export interface Match {
   challenger: {
     id: string;
     username: string;
-    email: string;
   };
   challengee: {
     id: string;
     username: string;
-    email: string;
   };
   leaderboard: {
     id: string;

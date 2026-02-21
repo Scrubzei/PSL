@@ -1,15 +1,21 @@
-import type { Canvas, CanvasRenderingContext2D } from 'canvas';
+import type { CanvasRenderingContext2D } from 'canvas';
+import path from 'path';
+
+function getLogoPath(): string {
+  return path.resolve(__dirname, '../assets', 'logo.png');
+}
 
 interface Match {
   id: string;
   round: number;
-  position: number;
-  player1?: { id: string; username: string };
-  player2?: { id: string; username: string };
-  winner?: { id: string; username: string };
+  matchNumber: number;
+  player1?: { id: string; username: string } | null;
+  player2?: { id: string; username: string } | null;
+  winner?: { id: string; username: string } | null;
   player1Score?: number;
   player2Score?: number;
   status: string;
+  isBye?: boolean;
 }
 
 interface BracketOptions {
@@ -23,35 +29,29 @@ interface BracketOptions {
   maxPlayers?: number;
 }
 
+// On-brand color palette — black & blue
 const COLORS = {
-  background: '#2f3136',
-  cardBg: '#36393f',
-  cardBorder: '#202225',
-  text: '#ffffff',
-  textMuted: '#b9bbbe',
-  textDim: '#72767d',
-  winner: '#57f287',
-  loser: '#ed4245',
-  pending: '#5865f2',
-  line: '#4f545c',
-};
-
-const PLATFORM_COLORS: Record<string, { bg: string; border: string; accent: string }> = {
-  xbox: { bg: '#0e3d0e', border: '#107C10', accent: '#1db91d' },
-  ps3: { bg: '#001d4d', border: '#003791', accent: '#0055cc' },
-  playstation: { bg: '#001d4d', border: '#003791', accent: '#0055cc' },
-  plutonium: { bg: '#3d0a0a', border: '#BF2120', accent: '#e63333' },
-};
-
-const GAME_BACKGROUNDS: Record<string, { primary: string; secondary: string }> = {
-  bo2: { primary: '#1a1a1a', secondary: '#2d2d2d' },
-  mw3: { primary: '#1c2520', secondary: '#2a3530' },
-  mw2: { primary: '#1a1c20', secondary: '#282c32' },
+  bgDark: '#08090c',
+  bgCard: '#0d1117',
+  bgCardHover: '#131a24',
+  border: '#1c2333',
+  borderActive: '#22d3ee',
+  text: '#e2e8f0',
+  textMuted: '#94a3b8',
+  textDim: '#475569',
+  accent: '#22d3ee',
+  accentDim: '#0e7490',
+  winner: '#22d3ee',
+  loser: '#475569',
+  line: '#1e293b',
+  lineActive: 'rgba(34, 211, 238, 0.25)',
+  finals: '#7c3aed',
+  finalsBorder: '#a78bfa',
 };
 
 export async function generateBracketImage(options: BracketOptions): Promise<Buffer> {
-  const { createCanvas } = await import('canvas');
-  const { name, matches, bracketType, game = 'bo2', platform = 'xbox', status = 'pending', registeredPlayers = 0, maxPlayers = 8 } = options;
+  const { createCanvas, loadImage } = await import('canvas');
+  const { name, matches, bracketType, status = 'pending', registeredPlayers = 0, maxPlayers = 8 } = options;
 
   // Group matches by round
   const rounds: Map<number, Match[]> = new Map();
@@ -62,98 +62,123 @@ export async function generateBracketImage(options: BracketOptions): Promise<Buf
     rounds.get(match.round)!.push(match);
   });
 
-  // Sort matches within each round by position
+  // Sort matches within each round by matchNumber
   rounds.forEach(roundMatches => {
-    roundMatches.sort((a, b) => a.position - b.position);
+    roundMatches.sort((a, b) => a.matchNumber - b.matchNumber);
   });
 
   const numRounds = rounds.size || 1;
   const maxMatchesInRound = Math.max(...Array.from(rounds.values()).map(r => r.length), 1);
 
-  // Dimensions
-  const matchWidth = 160;
-  const matchHeight = 50;
-  const matchGapY = 20;
-  const roundGapX = 80;
-  const padding = 40;
-  const titleHeight = 50;
+  // Bigger dimensions
+  const matchWidth = 220;
+  const matchHeight = 64;
+  const matchGapY = 16;
+  const roundGapX = 100;
+  const padding = 50;
+  const headerHeight = 80;
 
-  const width = padding * 2 + numRounds * matchWidth + (numRounds - 1) * roundGapX;
-  const height = padding * 2 + titleHeight + maxMatchesInRound * (matchHeight + matchGapY);
+  const contentWidth = numRounds * matchWidth + (numRounds - 1) * roundGapX;
+  const contentHeight = maxMatchesInRound * (matchHeight + matchGapY) - matchGapY;
+  const width = Math.max(padding * 2 + contentWidth, 500);
+  const height = Math.max(padding * 2 + headerHeight + contentHeight + 20, 260);
 
-  const canvas = createCanvas(Math.max(width, 400), Math.max(height, 200));
+  const canvas = createCanvas(width, height);
   const ctx = canvas.getContext('2d');
 
-  // Game-themed background with gradient
-  const gameBg = GAME_BACKGROUNDS[game] || GAME_BACKGROUNDS.bo2;
-  const gradient = ctx.createLinearGradient(0, 0, canvas.width, canvas.height);
-  gradient.addColorStop(0, gameBg.primary);
-  gradient.addColorStop(1, gameBg.secondary);
-  ctx.fillStyle = gradient;
-  ctx.fillRect(0, 0, canvas.width, canvas.height);
+  // === Background ===
+  // Dark base
+  ctx.fillStyle = COLORS.bgDark;
+  ctx.fillRect(0, 0, width, height);
 
-  // Add subtle grid pattern overlay
-  ctx.strokeStyle = 'rgba(255, 255, 255, 0.03)';
+  // Subtle radial glow top-center
+  const glow = ctx.createRadialGradient(width / 2, 0, 0, width / 2, 0, width * 0.7);
+  glow.addColorStop(0, 'rgba(34, 211, 238, 0.06)');
+  glow.addColorStop(1, 'transparent');
+  ctx.fillStyle = glow;
+  ctx.fillRect(0, 0, width, height);
+
+  // Subtle noise grid
+  ctx.strokeStyle = 'rgba(255, 255, 255, 0.015)';
   ctx.lineWidth = 1;
-  for (let i = 0; i < canvas.width; i += 20) {
+  for (let i = 0; i < width; i += 30) {
     ctx.beginPath();
     ctx.moveTo(i, 0);
-    ctx.lineTo(i, canvas.height);
+    ctx.lineTo(i, height);
     ctx.stroke();
   }
-  for (let i = 0; i < canvas.height; i += 20) {
+  for (let i = 0; i < height; i += 30) {
     ctx.beginPath();
     ctx.moveTo(0, i);
-    ctx.lineTo(canvas.width, i);
+    ctx.lineTo(width, i);
     ctx.stroke();
   }
 
+  // === Header ===
   // Title
   ctx.fillStyle = COLORS.text;
-  ctx.font = 'bold 20px DejaVu Sans, sans-serif';
-  ctx.fillText(name, padding, padding + 20);
+  ctx.font = 'bold 26px DejaVu Sans, sans-serif';
+  ctx.fillText(name, padding, padding + 28);
 
-  // No matches - show registration info for pending tournaments
+  // Accent underline
+  const titleWidth = ctx.measureText(name).width;
+  const underGrad = ctx.createLinearGradient(padding, 0, padding + titleWidth, 0);
+  underGrad.addColorStop(0, COLORS.accent);
+  underGrad.addColorStop(1, 'transparent');
+  ctx.fillStyle = underGrad;
+  ctx.fillRect(padding, padding + 36, titleWidth, 2);
+
+  // Logo — top right, dark contrast
+  try {
+    const logo = await loadImage(getLogoPath());
+    const logoH = 36;
+    const logoW = (logo.width / logo.height) * logoH;
+    const logoX = width - padding - logoW;
+    const logoY = padding + 2;
+
+    ctx.globalAlpha = 0.35;
+    ctx.drawImage(logo, logoX, logoY, logoW, logoH);
+    ctx.globalAlpha = 1;
+  } catch {
+    // Logo not found — skip
+  }
+
+  // === No matches — registration state ===
   if (matches.length === 0) {
-    const platformColor = PLATFORM_COLORS[platform] || PLATFORM_COLORS.xbox;
-    const centerX = canvas.width / 2;
-    const centerY = canvas.height / 2 + 20;
+    const centerX = width / 2;
+    const centerY = height / 2 + 30;
 
     if (status === 'pending') {
-      // Format bracket type nicely
       const formatLabel = bracketType === 'SINGLE_ELIMINATION' ? 'Single Elimination' :
                           bracketType === 'DOUBLE_ELIMINATION' ? 'Double Elimination' :
                           bracketType === 'ROUND_ROBIN' ? 'Round Robin' :
                           bracketType || 'Tournament';
 
-      // Registration count - large and prominent
-      ctx.fillStyle = platformColor.accent;
-      ctx.font = 'bold 48px DejaVu Sans, sans-serif';
+      ctx.fillStyle = COLORS.accent;
+      ctx.font = 'bold 56px DejaVu Sans, sans-serif';
       ctx.textAlign = 'center';
       ctx.fillText(`${registeredPlayers}/${maxPlayers}`, centerX, centerY);
 
-      // "Players Registered" label
       ctx.fillStyle = COLORS.textMuted;
-      ctx.font = '16px DejaVu Sans, sans-serif';
-      ctx.fillText('Players Registered', centerX, centerY + 30);
+      ctx.font = '18px DejaVu Sans, sans-serif';
+      ctx.fillText('Players Registered', centerX, centerY + 35);
 
-      // Format label
       ctx.fillStyle = COLORS.textDim;
-      ctx.font = '14px DejaVu Sans, sans-serif';
-      ctx.fillText(formatLabel, centerX, centerY + 55);
-
+      ctx.font = '15px DejaVu Sans, sans-serif';
+      ctx.fillText(formatLabel, centerX, centerY + 60);
       ctx.textAlign = 'left';
     } else {
       ctx.fillStyle = COLORS.textMuted;
-      ctx.font = '14px DejaVu Sans, sans-serif';
-      ctx.fillText('No matches yet', padding, padding + titleHeight + 30);
+      ctx.font = '16px DejaVu Sans, sans-serif';
+      ctx.fillText('No matches yet', padding, padding + headerHeight + 30);
     }
     return canvas.toBuffer('image/png');
   }
 
-  // Draw rounds
-  const sortedRounds = Array.from(rounds.keys()).sort((a, b) => a - b);
-  const platformColor = PLATFORM_COLORS[platform] || PLATFORM_COLORS.xbox;
+  // === Draw bracket ===
+  const sortedRounds = Array.from(rounds.keys()).sort((a, b) => b - a);
+  const bracketTop = padding + headerHeight;
+  const bracketHeight = contentHeight;
 
   sortedRounds.forEach((roundNum, roundIndex) => {
     const roundMatches = rounds.get(roundNum)!;
@@ -161,42 +186,56 @@ export async function generateBracketImage(options: BracketOptions): Promise<Buf
     const isFinalRound = roundIndex === sortedRounds.length - 1;
 
     // Round label
-    ctx.fillStyle = isFinalRound ? platformColor.accent : COLORS.textDim;
-    ctx.font = isFinalRound ? 'bold 12px DejaVu Sans, sans-serif' : '12px DejaVu Sans, sans-serif';
+    ctx.fillStyle = isFinalRound ? COLORS.accent : COLORS.textDim;
+    ctx.font = isFinalRound ? 'bold 13px DejaVu Sans, sans-serif' : '13px DejaVu Sans, sans-serif';
     const roundLabel = getRoundLabel(roundNum, numRounds);
-    ctx.fillText(roundLabel, x, padding + titleHeight);
+    const labelMetrics = ctx.measureText(roundLabel);
+    ctx.fillText(roundLabel, x + (matchWidth - labelMetrics.width) / 2, bracketTop - 8);
 
     // Calculate vertical spacing for this round
-    const totalHeight = canvas.height - padding * 2 - titleHeight - 20;
-    const matchSpacing = totalHeight / roundMatches.length;
+    const matchSpacing = roundMatches.length === 1 ? bracketHeight : bracketHeight / roundMatches.length;
 
     roundMatches.forEach((match, matchIndex) => {
-      const y = padding + titleHeight + 20 + matchIndex * matchSpacing + (matchSpacing - matchHeight) / 2;
+      const y = bracketTop + matchIndex * matchSpacing + (matchSpacing - matchHeight) / 2;
 
-      drawMatch(ctx, match, x, y, matchWidth, matchHeight, isFinalRound ? platformColor : undefined);
+      drawMatch(ctx, match, x, y, matchWidth, matchHeight, isFinalRound);
 
-      // Draw connector lines to next round
+      // Connector lines to next round
       if (roundIndex < sortedRounds.length - 1) {
         const nextRoundMatches = rounds.get(sortedRounds[roundIndex + 1])!;
         const nextMatchIndex = Math.floor(matchIndex / 2);
 
         if (nextMatchIndex < nextRoundMatches.length) {
-          const nextMatchSpacing = totalHeight / nextRoundMatches.length;
-          const nextY = padding + titleHeight + 20 + nextMatchIndex * nextMatchSpacing + (nextMatchSpacing - matchHeight) / 2;
+          const nextMatchSpacing = nextRoundMatches.length === 1 ? bracketHeight : bracketHeight / nextRoundMatches.length;
+          const nextY = bracketTop + nextMatchIndex * nextMatchSpacing + (nextMatchSpacing - matchHeight) / 2;
           const nextX = padding + (roundIndex + 1) * (matchWidth + roundGapX);
 
-          ctx.strokeStyle = COLORS.line;
+          const midX = x + matchWidth + roundGapX / 2;
+          const fromY = y + matchHeight / 2;
+          const toY = nextY + matchHeight / 2;
+
+          // Use brighter line if match is completed
+          ctx.strokeStyle = match.status === 'COMPLETED' && !match.isBye ? COLORS.lineActive : COLORS.line;
           ctx.lineWidth = 2;
+          ctx.setLineDash([]);
           ctx.beginPath();
-          ctx.moveTo(x + matchWidth, y + matchHeight / 2);
-          ctx.lineTo(x + matchWidth + roundGapX / 2, y + matchHeight / 2);
-          ctx.lineTo(x + matchWidth + roundGapX / 2, nextY + matchHeight / 2);
-          ctx.lineTo(nextX, nextY + matchHeight / 2);
+          ctx.moveTo(x + matchWidth, fromY);
+          ctx.lineTo(midX, fromY);
+          ctx.lineTo(midX, toY);
+          ctx.lineTo(nextX, toY);
           ctx.stroke();
         }
       }
     });
   });
+
+  // === Bottom accent bar ===
+  const barGrad = ctx.createLinearGradient(0, 0, width, 0);
+  barGrad.addColorStop(0, COLORS.accent);
+  barGrad.addColorStop(0.5, COLORS.accentDim);
+  barGrad.addColorStop(1, 'transparent');
+  ctx.fillStyle = barGrad;
+  ctx.fillRect(0, height - 3, width, 3);
 
   return canvas.toBuffer('image/png');
 }
@@ -208,62 +247,108 @@ function drawMatch(
   y: number,
   width: number,
   height: number,
-  platformColor?: { bg: string; border: string; accent: string }
+  isFinalRound: boolean,
 ) {
   const halfHeight = height / 2;
+  const radius = 8;
 
-  // Card background - use platform colors for finals
-  if (platformColor) {
-    ctx.fillStyle = platformColor.bg;
-    ctx.strokeStyle = platformColor.border;
+  // Bye match styling
+  if (match.isBye) {
+    ctx.globalAlpha = 0.4;
+    ctx.setLineDash([5, 5]);
+  }
+
+  // Card background
+  if (isFinalRound) {
+    ctx.fillStyle = '#130f1e';
+    ctx.strokeStyle = match.status === 'COMPLETED' ? COLORS.finalsBorder : COLORS.finals;
+    ctx.lineWidth = 2;
+  } else if (match.status === 'READY') {
+    ctx.fillStyle = COLORS.bgCardHover;
+    ctx.strokeStyle = COLORS.borderActive;
     ctx.lineWidth = 2;
   } else {
-    ctx.fillStyle = COLORS.cardBg;
-    ctx.strokeStyle = COLORS.cardBorder;
+    ctx.fillStyle = COLORS.bgCard;
+    ctx.strokeStyle = COLORS.border;
     ctx.lineWidth = 1;
   }
-  roundRect(ctx, x, y, width, height, 4);
+
+  roundRect(ctx, x, y, width, height, radius);
   ctx.fill();
   ctx.stroke();
 
+  // Reset line dash
+  ctx.setLineDash([]);
+
   // Divider line
-  ctx.strokeStyle = platformColor ? platformColor.border : COLORS.cardBorder;
+  ctx.strokeStyle = isFinalRound ? 'rgba(124, 58, 237, 0.3)' : COLORS.border;
   ctx.lineWidth = 1;
   ctx.beginPath();
-  ctx.moveTo(x, y + halfHeight);
-  ctx.lineTo(x + width, y + halfHeight);
+  ctx.moveTo(x + 10, y + halfHeight);
+  ctx.lineTo(x + width - 10, y + halfHeight);
   ctx.stroke();
 
+  // "LIVE" indicator for READY matches
+  if (match.status === 'READY' && !match.isBye) {
+    ctx.fillStyle = COLORS.accent;
+    ctx.font = 'bold 9px DejaVu Sans, sans-serif';
+    ctx.fillText('● LIVE', x + width - 52, y + 13);
+  }
+
   // Player 1
-  const p1Name = match.player1?.username || 'TBD';
-  const p1IsWinner = match.winner?.id === match.player1?.id;
-  const p1Color = match.winner ? (p1IsWinner ? COLORS.winner : COLORS.textDim) : COLORS.text;
+  const p1Name = match.isBye && !match.player1 ? 'BYE' : (match.player1?.username || 'TBD');
+  const p1IsWinner = !match.isBye && match.winner?.id === match.player1?.id;
+  const p1IsLoser = !match.isBye && match.status === 'COMPLETED' && match.player1 && !p1IsWinner;
+  const p1Color = match.isBye
+    ? COLORS.textDim
+    : p1IsWinner ? COLORS.winner : p1IsLoser ? COLORS.loser : COLORS.text;
 
   ctx.fillStyle = p1Color;
-  ctx.font = p1IsWinner ? 'bold 12px DejaVu Sans, sans-serif' : '12px DejaVu Sans, sans-serif';
-  ctx.fillText(truncate(p1Name, 14), x + 8, y + halfHeight - 8);
+  ctx.font = p1IsWinner ? 'bold 14px DejaVu Sans, sans-serif' : '14px DejaVu Sans, sans-serif';
+  ctx.fillText(truncate(p1Name, 18), x + 12, y + halfHeight - 10);
 
-  // Player 1 score
   if (match.player1Score !== undefined) {
     ctx.fillStyle = p1Color;
-    ctx.font = 'bold 12px DejaVu Sans, sans-serif';
-    ctx.fillText(String(match.player1Score), x + width - 20, y + halfHeight - 8);
+    ctx.font = 'bold 14px DejaVu Sans, sans-serif';
+    ctx.textAlign = 'right';
+    ctx.fillText(String(match.player1Score), x + width - 12, y + halfHeight - 10);
+    ctx.textAlign = 'left';
   }
 
   // Player 2
-  const p2Name = match.player2?.username || 'TBD';
-  const p2IsWinner = match.winner?.id === match.player2?.id;
-  const p2Color = match.winner ? (p2IsWinner ? COLORS.winner : COLORS.textDim) : COLORS.text;
+  const p2Name = match.isBye && !match.player2 ? 'BYE' : (match.player2?.username || 'TBD');
+  const p2IsWinner = !match.isBye && match.winner?.id === match.player2?.id;
+  const p2IsLoser = !match.isBye && match.status === 'COMPLETED' && match.player2 && !p2IsWinner;
+  const p2Color = match.isBye
+    ? COLORS.textDim
+    : p2IsWinner ? COLORS.winner : p2IsLoser ? COLORS.loser : COLORS.text;
 
   ctx.fillStyle = p2Color;
-  ctx.font = p2IsWinner ? 'bold 12px DejaVu Sans, sans-serif' : '12px DejaVu Sans, sans-serif';
-  ctx.fillText(truncate(p2Name, 14), x + 8, y + height - 8);
+  ctx.font = p2IsWinner ? 'bold 14px DejaVu Sans, sans-serif' : '14px DejaVu Sans, sans-serif';
+  ctx.fillText(truncate(p2Name, 18), x + 12, y + height - 10);
 
-  // Player 2 score
   if (match.player2Score !== undefined) {
     ctx.fillStyle = p2Color;
-    ctx.font = 'bold 12px DejaVu Sans, sans-serif';
-    ctx.fillText(String(match.player2Score), x + width - 20, y + height - 8);
+    ctx.font = 'bold 14px DejaVu Sans, sans-serif';
+    ctx.textAlign = 'right';
+    ctx.fillText(String(match.player2Score), x + width - 12, y + height - 10);
+    ctx.textAlign = 'left';
+  }
+
+  // Winner trophy indicator
+  if (!match.isBye && match.status === 'COMPLETED') {
+    const trophyY = p1IsWinner ? y + halfHeight - 14 : y + height - 14;
+    ctx.fillStyle = COLORS.accent;
+    ctx.font = '11px DejaVu Sans, sans-serif';
+    ctx.textAlign = 'right';
+    ctx.fillText('▸ W', x + width - 12, trophyY);
+    ctx.textAlign = 'left';
+  }
+
+  // Reset after bye
+  if (match.isBye) {
+    ctx.globalAlpha = 1;
+    ctx.setLineDash([]);
   }
 }
 
@@ -273,7 +358,7 @@ function roundRect(
   y: number,
   width: number,
   height: number,
-  radius: number
+  radius: number,
 ) {
   ctx.beginPath();
   ctx.moveTo(x + radius, y);
@@ -293,11 +378,8 @@ function truncate(str: string, maxLen: number): string {
 }
 
 function getRoundLabel(round: number, totalRounds: number): string {
-  const fromFinal = totalRounds - round;
-
-  if (fromFinal === 0) return 'Finals';
-  if (fromFinal === 1) return 'Semifinals';
-  if (fromFinal === 2) return 'Quarterfinals';
-
-  return `Round ${round}`;
+  if (round === 1) return 'FINALS';
+  if (round === 2) return 'SEMIFINALS';
+  if (round === 3) return 'QUARTERFINALS';
+  return `ROUND ${totalRounds - round + 1}`;
 }

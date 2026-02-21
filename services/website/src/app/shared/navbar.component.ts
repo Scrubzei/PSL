@@ -25,7 +25,7 @@ import { HallOfFameService } from './hall-of-fame.service';
     <mat-toolbar class="navbar">
       <div class="nav-brand">
         <a routerLink="/dashboard" class="brand-link">
-          <img src="/assets/logo.png" alt="1v1 Leaderboards" class="brand-logo" />
+          <img src="/assets/logo-v2.png" alt="1v1 Leaderboards" class="brand-logo" />
         </a>
       </div>
 
@@ -39,14 +39,11 @@ import { HallOfFameService } from './hall-of-fame.service';
       <span class="spacer"></span>
 
       <div class="nav-actions">
-        <a (click)="goToHallOfFame()" class="hall-of-fame-link desktop-only" title="Hall of Fame">
-          <mat-icon>emoji_events</mat-icon>
-        </a>
         @if (authService.currentUser(); as user) {
           <app-notification-panel></app-notification-panel>
           <button mat-button [matMenuTriggerFor]="userMenu" class="user-menu-trigger desktop-only">
             <mat-icon class="user-icon">account_circle</mat-icon>
-            <span class="username">{{ user.username || user.email || 'Account' }}</span>
+            <span class="username">{{ user.username || 'Account' }}</span>
             <mat-icon>arrow_drop_down</mat-icon>
           </button>
           <mat-menu #userMenu="matMenu">
@@ -94,7 +91,7 @@ import { HallOfFameService } from './hall-of-fame.service';
         <div class="mobile-user-section">
           <div class="mobile-user-info">
             <mat-icon>account_circle</mat-icon>
-            <span>{{ user.username || user.email || 'Account' }}</span>
+            <span>{{ user.username || 'Account' }}</span>
           </div>
           <div class="mobile-user-actions">
             <a routerLink="/users/{{user.id}}" (click)="closeMobileMenu()">
@@ -131,19 +128,15 @@ import { HallOfFameService } from './hall-of-fame.service';
           <mat-icon>gavel</mat-icon>
           Rules
         </a>
-        <a (click)="goToHallOfFame()" class="hall-of-fame-mobile">
-          <mat-icon>military_tech</mat-icon>
-          Hall of Fame
-        </a>
       </div>
 
           </nav>
   `,
   styles: [`
     .navbar {
-      background: #1a1a1a;
-      border-bottom: 1px solid #2d2d2d;
-      padding: 0 24px;
+      background: #0d0d0d;
+      border-bottom: none;
+      padding: 0 32px;
       position: sticky;
       top: 0;
       z-index: 1000;
@@ -151,6 +144,8 @@ import { HallOfFameService } from './hall-of-fame.service';
       overflow-x: hidden;
       touch-action: manipulation;
       overscroll-behavior: contain;
+      height: 72px;
+      box-shadow: 0 1px 0 rgba(37, 99, 235, 0.08);
     }
 
     .nav-brand {
@@ -169,10 +164,10 @@ import { HallOfFameService } from './hall-of-fame.service';
       }
 
       .brand-logo {
-        height: 32px;
+        height: 72px;
         width: auto;
         object-fit: contain;
-        margin-left: 1rem;
+        margin-left: 0;
       }
 
       .brand-text {
@@ -184,26 +179,46 @@ import { HallOfFameService } from './hall-of-fame.service';
 
     .nav-links {
       display: flex;
-      margin-left: 32px;
-      gap: 4px;
+      margin-left: 40px;
+      gap: 2px;
+      height: 100%;
+      align-items: stretch;
 
       a {
-        color: rgba(255, 255, 255, 0.7);
-        font-weight: 500;
-        font-size: 14px;
+        color: rgba(255, 255, 255, 0.5);
+        font-weight: 600;
+        font-size: 13px;
         text-decoration: none;
-        padding: 8px 16px;
-        border-radius: 8px;
-        transition: all 0.2s ease;
+        padding: 0 18px;
+        display: flex;
+        align-items: center;
+        text-transform: uppercase;
+        letter-spacing: 0.8px;
+        position: relative;
+        transition: color 0.2s ease;
+
+        &::after {
+          content: '';
+          position: absolute;
+          bottom: 0;
+          left: 50%;
+          transform: translateX(-50%);
+          width: 0;
+          height: 2px;
+          background: #2563EB;
+          transition: width 0.2s ease;
+        }
 
         &:hover {
-          color: white;
-          background: rgba(255, 255, 255, 0.08);
+          color: rgba(255, 255, 255, 0.9);
         }
 
         &.active {
-          color: var(--theme-primary-bright, #64b5f6);
-          background: rgba(var(--theme-primary-rgb, 100, 181, 246), 0.15);
+          color: #fff;
+
+          &::after {
+            width: 100%;
+          }
         }
       }
     }
@@ -215,51 +230,42 @@ import { HallOfFameService } from './hall-of-fame.service';
     .nav-actions {
       display: flex;
       align-items: center;
-      gap: 8px;
+      gap: 4px;
     }
 
-    .hall-of-fame-link {
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      width: 40px;
-      height: 40px;
-      border-radius: 8px;
-      color: #ffaa00;
-      transition: all 0.2s ease;
+    .external-link {
+      color: #ff4444;
+      font-size: 13px;
+      font-weight: 600;
       text-decoration: none;
-
-      mat-icon {
-        font-size: 24px;
-        width: 24px;
-        height: 24px;
-      }
+      letter-spacing: 0.5px;
+      margin-right: 16px;
+      transition: color 0.2s ease;
 
       &:hover {
-        background: rgba(255, 170, 0, 0.15);
-        color: #ffcc00;
-        transform: scale(1.1);
+        color: #ff6b6b;
       }
     }
 
     .user-menu-trigger {
       display: flex;
       align-items: center;
-      gap: 8px;
-      color: rgba(255, 255, 255, 0.9);
+      gap: 6px;
+      color: rgba(255, 255, 255, 0.8);
       transition: all 0.2s ease;
+      border-radius: 6px;
 
       ::ng-deep .mdc-button__label {
         display: flex;
         align-items: center;
-        gap: 8px;
+        gap: 6px;
       }
 
       .user-icon {
-        font-size: 28px;
-        width: 28px;
-        height: 28px;
-        color: rgba(255, 255, 255, 0.7);
+        font-size: 24px;
+        width: 24px;
+        height: 24px;
+        color: rgba(255, 255, 255, 0.6);
       }
 
       .username {
@@ -267,11 +273,13 @@ import { HallOfFameService } from './hall-of-fame.service';
         overflow: hidden;
         text-overflow: ellipsis;
         white-space: nowrap;
+        font-size: 13px;
+        font-weight: 600;
       }
 
       &:hover {
         color: white;
-        background: rgba(255, 255, 255, 0.08);
+        background: rgba(255, 255, 255, 0.06);
       }
     }
 
@@ -281,8 +289,8 @@ import { HallOfFameService } from './hall-of-fame.service';
       flex-direction: column;
       justify-content: center;
       align-items: center;
-      width: 44px;
-      height: 44px;
+      width: 40px;
+      height: 40px;
       background: transparent;
       border: none;
       cursor: pointer;
@@ -291,15 +299,15 @@ import { HallOfFameService } from './hall-of-fame.service';
 
       .hamburger-line {
         display: block;
-        width: 24px;
+        width: 20px;
         height: 2px;
         background: white;
-        border-radius: 2px;
+        border-radius: 1px;
         transition: all 0.3s cubic-bezier(0.68, -0.6, 0.32, 1.6);
         position: relative;
 
         &:nth-child(1) {
-          transform: translateY(-6px);
+          transform: translateY(-5px);
         }
 
         &:nth-child(2) {
@@ -307,7 +315,7 @@ import { HallOfFameService } from './hall-of-fame.service';
         }
 
         &:nth-child(3) {
-          transform: translateY(6px);
+          transform: translateY(5px);
         }
       }
 
@@ -334,7 +342,8 @@ import { HallOfFameService } from './hall-of-fame.service';
       left: 0;
       width: 100%;
       height: 100%;
-      background: rgba(0, 0, 0, 0.5);
+      background: rgba(0, 0, 0, 0.6);
+      backdrop-filter: blur(2px);
       opacity: 0;
       visibility: hidden;
       transition: all 0.3s ease;
@@ -354,14 +363,14 @@ import { HallOfFameService } from './hall-of-fame.service';
       width: 280px;
       max-width: 85vw;
       height: 100dvh;
-      background: #1a1a1a;
-      border-left: 1px solid #2d2d2d;
+      background: #0d0d0d;
+      border-left: 1px solid #1a1a1a;
       transform: translateX(100%);
       transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
       z-index: 999;
       display: flex;
       flex-direction: column;
-      padding-top: 80px;
+      padding-top: 72px;
 
       &.open {
         transform: translateX(0);
@@ -369,7 +378,7 @@ import { HallOfFameService } from './hall-of-fame.service';
     }
 
     .mobile-user-section {
-      border-bottom: 1px solid #2d2d2d;
+      border-bottom: 1px solid #1a1a1a;
     }
 
     .mobile-user-info {
@@ -379,20 +388,19 @@ import { HallOfFameService } from './hall-of-fame.service';
       padding: 16px 24px;
       color: white;
       font-weight: 600;
-      font-size: 16px;
+      font-size: 15px;
 
       mat-icon {
-        color: var(--theme-primary-bright, #64b5f6);
-        font-size: 32px;
-        width: 32px;
-        height: 32px;
-        transition: color 0.3s ease;
+        color: #3B82F6;
+        font-size: 28px;
+        width: 28px;
+        height: 28px;
       }
     }
 
     .mobile-user-actions {
       display: flex;
-      border-top: 1px solid #2d2d2d;
+      border-top: 1px solid #1a1a1a;
 
       a {
         flex: 1;
@@ -401,14 +409,14 @@ import { HallOfFameService } from './hall-of-fame.service';
         justify-content: center;
         gap: 8px;
         padding: 12px;
-        color: rgba(255, 255, 255, 0.7);
+        color: rgba(255, 255, 255, 0.6);
         text-decoration: none;
         font-size: 13px;
         transition: all 0.2s ease;
         cursor: pointer;
 
         &:first-child {
-          border-right: 1px solid #2d2d2d;
+          border-right: 1px solid #1a1a1a;
         }
 
         mat-icon {
@@ -419,14 +427,14 @@ import { HallOfFameService } from './hall-of-fame.service';
 
         &:hover {
           color: white;
-          background: rgba(255, 255, 255, 0.05);
+          background: rgba(255, 255, 255, 0.04);
         }
       }
     }
 
     .mobile-guest-header {
       padding: 16px 24px;
-      border-bottom: 1px solid #2d2d2d;
+      border-bottom: 1px solid #1a1a1a;
     }
 
     .mobile-sign-in-btn {
@@ -436,11 +444,11 @@ import { HallOfFameService } from './hall-of-fame.service';
       justify-content: center;
       gap: 10px;
       padding: 12px 24px;
-      background: #5865F2;
+      background: #1a3f9e;
       border: none;
       border-radius: 8px;
       color: white;
-      font-size: 15px;
+      font-size: 14px;
       font-weight: 600;
       cursor: pointer;
       transition: all 0.2s ease;
@@ -452,7 +460,7 @@ import { HallOfFameService } from './hall-of-fame.service';
       }
 
       &:hover {
-        background: #4752c4;
+        background: #153080;
       }
     }
 
@@ -460,24 +468,24 @@ import { HallOfFameService } from './hall-of-fame.service';
       display: flex;
       align-items: center;
       gap: 8px;
-      padding: 8px 16px;
-      background: #5865F2;
+      padding: 7px 14px;
+      background: #1a3f9e;
       border: none;
-      border-radius: 8px;
+      border-radius: 6px;
       color: white;
-      font-size: 14px;
+      font-size: 13px;
       font-weight: 600;
       cursor: pointer;
       transition: all 0.2s ease;
       font-family: inherit;
 
       .discord-icon {
-        width: 18px;
-        height: 18px;
+        width: 16px;
+        height: 16px;
       }
 
       &:hover {
-        background: #4752c4;
+        background: #153080;
         transform: translateY(-1px);
       }
 
@@ -488,46 +496,49 @@ import { HallOfFameService } from './hall-of-fame.service';
 
     .mobile-nav-links {
       flex: 1;
-      padding: 16px 0;
+      padding: 12px 0;
 
       a {
         display: flex;
         align-items: center;
-        gap: 16px;
-        padding: 16px 24px;
-        color: rgba(255, 255, 255, 0.8);
+        gap: 14px;
+        padding: 14px 24px;
+        color: rgba(255, 255, 255, 0.7);
         text-decoration: none;
-        font-size: 16px;
+        font-size: 15px;
         font-weight: 500;
         transition: all 0.2s ease;
 
         mat-icon {
-          color: rgba(255, 255, 255, 0.5);
+          color: rgba(255, 255, 255, 0.4);
+          font-size: 20px;
+          width: 20px;
+          height: 20px;
           transition: color 0.2s ease;
         }
 
         &:hover, &.active {
-          background: rgba(var(--theme-primary-rgb, 100, 181, 246), 0.15);
-          color: var(--theme-primary-bright, #64b5f6);
+          background: rgba(37, 99, 235, 0.1);
+          color: #3B82F6;
 
           mat-icon {
-            color: var(--theme-primary-bright, #64b5f6);
+            color: #2563EB;
           }
         }
 
-        &.hall-of-fame-mobile {
-          color: #ffaa00;
+        &.external-link-mobile {
+          color: #ff4444;
 
           mat-icon {
-            color: #ffaa00;
+            color: #ff4444;
           }
 
-          &:hover, &.active {
-            background: rgba(255, 170, 0, 0.15);
-            color: #ffcc00;
+          &:hover {
+            background: rgba(255, 68, 68, 0.1);
+            color: #ff6b6b;
 
             mat-icon {
-              color: #ffcc00;
+              color: #ff6b6b;
             }
           }
         }

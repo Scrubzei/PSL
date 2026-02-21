@@ -33,96 +33,96 @@ BEGIN
   -- Create all unique users (some appear on both leaderboards)
 
   -- Xbox players
-  INSERT INTO users (id, email, username, "createdAt", "updatedAt")
-  VALUES (gen_random_uuid(), 'wubzei@test.com', 'Wubzei', NOW(), NOW())
-  ON CONFLICT (email) DO UPDATE SET username = EXCLUDED.username;
-  SELECT id INTO wubzei_id FROM users WHERE email = 'wubzei@test.com';
+  INSERT INTO users (id, username, "createdAt", "updatedAt")
+  VALUES (gen_random_uuid(), 'Wubzei', NOW(), NOW())
+  ON CONFLICT (username) DO NOTHING;
+  SELECT id INTO wubzei_id FROM users WHERE username = 'Wubzei';
 
-  INSERT INTO users (id, email, username, "createdAt", "updatedAt")
-  VALUES (gen_random_uuid(), 'relxa@test.com', 'Relxa', NOW(), NOW())
-  ON CONFLICT (email) DO UPDATE SET username = EXCLUDED.username;
-  SELECT id INTO relxa_id FROM users WHERE email = 'relxa@test.com';
+  INSERT INTO users (id, username, "createdAt", "updatedAt")
+  VALUES (gen_random_uuid(), 'Relxa', NOW(), NOW())
+  ON CONFLICT (username) DO NOTHING;
+  SELECT id INTO relxa_id FROM users WHERE username = 'Relxa';
 
-  INSERT INTO users (id, email, username, "createdAt", "updatedAt")
-  VALUES (gen_random_uuid(), 'oxentary@test.com', 'Oxentary', NOW(), NOW())
-  ON CONFLICT (email) DO UPDATE SET username = EXCLUDED.username;
-  SELECT id INTO oxentary_id FROM users WHERE email = 'oxentary@test.com';
+  INSERT INTO users (id, username, "createdAt", "updatedAt")
+  VALUES (gen_random_uuid(), 'Oxentary', NOW(), NOW())
+  ON CONFLICT (username) DO NOTHING;
+  SELECT id INTO oxentary_id FROM users WHERE username = 'Oxentary';
 
-  INSERT INTO users (id, email, username, "createdAt", "updatedAt")
-  VALUES (gen_random_uuid(), 'zapsi@test.com', 'Zapsi', NOW(), NOW())
-  ON CONFLICT (email) DO UPDATE SET username = EXCLUDED.username;
-  SELECT id INTO zapsi_id FROM users WHERE email = 'zapsi@test.com';
+  INSERT INTO users (id, username, "createdAt", "updatedAt")
+  VALUES (gen_random_uuid(), 'Zapsi', NOW(), NOW())
+  ON CONFLICT (username) DO NOTHING;
+  SELECT id INTO zapsi_id FROM users WHERE username = 'Zapsi';
 
-  INSERT INTO users (id, email, username, "createdAt", "updatedAt")
-  VALUES (gen_random_uuid(), 'steroiz@test.com', 'Steroiz', NOW(), NOW())
-  ON CONFLICT (email) DO UPDATE SET username = EXCLUDED.username;
-  SELECT id INTO steroiz_id FROM users WHERE email = 'steroiz@test.com';
+  INSERT INTO users (id, username, "createdAt", "updatedAt")
+  VALUES (gen_random_uuid(), 'Steroiz', NOW(), NOW())
+  ON CONFLICT (username) DO NOTHING;
+  SELECT id INTO steroiz_id FROM users WHERE username = 'Steroiz';
 
-  INSERT INTO users (id, email, username, "createdAt", "updatedAt")
-  VALUES (gen_random_uuid(), 'scrubzei@test.com', 'Scrubzei', NOW(), NOW())
-  ON CONFLICT (email) DO UPDATE SET username = EXCLUDED.username;
-  SELECT id INTO scrubzei_id FROM users WHERE email = 'scrubzei@test.com';
+  INSERT INTO users (id, username, "createdAt", "updatedAt")
+  VALUES (gen_random_uuid(), 'Scrubzei', NOW(), NOW())
+  ON CONFLICT (username) DO NOTHING;
+  SELECT id INTO scrubzei_id FROM users WHERE username = 'Scrubzei';
 
-  INSERT INTO users (id, email, username, "createdAt", "updatedAt")
-  VALUES (gen_random_uuid(), 'nuketowntraps@test.com', 'Nuketown Traps', NOW(), NOW())
-  ON CONFLICT (email) DO UPDATE SET username = EXCLUDED.username;
-  SELECT id INTO nuketown_id FROM users WHERE email = 'nuketowntraps@test.com';
+  INSERT INTO users (id, username, "createdAt", "updatedAt")
+  VALUES (gen_random_uuid(), 'Nuketown Traps', NOW(), NOW())
+  ON CONFLICT (username) DO NOTHING;
+  SELECT id INTO nuketown_id FROM users WHERE username = 'Nuketown Traps';
 
-  INSERT INTO users (id, email, username, "createdAt", "updatedAt")
-  VALUES (gen_random_uuid(), 'yelicate@test.com', 'Yelicate', NOW(), NOW())
-  ON CONFLICT (email) DO UPDATE SET username = EXCLUDED.username;
-  SELECT id INTO yelicate_id FROM users WHERE email = 'yelicate@test.com';
+  INSERT INTO users (id, username, "createdAt", "updatedAt")
+  VALUES (gen_random_uuid(), 'Yelicate', NOW(), NOW())
+  ON CONFLICT (username) DO NOTHING;
+  SELECT id INTO yelicate_id FROM users WHERE username = 'Yelicate';
 
-  INSERT INTO users (id, email, username, "createdAt", "updatedAt")
-  VALUES (gen_random_uuid(), 'flashxng@test.com', 'Flashxng', NOW(), NOW())
-  ON CONFLICT (email) DO UPDATE SET username = EXCLUDED.username;
-  SELECT id INTO flashxng_id FROM users WHERE email = 'flashxng@test.com';
+  INSERT INTO users (id, username, "createdAt", "updatedAt")
+  VALUES (gen_random_uuid(), 'Flashxng', NOW(), NOW())
+  ON CONFLICT (username) DO NOTHING;
+  SELECT id INTO flashxng_id FROM users WHERE username = 'Flashxng';
 
-  INSERT INTO users (id, email, username, "createdAt", "updatedAt")
-  VALUES (gen_random_uuid(), 'imberda@test.com', 'Im Berda', NOW(), NOW())
-  ON CONFLICT (email) DO UPDATE SET username = EXCLUDED.username;
-  SELECT id INTO berda_id FROM users WHERE email = 'imberda@test.com';
+  INSERT INTO users (id, username, "createdAt", "updatedAt")
+  VALUES (gen_random_uuid(), 'Im Berda', NOW(), NOW())
+  ON CONFLICT (username) DO NOTHING;
+  SELECT id INTO berda_id FROM users WHERE username = 'Im Berda';
 
   -- PS3 only players
-  INSERT INTO users (id, email, username, "createdAt", "updatedAt")
-  VALUES (gen_random_uuid(), 'hops@test.com', 'Hops', NOW(), NOW())
-  ON CONFLICT (email) DO UPDATE SET username = EXCLUDED.username;
-  SELECT id INTO hops_id FROM users WHERE email = 'hops@test.com';
+  INSERT INTO users (id, username, "createdAt", "updatedAt")
+  VALUES (gen_random_uuid(), 'Hops', NOW(), NOW())
+  ON CONFLICT (username) DO NOTHING;
+  SELECT id INTO hops_id FROM users WHERE username = 'Hops';
 
-  INSERT INTO users (id, email, username, "createdAt", "updatedAt")
-  VALUES (gen_random_uuid(), 'vialect@test.com', 'Vialect', NOW(), NOW())
-  ON CONFLICT (email) DO UPDATE SET username = EXCLUDED.username;
-  SELECT id INTO vialect_id FROM users WHERE email = 'vialect@test.com';
+  INSERT INTO users (id, username, "createdAt", "updatedAt")
+  VALUES (gen_random_uuid(), 'Vialect', NOW(), NOW())
+  ON CONFLICT (username) DO NOTHING;
+  SELECT id INTO vialect_id FROM users WHERE username = 'Vialect';
 
-  INSERT INTO users (id, email, username, "createdAt", "updatedAt")
-  VALUES (gen_random_uuid(), 'azi@test.com', 'Azi', NOW(), NOW())
-  ON CONFLICT (email) DO UPDATE SET username = EXCLUDED.username;
-  SELECT id INTO azi_id FROM users WHERE email = 'azi@test.com';
+  INSERT INTO users (id, username, "createdAt", "updatedAt")
+  VALUES (gen_random_uuid(), 'Azi', NOW(), NOW())
+  ON CONFLICT (username) DO NOTHING;
+  SELECT id INTO azi_id FROM users WHERE username = 'Azi';
 
-  INSERT INTO users (id, email, username, "createdAt", "updatedAt")
-  VALUES (gen_random_uuid(), 'daeson@test.com', 'Daeson', NOW(), NOW())
-  ON CONFLICT (email) DO UPDATE SET username = EXCLUDED.username;
-  SELECT id INTO daeson_id FROM users WHERE email = 'daeson@test.com';
+  INSERT INTO users (id, username, "createdAt", "updatedAt")
+  VALUES (gen_random_uuid(), 'Daeson', NOW(), NOW())
+  ON CONFLICT (username) DO NOTHING;
+  SELECT id INTO daeson_id FROM users WHERE username = 'Daeson';
 
-  INSERT INTO users (id, email, username, "createdAt", "updatedAt")
-  VALUES (gen_random_uuid(), 'sparkzei@test.com', 'Sparkzei', NOW(), NOW())
-  ON CONFLICT (email) DO UPDATE SET username = EXCLUDED.username;
-  SELECT id INTO sparkzei_id FROM users WHERE email = 'sparkzei@test.com';
+  INSERT INTO users (id, username, "createdAt", "updatedAt")
+  VALUES (gen_random_uuid(), 'Sparkzei', NOW(), NOW())
+  ON CONFLICT (username) DO NOTHING;
+  SELECT id INTO sparkzei_id FROM users WHERE username = 'Sparkzei';
 
-  INSERT INTO users (id, email, username, "createdAt", "updatedAt")
-  VALUES (gen_random_uuid(), 'titxnium@test.com', 'Titxnium', NOW(), NOW())
-  ON CONFLICT (email) DO UPDATE SET username = EXCLUDED.username;
-  SELECT id INTO titxnium_id FROM users WHERE email = 'titxnium@test.com';
+  INSERT INTO users (id, username, "createdAt", "updatedAt")
+  VALUES (gen_random_uuid(), 'Titxnium', NOW(), NOW())
+  ON CONFLICT (username) DO NOTHING;
+  SELECT id INTO titxnium_id FROM users WHERE username = 'Titxnium';
 
-  INSERT INTO users (id, email, username, "createdAt", "updatedAt")
-  VALUES (gen_random_uuid(), 'biosity@test.com', 'Biosity', NOW(), NOW())
-  ON CONFLICT (email) DO UPDATE SET username = EXCLUDED.username;
-  SELECT id INTO biosity_id FROM users WHERE email = 'biosity@test.com';
+  INSERT INTO users (id, username, "createdAt", "updatedAt")
+  VALUES (gen_random_uuid(), 'Biosity', NOW(), NOW())
+  ON CONFLICT (username) DO NOTHING;
+  SELECT id INTO biosity_id FROM users WHERE username = 'Biosity';
 
-  INSERT INTO users (id, email, username, "createdAt", "updatedAt")
-  VALUES (gen_random_uuid(), 'fearmytalent@test.com', 'FearMyTalent', NOW(), NOW())
-  ON CONFLICT (email) DO UPDATE SET username = EXCLUDED.username;
-  SELECT id INTO fearmytalent_id FROM users WHERE email = 'fearmytalent@test.com';
+  INSERT INTO users (id, username, "createdAt", "updatedAt")
+  VALUES (gen_random_uuid(), 'FearMyTalent', NOW(), NOW())
+  ON CONFLICT (username) DO NOTHING;
+  SELECT id INTO fearmytalent_id FROM users WHERE username = 'FearMyTalent';
 
   RAISE NOTICE 'Users created. IDs: wubzei=%, oxentary=%, flashxng=%', wubzei_id, oxentary_id, flashxng_id;
 

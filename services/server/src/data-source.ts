@@ -26,6 +26,13 @@ import { AddPlutoniumUsername1738900000000 } from './migrations/1738900000000-Ad
 import { AddTournamentRoundDeadlines1739000000000 } from './migrations/1739000000000-AddTournamentRoundDeadlines';
 import { AddWithdrawalCooldown1739100000000 } from './migrations/1739100000000-AddWithdrawalCooldown';
 import { AddTournamentPrizePool1739200000000 } from './migrations/1739200000000-AddTournamentPrizePool';
+import { AddTournamentFeatured1739300000000 } from './migrations/1739300000000-AddTournamentFeatured';
+import { AddXboxGamertag1739400000000 } from './migrations/1739400000000-AddXboxGamertag';
+import { AddTournamentModalText1739500000000 } from './migrations/1739500000000-AddTournamentModalText';
+import { AddTournamentSponsors1739600000000 } from './migrations/1739600000000-AddTournamentSponsors';
+import { RemoveEmailColumn1739700000000 } from './migrations/1739700000000-RemoveEmailColumn';
+import { AddTournamentMatchBye1739800000000 } from './migrations/1739800000000-AddTournamentMatchBye';
+import { AddTournamentMatchGameMaps1739900000000 } from './migrations/1739900000000-AddTournamentMatchGameMaps';
 
 export const AppDataSource = new DataSource({
   type: 'postgres',
@@ -51,6 +58,13 @@ export const AppDataSource = new DataSource({
     AddTournamentRoundDeadlines1739000000000,
     AddWithdrawalCooldown1739100000000,
     AddTournamentPrizePool1739200000000,
+    AddTournamentFeatured1739300000000,
+    AddXboxGamertag1739400000000,
+    AddTournamentModalText1739500000000,
+    AddTournamentSponsors1739600000000,
+    RemoveEmailColumn1739700000000,
+    AddTournamentMatchBye1739800000000,
+    AddTournamentMatchGameMaps1739900000000,
   ],
   synchronize: false,
 });

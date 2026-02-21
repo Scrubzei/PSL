@@ -26,13 +26,14 @@ interface Tournament {
 interface Match {
   id: string;
   round: number;
-  position: number;
+  matchNumber: number;
   player1?: { id: string; username: string };
   player2?: { id: string; username: string };
   winner?: { id: string; username: string };
   player1Score?: number;
   player2Score?: number;
   status: string;
+  isBye?: boolean;
 }
 
 const PLATFORM_COLORS: Record<string, number> = {

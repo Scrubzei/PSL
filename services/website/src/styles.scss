@@ -62,59 +62,12 @@ body {
   color: #e0e0e0;
   min-height: 100dvh;
 
-  // Default theme variables (Plutonium - Red)
-  --theme-primary: #bf2120;
-  --theme-primary-bright: #ff4444;
-  --theme-primary-dark: #8B1615;
-  --theme-primary-rgb: 191, 33, 32;
-  --theme-glow: rgba(191, 33, 32, 0.4);
-  --theme-transition: 200ms ease;
-
-  // Apply smooth theme transitions
-  *, *::before, *::after {
-    transition:
-      color var(--theme-transition),
-      background-color var(--theme-transition),
-      border-color var(--theme-transition),
-      box-shadow var(--theme-transition),
-      fill var(--theme-transition);
-  }
-
-  // Xbox theme (Emerald Green)
-  &.theme-xbox {
-    --theme-primary: #059669;
-    --theme-primary-bright: #10B981;
-    --theme-primary-dark: #047857;
-    --theme-primary-rgb: 5, 150, 105;
-    --theme-glow: rgba(5, 150, 105, 0.4);
-  }
-
-  // PS3 theme (Deep Blue)
-  &.theme-ps3 {
-    --theme-primary: #2563EB;
-    --theme-primary-bright: #3B82F6;
-    --theme-primary-dark: #1D4ED8;
-    --theme-primary-rgb: 37, 99, 235;
-    --theme-glow: rgba(37, 99, 235, 0.4);
-  }
-
-  // IW4X theme (Purple)
-  &.theme-iw4x {
-    --theme-primary: #7C3AED;
-    --theme-primary-bright: #A78BFA;
-    --theme-primary-dark: #5B21B6;
-    --theme-primary-rgb: 124, 58, 237;
-    --theme-glow: rgba(124, 58, 237, 0.4);
-  }
-
-  // Plutonium theme (Red) - explicit
-  &.theme-plutonium {
-    --theme-primary: #bf2120;
-    --theme-primary-bright: #ff4444;
-    --theme-primary-dark: #8B1615;
-    --theme-primary-rgb: 191, 33, 32;
-    --theme-glow: rgba(191, 33, 32, 0.4);
-  }
+  // Blue theme (PS3)
+  --theme-primary: #2563EB;
+  --theme-primary-bright: #3B82F6;
+  --theme-primary-dark: #1D4ED8;
+  --theme-primary-rgb: 37, 99, 235;
+  --theme-glow: rgba(37, 99, 235, 0.4);
 
   // Slow transition class (applied before gold theme)
   &.slow-transition {
@@ -135,12 +88,7 @@ body {
     --theme-primary-rgb: 255, 140, 0;
     --theme-glow: rgba(255, 140, 0, 0.4);
 
-    // Override all platform-specific colors to gold
-    .platform-tab.active,
-    .platform-tab.active.xbox,
-    .platform-tab.active.ps3,
-    .platform-tab.active.plutonium,
-    .platform-tab.active.iw4x {
+    .platform-tab.active {
       background: #ff8c00 !important;
       border-color: transparent !important;
       box-shadow: 0 4px 20px rgba(255, 140, 0, 0.4) !important;
@@ -221,7 +169,7 @@ body {
 .mat-mdc-snack-bar-container {
   --mdc-snackbar-container-color: #1e1e1e;
   --mdc-snackbar-supporting-text-color: #ffffff;
-  --mat-snack-bar-button-color: #ef4444;
+  --mat-snack-bar-button-color: #3B82F6;
   border: 1px solid #2d2d2d;
 }
 

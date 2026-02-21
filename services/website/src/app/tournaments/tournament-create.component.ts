@@ -12,6 +12,7 @@ import { MatDatepickerModule } from '@angular/material/datepicker';
 import { MatNativeDateModule } from '@angular/material/core';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
+import { MatSlideToggleModule } from '@angular/material/slide-toggle';
 import { TournamentsService } from './tournaments.service';
 import { HttpClient } from '@angular/common/http';
 import { environment } from '../../environments/environment';
@@ -36,6 +37,11 @@ interface PrizeEntry {
   prize: string;
 }
 
+interface SponsorEntry {
+  name: string;
+  url: string;
+}
+
 @Component({
   selector: 'app-tournament-create',
   standalone: true,
@@ -52,7 +58,8 @@ interface PrizeEntry {
     MatDatepickerModule,
     MatNativeDateModule,
     MatProgressSpinnerModule,
-    MatSnackBarModule
+    MatSnackBarModule,
+    MatSlideToggleModule
   ],
   template: `
     <div class="create-container">
@@ -112,13 +119,7 @@ interface PrizeEntry {
 
               <mat-form-field appearance="outline">
                 <mat-label>Max Participants</mat-label>
-                <mat-select formControlName="maxParticipants">
-                  <mat-option [value]="4">4 Players</mat-option>
-                  <mat-option [value]="8">8 Players</mat-option>
-                  <mat-option [value]="16">16 Players</mat-option>
-                  <mat-option [value]="32">32 Players</mat-option>
-                  <mat-option [value]="64">64 Players</mat-option>
-                </mat-select>
+                <input matInput type="number" formControlName="maxParticipants" min="4" max="64">
               </mat-form-field>
             </div>
 
@@ -179,6 +180,56 @@ interface PrizeEntry {
               <button type="button" class="add-prize-btn" (click)="addPrizeRow()">
                 <mat-icon>add</mat-icon> Add Place
               </button>
+            </div>
+
+            <div class="section-label">Sponsors (Optional)</div>
+            <div class="prize-pool-rows">
+              @for (sponsor of sponsorsList; track sponsor; let i = $index) {
+                <div class="sponsor-row">
+                  <input
+                    type="text"
+                    class="prize-input"
+                    placeholder="Sponsor name"
+                    [value]="sponsor.name"
+                    (input)="onSponsorNameChange(i, $event)"
+                  >
+                  <input
+                    type="text"
+                    class="prize-input"
+                    placeholder="URL (optional)"
+                    [value]="sponsor.url"
+                    (input)="onSponsorUrlChange(i, $event)"
+                  >
+                  @if (sponsorsList.length > 1) {
+                    <button type="button" class="prize-remove-btn" (click)="removeSponsor(i)">
+                      <mat-icon>close</mat-icon>
+                    </button>
+                  }
+                </div>
+              }
+              <button type="button" class="add-prize-btn" (click)="addSponsor()">
+                <mat-icon>add</mat-icon> Add Sponsor
+              </button>
+            </div>
+
+            <div class="section-label">Join Modal Text</div>
+
+            <mat-form-field appearance="outline" class="full-width">
+              <mat-label>How It Works</mat-label>
+              <textarea matInput formControlName="howItWorks" rows="3" placeholder="Arrange a match time with your opponent before each deadline..."></textarea>
+              <mat-hint>Shown in the join modal under Schedule & Deadlines</mat-hint>
+            </mat-form-field>
+
+            <mat-form-field appearance="outline" class="full-width">
+              <mat-label>Disqualifications (one per line)</mat-label>
+              <textarea matInput formControlName="disqualifications" rows="3" placeholder="If a time is agreed upon and a player fails to show, they are disqualified.&#10;A ref may request a PC check or screen share at any time..."></textarea>
+              <mat-hint>Each line becomes an underlined warning in the join modal</mat-hint>
+            </mat-form-field>
+
+            <div class="featured-toggle">
+              <mat-slide-toggle formControlName="isFeatured" color="primary">
+                Feature this tournament
+              </mat-slide-toggle>
             </div>
 
             <div class="actions">
@@ -333,6 +384,16 @@ interface PrizeEntry {
       }
     }
 
+    .sponsor-row {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+
+      .prize-input {
+        flex: 1;
+      }
+    }
+
     .add-prize-btn {
       display: inline-flex;
       align-items: center;
@@ -356,6 +417,14 @@ interface PrizeEntry {
         width: 18px;
         height: 18px;
       }
+    }
+
+    .featured-toggle {
+      margin-top: 20px;
+      padding: 14px 16px;
+      background: rgba(255, 255, 255, 0.03);
+      border-radius: 8px;
+      border: 1px solid rgba(255, 255, 255, 0.06);
     }
 
     .actions {
@@ -383,6 +452,9 @@ export class TournamentCreateComponent implements OnInit {
     { place: 2, prize: '' },
     { place: 3, prize: '' },
   ];
+  sponsorsList: SponsorEntry[] = [
+    { name: '', url: '' },
+  ];
 
   constructor(
     private fb: FormBuilder,
@@ -398,9 +470,12 @@ export class TournamentCreateComponent implements OnInit {
       gameId: ['', Validators.required],
       platformId: ['', Validators.required],
       format: ['SINGLE_ELIMINATION', Validators.required],
-      maxParticipants: [8, Validators.required],
+      maxParticipants: [8, [Validators.required, Validators.min(4), Validators.max(64)]],
       registrationDeadline: [null],
       startDate: [null],
+      howItWorks: ['Arrange a match time with your opponent before each deadline. Each player picks a map, and both agree on a third. If no agreement is reached, the website will randomly select the third map. Admins and refs are available to help if needed.'],
+      disqualifications: ['If a time is agreed upon and a player fails to show, they are disqualified.\nAdmins and refs reserve the right to inspect your Xbox at any time if cheating is suspected.'],
+      isFeatured: [false],
     });
 
     this.form.get('maxParticipants')!.valueChanges.subscribe((value) => {
@@ -424,7 +499,7 @@ export class TournamentCreateComponent implements OnInit {
   }
 
   buildRoundDeadlines(maxParticipants: number): void {
-    const numRounds = Math.log2(maxParticipants);
+    const numRounds = Math.ceil(Math.log2(maxParticipants));
     const names = this.getRoundNames(numRounds);
     this.roundDeadlinesList = names.map(name => ({ name, deadline: '' }));
   }
@@ -468,6 +543,24 @@ export class TournamentCreateComponent implements OnInit {
     }
   }
 
+  onSponsorNameChange(index: number, event: Event): void {
+    const input = event.target as HTMLInputElement;
+    this.sponsorsList[index].name = input.value;
+  }
+
+  onSponsorUrlChange(index: number, event: Event): void {
+    const input = event.target as HTMLInputElement;
+    this.sponsorsList[index].url = input.value;
+  }
+
+  addSponsor(): void {
+    this.sponsorsList.push({ name: '', url: '' });
+  }
+
+  removeSponsor(index: number): void {
+    this.sponsorsList.splice(index, 1);
+  }
+
   submit(): void {
     if (this.form.invalid) return;
 
@@ -482,6 +575,7 @@ export class TournamentCreateComponent implements OnInit {
       platformId: value.platformId,
       format: value.format,
       maxParticipants: value.maxParticipants,
+      isFeatured: value.isFeatured || false,
     };
 
     if (value.registrationDeadline) {
@@ -489,6 +583,21 @@ export class TournamentCreateComponent implements OnInit {
     }
     if (value.startDate) {
       dto.startDate = new Date(value.startDate).toISOString();
+    }
+
+    if (value.howItWorks?.trim()) {
+      dto.howItWorks = value.howItWorks.trim();
+    }
+    if (value.disqualifications?.trim()) {
+      dto.disqualifications = value.disqualifications.split('\n').map((s: string) => s.trim()).filter((s: string) => s);
+    }
+
+    const sponsors = this.sponsorsList.filter(s => s.name.trim());
+    if (sponsors.length > 0) {
+      dto.sponsors = sponsors.map(s => ({
+        name: s.name.trim(),
+        ...(s.url.trim() ? { url: s.url.trim() } : {}),
+      }));
     }
 
     // Always include round deadlines - blank dates show as TBD

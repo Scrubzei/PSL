@@ -3,11 +3,8 @@ import { Response } from 'express';
 import { AuthService } from './auth.service';
 import { UsersService } from '../users/users.service';
 
-import { LocalAuthGuard } from './guards/local-auth.guard';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
 import { DiscordAuthGuard } from './guards/discord-auth.guard';
-import { RegisterDto } from './dto/register.dto';
-import { LoginDto } from './dto/login.dto';
 
 @Controller('auth')
 export class AuthController {
@@ -15,17 +12,6 @@ export class AuthController {
     private authService: AuthService,
     private usersService: UsersService,
   ) {}
-
-  @Post('register')
-  async register(@Body() registerDto: RegisterDto) {
-    return this.authService.register(registerDto);
-  }
-
-  @UseGuards(LocalAuthGuard)
-  @Post('login')
-  async login(@Request() req, @Body() loginDto: LoginDto) {
-    return this.authService.login(req.user);
-  }
 
   @UseGuards(JwtAuthGuard)
   @Get('profile')
@@ -36,11 +22,11 @@ export class AuthController {
     }
     return {
       id: user.id,
-      email: user.email,
       username: user.username,
       role: user.role,
-      avatar: user.avatar || user.discordAvatar,
+      avatar: user.avatar,
       plutoniumUsername: user.plutoniumUsername,
+      xboxGamertag: user.xboxGamertag,
     };
   }
 
@@ -72,15 +58,15 @@ export class AuthController {
 
   @UseGuards(JwtAuthGuard)
   @Patch('profile')
-  async updateProfile(@Request() req, @Body() body: { plutoniumUsername?: string }) {
+  async updateProfile(@Request() req, @Body() body: { plutoniumUsername?: string; xboxGamertag?: string }) {
     const user = await this.usersService.updateProfile(req.user.userId, body);
     return {
       id: user.id,
-      email: user.email,
       username: user.username,
       role: user.role,
-      avatar: user.avatar || user.discordAvatar,
+      avatar: user.avatar,
       plutoniumUsername: user.plutoniumUsername,
+      xboxGamertag: user.xboxGamertag,
     };
   }
 

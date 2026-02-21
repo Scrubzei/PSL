@@ -35,15 +35,15 @@ export class TournamentsService {
   ) {}
 
   async create(createdById: string, dto: CreateTournamentDto): Promise<Tournament> {
-    // Validate maxParticipants is a power of 2
-    if (!this.isPowerOfTwo(dto.maxParticipants)) {
-      throw new BadRequestException('maxParticipants must be a power of 2 (4, 8, 16, 32, 64)');
-    }
-
     // Check slug uniqueness
     const existingSlug = await this.tournamentRepository.findOne({ where: { slug: dto.slug } });
     if (existingSlug) {
       throw new ConflictException('A tournament with this slug already exists');
+    }
+
+    // If marking as featured, unfeature all others first
+    if (dto.isFeatured) {
+      await this.tournamentRepository.update({}, { isFeatured: false });
     }
 
     const tournament = this.tournamentRepository.create({
@@ -76,6 +76,13 @@ export class TournamentsService {
     }
 
     return tournament;
+  }
+
+  async setFeatured(tournamentId: string): Promise<Tournament> {
+    const tournament = await this.findOne(tournamentId);
+    await this.tournamentRepository.update({}, { isFeatured: false });
+    await this.tournamentRepository.update(tournament.id, { isFeatured: true });
+    return this.findOne(tournament.id);
   }
 
   async getParticipants(tournamentId: string): Promise<TournamentParticipant[]> {
@@ -116,15 +123,17 @@ export class TournamentsService {
       throw new ConflictException('Already signed up for this tournament');
     }
 
-    // Check withdrawal cooldown (1 hour)
+    // Check withdrawal cooldown (1 hour, skipped in dev)
     if (existing?.withdrawnAt) {
-      const cooldownMs = 60 * 60 * 1000; // 1 hour
-      const timeSinceWithdrawal = Date.now() - new Date(existing.withdrawnAt).getTime();
-      if (timeSinceWithdrawal < cooldownMs) {
-        const minutesLeft = Math.ceil((cooldownMs - timeSinceWithdrawal) / (60 * 1000));
-        throw new BadRequestException(`You must wait ${minutesLeft} minute${minutesLeft === 1 ? '' : 's'} before rejoining this tournament`);
+      if (process.env.NODE_ENV !== 'development') {
+        const cooldownMs = 60 * 60 * 1000; // 1 hour
+        const timeSinceWithdrawal = Date.now() - new Date(existing.withdrawnAt).getTime();
+        if (timeSinceWithdrawal < cooldownMs) {
+          const minutesLeft = Math.ceil((cooldownMs - timeSinceWithdrawal) / (60 * 1000));
+          throw new BadRequestException(`You must wait ${minutesLeft} minute${minutesLeft === 1 ? '' : 's'} before rejoining this tournament`);
+        }
       }
-      // Cooldown passed - remove the old withdrawn record
+      // Cooldown passed (or skipped in dev) - remove the old withdrawn record
       await this.participantRepository.remove(existing);
     }
 
@@ -197,6 +206,34 @@ export class TournamentsService {
     await this.participantRepository.save(participant);
   }
 
+  async updateSeeds(tournamentId: string, participantIds: string[]): Promise<void> {
+    const tournament = await this.findOne(tournamentId);
+
+    if (tournament.status !== 'REGISTRATION') {
+      throw new BadRequestException('Can only set seeds during registration');
+    }
+
+    const participants = await this.getParticipants(tournamentId);
+
+    if (participantIds.length !== participants.length) {
+      throw new BadRequestException('Must include all active participants');
+    }
+
+    const participantMap = new Map(participants.map((p) => [p.userId, p]));
+    for (const userId of participantIds) {
+      if (!participantMap.has(userId)) {
+        throw new BadRequestException(`User ${userId} is not a participant`);
+      }
+    }
+
+    for (let i = 0; i < participantIds.length; i++) {
+      const participant = participantMap.get(participantIds[i])!;
+      participant.seed = i + 1;
+    }
+
+    await this.participantRepository.save(participants);
+  }
+
   async startTournament(tournamentId: string): Promise<Tournament> {
     const tournament = await this.findOne(tournamentId);
 
@@ -211,9 +248,14 @@ export class TournamentsService {
       throw new BadRequestException('Need at least 2 participants to start');
     }
 
-    if (count < tournament.maxParticipants) {
-      throw new BadRequestException(`Tournament is not full. Need ${tournament.maxParticipants} participants, currently have ${count}`);
+    // Validate all participants have seeds set by admin
+    const unseeded = participants.filter((p) => p.seed == null);
+    if (unseeded.length > 0) {
+      throw new BadRequestException('All participants must be seeded before starting');
     }
+
+    // Sort by admin-assigned seed order
+    participants.sort((a, b) => a.seed - b.seed);
 
     // Round up to nearest power of 2 for byes
     const bracketSize = this.nextPowerOfTwo(count);
@@ -225,25 +267,13 @@ export class TournamentsService {
     tournament.status = 'IN_PROGRESS';
     await this.tournamentRepository.save(tournament);
 
-    // Notify all participants
-    for (const p of participants) {
-      await this.notificationsService.create(
-        p.userId,
-        'CHALLENGE_ACCEPTED',
-        'Tournament Started',
-        `${tournament.name} has started! Check your bracket.`,
-        tournamentId,
-        'tournament',
-      );
-    }
-
     return tournament;
   }
 
   async getBracket(tournamentId: string): Promise<TournamentMatch[]> {
     return this.matchRepository.find({
       where: { tournamentId },
-      relations: ['player1', 'player2', 'winner', 'gameMap'],
+      relations: ['player1', 'player2', 'winner'],
       order: { round: 'DESC', matchNumber: 'ASC' },
     });
   }
@@ -321,7 +351,8 @@ export class TournamentsService {
     bracketSize: number,
   ): Promise<void> {
     const numRounds = Math.log2(bracketSize);
-    const shuffled = this.shuffle([...participants]);
+    const seeded = [...participants]; // Already sorted by admin-assigned seed
+    const numByes = bracketSize - seeded.length;
 
     // Create all matches for each round
     const matchesByRound: Map<number, TournamentMatch[]> = new Map();
@@ -361,31 +392,39 @@ export class TournamentsService {
       await this.matchRepository.save(currentRoundMatches);
     }
 
-    // Assign players to first round matches
+    // Use standard seeding order for even bye distribution across the bracket
+    const seedOrder = this.generateSeedOrder(bracketSize);
+
+    // Map seed positions to players; higher seeds (indices >= seeded.length) are byes
+    const slots: (string | null)[] = new Array(bracketSize).fill(null);
+    for (let i = 0; i < seeded.length; i++) {
+      slots[i] = seeded[i].userId;
+    }
+
+    // Assign players to first round matches using seeding order
     const firstRoundMatches = matchesByRound.get(numRounds)!;
     for (let i = 0; i < firstRoundMatches.length; i++) {
-      const player1Index = i * 2;
-      const player2Index = i * 2 + 1;
+      const player1 = slots[seedOrder[i * 2]];
+      const player2 = slots[seedOrder[i * 2 + 1]];
 
-      if (player1Index < shuffled.length) {
-        firstRoundMatches[i].player1Id = shuffled[player1Index].userId;
-      }
-      if (player2Index < shuffled.length) {
-        firstRoundMatches[i].player2Id = shuffled[player2Index].userId;
-      }
+      firstRoundMatches[i].player1Id = player1;
+      firstRoundMatches[i].player2Id = player2;
 
-      // Handle byes - if only one player, auto-advance them
-      if (firstRoundMatches[i].player1Id && !firstRoundMatches[i].player2Id) {
-        firstRoundMatches[i].winnerId = firstRoundMatches[i].player1Id;
+      if (player1 && !player2) {
+        firstRoundMatches[i].winnerId = player1;
         firstRoundMatches[i].status = 'COMPLETED';
-      } else if (!firstRoundMatches[i].player1Id && firstRoundMatches[i].player2Id) {
-        firstRoundMatches[i].winnerId = firstRoundMatches[i].player2Id;
+        firstRoundMatches[i].isBye = true;
+      } else if (!player1 && player2) {
+        firstRoundMatches[i].winnerId = player2;
         firstRoundMatches[i].status = 'COMPLETED';
-      } else if (firstRoundMatches[i].player1Id && firstRoundMatches[i].player2Id) {
+        firstRoundMatches[i].isBye = true;
+      } else if (player1 && player2) {
         firstRoundMatches[i].status = 'READY';
       }
     }
     await this.matchRepository.save(firstRoundMatches);
+
+    this.logger.log(`Generated bracket: ${bracketSize} slots, ${seeded.length} players, ${numByes} byes`);
 
     // Process byes - advance winners to next round
     for (const match of firstRoundMatches) {
@@ -393,9 +432,6 @@ export class TournamentsService {
         await this.advanceWinner(match);
       }
     }
-
-    // Assign random maps to all matches
-    await this.assignRandomMapsToMatches(tournamentId);
 
     // Send notifications for first round READY matches
     const readyMatches = firstRoundMatches.filter(m => m.status === 'READY');
@@ -433,8 +469,14 @@ export class TournamentsService {
     }
   }
 
-  private isPowerOfTwo(n: number): boolean {
-    return n > 0 && (n & (n - 1)) === 0;
+  private generateSeedOrder(bracketSize: number): number[] {
+    if (bracketSize === 2) return [0, 1];
+    const half = this.generateSeedOrder(bracketSize / 2);
+    const result: number[] = [];
+    for (const seed of half) {
+      result.push(seed, bracketSize - 1 - seed);
+    }
+    return result;
   }
 
   private nextPowerOfTwo(n: number): number {
@@ -445,90 +487,52 @@ export class TournamentsService {
     return power;
   }
 
-  private shuffle<T>(array: T[]): T[] {
-    const shuffled = [...array];
-    for (let i = shuffled.length - 1; i > 0; i--) {
-      const j = Math.floor(Math.random() * (i + 1));
-      [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
-    }
-    return shuffled;
-  }
-
-  private async assignRandomMapsToMatches(tournamentId: string): Promise<void> {
-    const tournament = await this.findOne(tournamentId);
-    const maps = await this.gamesService.findMapsByGameId(tournament.gameId);
-
-    if (maps.length === 0) {
-      this.logger.warn(`No maps found for game ${tournament.gameId}`);
-      return;
+  async updateMatchMaps(matchId: string, mapIds: string[], gameId: string): Promise<TournamentMatch> {
+    const match = await this.matchRepository.findOne({ where: { id: matchId } });
+    if (!match) {
+      throw new NotFoundException('Match not found');
     }
 
-    const matches = await this.matchRepository.find({ where: { tournamentId } });
+    const allMaps = await this.gamesService.findMapsByGameId(gameId);
+    const mapLookup = new Map(allMaps.map(m => [m.id, m]));
 
-    for (const match of matches) {
-      const randomIndex = Math.floor(Math.random() * maps.length);
-      match.gameMapId = maps[randomIndex].id;
+    const gameMaps: { id: string; mapName: string }[] = [];
+    for (const mapId of mapIds) {
+      const map = mapLookup.get(mapId);
+      if (!map) {
+        throw new BadRequestException(`Map ${mapId} not found for this game`);
+      }
+      gameMaps.push({ id: map.id, mapName: map.mapName });
     }
 
-    await this.matchRepository.save(matches);
-    this.logger.log(`Assigned random maps to ${matches.length} matches in tournament ${tournamentId}`);
+    match.gameMaps = gameMaps;
+    return this.matchRepository.save(match);
   }
 
   private async notifyMatchReady(match: TournamentMatch): Promise<void> {
     const tournament = await this.findOne(match.tournamentId);
     const fullMatch = await this.matchRepository.findOne({
       where: { id: match.id },
-      relations: ['player1', 'player2', 'gameMap'],
+      relations: ['player1', 'player2'],
     });
 
     if (!fullMatch) return;
 
     const playerIds = [fullMatch.player1Id, fullMatch.player2Id].filter(Boolean) as string[];
-    const mapName = fullMatch.gameMap?.mapName || 'Random';
+    const mapsText = fullMatch.gameMaps?.length
+      ? fullMatch.gameMaps.map(m => m.mapName).join(', ')
+      : 'TBD';
 
     for (const playerId of playerIds) {
-      // In-app notification
       await this.notificationsService.create(
         playerId,
         'CHALLENGE_ACCEPTED',
         'Match Ready!',
-        `Your match in ${tournament.name} is ready! Map: ${mapName}`,
+        `Your match in ${tournament.name} is ready! Maps: ${mapsText}`,
         match.id,
         'tournament_match',
       );
-
-      // Discord DM
-      const user = await this.usersService.findById(playerId);
-      if (user?.discordId) {
-        const opponent = playerId === fullMatch.player1Id
-          ? fullMatch.player2?.username
-          : fullMatch.player1?.username;
-
-        this.botzeiService.sendDm({
-          discordId: user.discordId,
-          embed: {
-            title: '🎮 Match Ready!',
-            description: 'Your tournament match is ready to play!',
-            color: 0x22D3EE,
-            fields: [
-              { name: 'Tournament', value: tournament.name, inline: true },
-              { name: 'Opponent', value: opponent || 'TBD', inline: true },
-              { name: 'Map', value: mapName, inline: true },
-              { name: 'Round', value: this.getRoundName(match.round, tournament.maxParticipants), inline: true },
-            ],
-            footer: { text: '1v1 Leaderboards' },
-          },
-        }).catch(err => this.logger.error(`Failed to send match ready DM: ${err.message}`));
-      }
     }
-  }
-
-  private getRoundName(round: number, maxParticipants: number): string {
-    const totalRounds = Math.log2(maxParticipants);
-    if (round === 1) return 'Grand Finals';
-    if (round === 2) return 'Semi-Finals';
-    if (round === 3) return 'Quarter-Finals';
-    return `Round ${totalRounds - round + 1}`;
   }
 
   async getMyCurrentMatch(tournamentId: string, userId: string): Promise<TournamentMatch | null> {
@@ -552,7 +556,6 @@ export class TournamentsService {
       .leftJoinAndSelect('match.player1', 'player1')
       .leftJoinAndSelect('match.player2', 'player2')
       .leftJoinAndSelect('match.winner', 'winner')
-      .leftJoinAndSelect('match.gameMap', 'gameMap')
       .where('match.tournamentId = :tournamentId', { tournamentId })
       .andWhere('(match.player1Id = :userId OR match.player2Id = :userId)', { userId })
       .andWhere('match.status IN (:...statuses)', { statuses: ['READY', 'IN_PROGRESS'] })
@@ -570,7 +573,6 @@ export class TournamentsService {
       .leftJoinAndSelect('tournament.platform', 'platform')
       .leftJoinAndSelect('match.player1', 'player1')
       .leftJoinAndSelect('match.player2', 'player2')
-      .leftJoinAndSelect('match.gameMap', 'gameMap')
       .where('tournament.status = :status', { status: 'IN_PROGRESS' })
       .andWhere('(match.player1Id = :userId OR match.player2Id = :userId)', { userId })
       .andWhere('match.status IN (:...statuses)', { statuses: ['READY', 'IN_PROGRESS'] })

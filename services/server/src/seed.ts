@@ -1,7 +1,5 @@
 import 'dotenv/config';
 import { AppDataSource } from './data-source';
-import * as bcrypt from 'bcrypt';
-
 async function seed() {
   await AppDataSource.initialize();
   const queryRunner = AppDataSource.createQueryRunner();
@@ -9,59 +7,56 @@ async function seed() {
   try {
     console.log('Starting seed...');
 
-    // Seed test users - password is "testpassword123" for all
-    const password = await bcrypt.hash('testpassword123', 10);
-
     const testUsers = [
       // Bo2 Plutonium leaderboard users
-      { username: 'Scrubzei', email: 'scrubzei@test.com' },
-      { username: 'Relxa', email: 'relxa@test.com' },
-      { username: 'Countxr', email: 'countxr@test.com' },
-      { username: 'Spartuns', email: 'spartuns@test.com' },
-      { username: 'Bxvonn', email: 'bxvonn@test.com' },
-      { username: 'Relvic', email: 'relvic@test.com' },
-      { username: 'Chroma', email: 'chroma@test.com' },
-      { username: 'Dufuzz', email: 'dufuzz@test.com' },
-      { username: 'Slxep', email: 'slxep@test.com' },
-      { username: 'Bylarus', email: 'bylarus@test.com' },
-      { username: 'Aylo', email: 'aylo@test.com' },
-      { username: 'Tezhify', email: 'tezhify@test.com' },
+      { username: 'Scrubzei' },
+      { username: 'Relxa' },
+      { username: 'Countxr' },
+      { username: 'Spartuns' },
+      { username: 'Bxvonn' },
+      { username: 'Relvic' },
+      { username: 'Chroma' },
+      { username: 'Dufuzz' },
+      { username: 'Slxep' },
+      { username: 'Bylarus' },
+      { username: 'Aylo' },
+      { username: 'Tezhify' },
       // Bo2 Xbox leaderboard users
-      { username: 'Wubzei', email: 'wubzei@test.com' },
-      { username: 'Oxentary', email: 'oxentary@test.com' },
-      { username: 'Zapsi', email: 'zapsi@test.com' },
-      { username: 'Steroiz', email: 'steroiz@test.com' },
-      { username: 'Nuketown Traps', email: 'nuketowntraps@test.com' },
-      { username: 'Yelicate', email: 'yelicate@test.com' },
-      { username: 'Flashxng', email: 'flashxng@test.com' },
-      { username: 'Berda', email: 'berda@test.com' },
+      { username: 'Wubzei' },
+      { username: 'Oxentary' },
+      { username: 'Zapsi' },
+      { username: 'Steroiz' },
+      { username: 'Nuketown Traps' },
+      { username: 'Yelicate' },
+      { username: 'Flashxng' },
+      { username: 'Berda' },
       // Bo2 PS3 leaderboard users
-      { username: 'Hops', email: 'hops@test.com' },
-      { username: 'Zargoh', email: 'zargoh@test.com' },
-      { username: 'Azii', email: 'azii@test.com' },
-      { username: 'Sparkzei', email: 'sparkzei@test.com' },
-      { username: 'Titxnium', email: 'titxnium@test.com' },
-      { username: 'Biosity', email: 'biosity@test.com' },
-      { username: 'FearMyTalent', email: 'fearmytalent@test.com' },
-      { username: 'DelusionalTrails', email: 'delusionaltrails@test.com' },
+      { username: 'Hops' },
+      { username: 'Zargoh' },
+      { username: 'Azii' },
+      { username: 'Sparkzei' },
+      { username: 'Titxnium' },
+      { username: 'Biosity' },
+      { username: 'FearMyTalent' },
+      { username: 'DelusionalTrails' },
       // Mw2 Xbox leaderboard users
-      { username: 'CoLd Qs', email: 'coldqs@test.com' },
-      { username: 'All Killfeed', email: 'allkillfeed@test.com' },
-      { username: 'Luis', email: 'luis@test.com' },
-      { username: 'Cvoxo', email: 'cvoxo@test.com' },
-      { username: 'v Vizionaryz', email: 'vvizionaryz@test.com' },
-      { username: 'Sichology', email: 'sichology@test.com' },
-      { username: 'VeXzioNz', email: 'vexzionz@test.com' },
-      { username: 'Hozay', email: 'hozay@test.com' },
-      { username: 'School Tests', email: 'schooltests@test.com' },
-      { username: 'VeriquL', email: 'veriqul@test.com' },
+      { username: 'CoLd Qs' },
+      { username: 'All Killfeed' },
+      { username: 'Luis' },
+      { username: 'Cvoxo' },
+      { username: 'v Vizionaryz' },
+      { username: 'Sichology' },
+      { username: 'VeXzioNz' },
+      { username: 'Hozay' },
+      { username: 'School Tests' },
+      { username: 'VeriquL' },
     ];
 
     console.log('Seeding users...');
     for (const user of testUsers) {
       await queryRunner.query(
-        `INSERT INTO "users" ("email", "password", "username") VALUES ($1, $2, $3) ON CONFLICT DO NOTHING`,
-        [user.email, password, user.username]
+        `INSERT INTO "users" ("username") VALUES ($1) ON CONFLICT DO NOTHING`,
+        [user.username]
       );
     }
 
@@ -295,6 +290,109 @@ async function seed() {
       'v Vizionaryz': 48, 'Sichology': 40, 'VeXzioNz': 33, 'Hozay': 26,
       'School Tests': 19, 'VeriquL': 12,
     });
+
+    // Seed tournament with configurable participant count
+    const tournamentParticipants = parseInt(process.env.TOURNAMENT_PARTICIPANTS || '0', 10);
+    if (tournamentParticipants >= 2) {
+      console.log(`Seeding tournament with ${tournamentParticipants} participants...`);
+
+      // Get a game and platform to use
+      const gameRow = await queryRunner.query(`SELECT id FROM "games" LIMIT 1`);
+      const platformRow = await queryRunner.query(`SELECT id FROM "platforms" LIMIT 1`);
+
+      if (!gameRow[0] || !platformRow[0]) {
+        console.error('No games or platforms found — run migrations with game/platform seeds first');
+      } else {
+        const gameId = gameRow[0].id;
+        const platformId = platformRow[0].id;
+
+        // Get all existing users
+        const existingUsers = await queryRunner.query(`SELECT id, username FROM "users"`);
+        const availableUserIds: string[] = existingUsers.map((u: any) => u.id);
+
+        // Create filler users if we don't have enough
+        const needed = tournamentParticipants - availableUserIds.length;
+        if (needed > 0) {
+          console.log(`Creating ${needed} filler users...`);
+          for (let i = 0; i < needed; i++) {
+            const username = `SeedPlayer${availableUserIds.length + i + 1}`;
+            await queryRunner.query(
+              `INSERT INTO "users" ("username") VALUES ($1) ON CONFLICT DO NOTHING`,
+              [username],
+            );
+            const row = await queryRunner.query(
+              `SELECT id FROM "users" WHERE username = $1`,
+              [username],
+            );
+            if (row[0]) {
+              availableUserIds.push(row[0].id);
+            }
+          }
+        }
+
+        const participantIds = availableUserIds.slice(0, tournamentParticipants);
+        const creatorId = participantIds[0];
+
+        // Pick a unique slug
+        const slug = `seed-tournament-${Date.now()}`;
+
+        // Create the tournament
+        await queryRunner.query(
+          `INSERT INTO "tournaments" ("name", "slug", "gameId", "platformId", "format", "maxParticipants", "createdById", "status")
+           VALUES ($1, $2, $3, $4, 'SINGLE_ELIMINATION', $5, $6, 'REGISTRATION')`,
+          [`Seed Tournament (${tournamentParticipants}p)`, slug, gameId, platformId, tournamentParticipants, creatorId],
+        );
+
+        const tournamentRow = await queryRunner.query(
+          `SELECT id FROM "tournaments" WHERE slug = $1`,
+          [slug],
+        );
+        const tournamentId = tournamentRow[0].id;
+
+        // Sign up participants with seeds
+        for (let i = 0; i < participantIds.length; i++) {
+          await queryRunner.query(
+            `INSERT INTO "tournament_participants" ("tournamentId", "userId", "seed")
+             VALUES ($1, $2, $3) ON CONFLICT DO NOTHING`,
+            [tournamentId, participantIds[i], i + 1],
+          );
+        }
+
+        console.log(`Tournament created: slug="${slug}", id=${tournamentId}, ${participantIds.length} participants signed up and seeded`);
+        console.log('Tournament is in REGISTRATION status — start it via the admin UI or API to generate the bracket.');
+
+        // Create a second tournament with different game/platform if available
+        const game2Row = await queryRunner.query(`SELECT id, name FROM "games" ORDER BY name OFFSET 1 LIMIT 1`);
+        const platform2Row = await queryRunner.query(`SELECT id, name FROM "platforms" ORDER BY name OFFSET 1 LIMIT 1`);
+        const game2Id = game2Row[0]?.id || gameId;
+        const platform2Id = platform2Row[0]?.id || platformId;
+        const game2Name = game2Row[0]?.name || 'Alt';
+        const platform2Name = platform2Row[0]?.name || 'Alt';
+
+        const slug2 = `seed-tournament-2-${Date.now()}`;
+        const participants2Count = Math.min(8, availableUserIds.length);
+        const participant2Ids = availableUserIds.slice(0, participants2Count);
+
+        await queryRunner.query(
+          `INSERT INTO "tournaments" ("name", "slug", "gameId", "platformId", "format", "maxParticipants", "createdById", "status")
+           VALUES ($1, $2, $3, $4, 'SINGLE_ELIMINATION', $5, $6, 'REGISTRATION')`,
+          [`${game2Name} ${platform2Name} Invitational`, slug2, game2Id, platform2Id, participants2Count, participant2Ids[0]],
+        );
+
+        const tournament2Row = await queryRunner.query(`SELECT id FROM "tournaments" WHERE slug = $1`, [slug2]);
+        const tournament2Id = tournament2Row[0].id;
+
+        for (let i = 0; i < participant2Ids.length; i++) {
+          await queryRunner.query(
+            `INSERT INTO "tournament_participants" ("tournamentId", "userId", "seed")
+             VALUES ($1, $2, $3) ON CONFLICT DO NOTHING`,
+            [tournament2Id, participant2Ids[i], i + 1],
+          );
+        }
+
+        console.log(`Second tournament created: slug="${slug2}", id=${tournament2Id}, ${participant2Ids.length} participants signed up and seeded`);
+      }
+    }
 
     console.log('Seed completed successfully!');
   } catch (error) {

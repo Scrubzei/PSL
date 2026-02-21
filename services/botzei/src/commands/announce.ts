@@ -7,10 +7,10 @@ import {
   StringSelectMenuInteraction,
   ButtonBuilder,
   ButtonStyle,
-  ButtonInteraction,
   PermissionFlagsBits,
   TextChannel,
   AttachmentBuilder,
+  type GuildMember,
 } from 'discord.js';
 import { generateAnnounceBanner } from '../utils/announceBanner.js';
 
@@ -111,37 +111,32 @@ export async function handleAnnounceSelect(interaction: StringSelectMenuInteract
       .setColor(color)
       .setTitle(t.name)
       .setURL(tournamentUrl)
-      .setDescription(t.description || null);
+      .setDescription(t.description ? `${t.description}\n\n───────────────────────────────` : null);
 
-    // Start date
-    if (t.startDate) {
-      const unix = Math.floor(new Date(t.startDate).getTime() / 1000);
-      embed.addFields({ name: '\u200b\n__Starts__', value: `<t:${unix}:F>`, inline: false });
-    }
-
-    // Deadlines
+    // Deadlines (only show rounds with confirmed dates)
     if (t.roundDeadlines && t.roundDeadlines.length > 0) {
-      const deadlines = t.roundDeadlines
+      const confirmedDeadlines = t.roundDeadlines
+        .filter(rd => rd.deadline)
         .map(rd => {
-          if (rd.deadline) {
-            const unix = Math.floor(new Date(rd.deadline).getTime() / 1000);
-            return `**${rd.name}** \u2014 <t:${unix}:D>`;
-          }
-          return `**${rd.name}** \u2014 TBD`;
+          const unix = Math.floor(new Date(rd.deadline!).getTime() / 1000);
+          return `**${rd.name}** \u2014 <t:${unix}:D>`;
         })
         .join('\n');
-      embed.addFields({ name: '\u200b\n__Deadlines__', value: deadlines, inline: false });
+      if (confirmedDeadlines) {
+        embed.addFields({ name: '\u200b\n\ud83d\udcc5 __Deadlines__', value: confirmedDeadlines, inline: false });
+      }
     }
 
     // How it works
     embed.addFields({
-      name: '\u200b\n__How It Works__',
+      name: '\u200b\n\ud83d\udccb __How It Works__',
       value: [
-        'Arrange a match time with your opponent before each deadline.',
-        'Each player picks a map and both agree on a third \u2014 if they can\'t agree, the website will randomly select it.',
-        'Admins and refs are available to help if needed.',
-        '**If a time is agreed upon and a player fails to show, they are disqualified.**',
-      ].join(' '),
+        `All matches are best of 3 and follow [1v1 Leaderboards Rules](${frontendUrl}/rules). Each player picks a map and both agree on a third — if no agreement is reached, the website will randomly select it. Arrange your matches before each round's deadline. Admins and refs will be available to help schedule if needed.`,
+        '',
+        '__**If a time is agreed upon and a player fails to show, they are disqualified.**__',
+        '',
+        '__**A ref may request a PC check or screen share at any time. Failure to comply will result in a DQ.**__',
+      ].join('\n'),
       inline: false,
     });
 
@@ -157,24 +152,21 @@ export async function handleAnnounceSelect(interaction: StringSelectMenuInteract
     embed.setImage('attachment://banner.png');
 
     // Author — who announced it
+    const member = interaction.member as GuildMember | null;
+    const announcer = member?.displayName || interaction.user.displayName;
     embed.setAuthor({
-      name: `Announced by ${interaction.user.displayName}`,
-      iconURL: interaction.user.displayAvatarURL(),
+      name: `Announced by ${announcer}`,
+      iconURL: member?.displayAvatarURL() || interaction.user.displayAvatarURL(),
     });
 
     // Buttons
-    const buttonStyle = PLATFORM_COLORS[platform] === 0x107C10
-      ? ButtonStyle.Success
-      : PLATFORM_COLORS[platform] === 0x003791
-        ? ButtonStyle.Primary
-        : ButtonStyle.Danger;
-
+    const signupUrl = `${frontendUrl}/tournaments/${t.slug || t.id}`;
     const buttons = new ActionRowBuilder<ButtonBuilder>().addComponents(
       new ButtonBuilder()
-        .setCustomId(`announce_signup_${tournamentId}`)
         .setLabel('Sign Up Now')
         .setEmoji('1465919654122754191')
-        .setStyle(buttonStyle),
+        .setURL(signupUrl)
+        .setStyle(ButtonStyle.Link),
     );
 
     // Send the announcement as a regular channel message
@@ -200,18 +192,3 @@ export async function handleAnnounceSelect(interaction: StringSelectMenuInteract
   }
 }
 
-export async function handleAnnounceButton(interaction: ButtonInteraction) {
-  const tournamentId = interaction.customId.replace('announce_signup_', '');
-  const backendUrl = process.env.BACKEND_URL || 'http://localhost:3000';
-  const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:4200';
-
-  try {
-    const res = await fetch(`${backendUrl}/tournaments/${tournamentId}`);
-    if (!res.ok) throw new Error(`API error: ${res.status}`);
-    const t = (await res.json()) as Tournament;
-    const url = `${frontendUrl}/tournaments/${t.slug || t.id}`;
-    await interaction.reply({ content: url, ephemeral: true });
-  } catch {
-    await interaction.reply({ content: `${frontendUrl}/tournaments`, ephemeral: true });
-  }
-}

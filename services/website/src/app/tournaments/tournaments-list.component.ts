@@ -99,7 +99,7 @@ import { AuthService } from '../auth/auth.service';
                   <div class="featured-meta">
                     <div class="meta-item">
                       <mat-icon>sports_esports</mat-icon>
-                      <span>{{ ft.game.name }}</span>
+                      <span>{{ ft.game.name.toUpperCase() }}</span>
                     </div>
                     <div class="meta-item">
                       <mat-icon>devices</mat-icon>
@@ -154,7 +154,7 @@ import { AuthService } from '../auth/auth.service';
                   <!-- Card content -->
                   <div class="card-content">
                     <div class="card-game">
-                      {{ tournament.game.name }} · {{ tournament.platform.name }}
+                      {{ tournament.game.name.toUpperCase() }} · {{ tournament.platform.name }}
                     </div>
                     <h3 class="card-title">{{ tournament.name }}</h3>
 
@@ -177,6 +177,13 @@ import { AuthService } from '../auth/auth.service';
                       </div>
                     }
                   </div>
+
+                  <!-- Admin feature button -->
+                  @if (isAdmin) {
+                    <button class="feature-btn" [class.is-featured]="tournament.isFeatured" (click)="featureTournament($event, tournament.id)" title="Set as featured">
+                      <mat-icon>{{ tournament.isFeatured ? 'star' : 'star_border' }}</mat-icon>
+                    </button>
+                  }
 
                   <!-- Hover arrow -->
                   <div class="card-arrow">
@@ -817,6 +824,41 @@ import { AuthService } from '../auth/auth.service';
       }
     }
 
+    .feature-btn {
+      position: absolute;
+      top: 12px;
+      right: 12px;
+      width: 32px;
+      height: 32px;
+      border-radius: 8px;
+      border: none;
+      background: rgba(0, 0, 0, 0.5);
+      color: rgba(255, 255, 255, 0.4);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      z-index: 3;
+      transition: all 0.2s ease;
+      padding: 0;
+
+      mat-icon {
+        font-size: 18px;
+        width: 18px;
+        height: 18px;
+      }
+
+      &:hover {
+        background: rgba(0, 0, 0, 0.7);
+        color: #f0c850;
+      }
+
+      &.is-featured {
+        color: #f0c850;
+        background: rgba(240, 200, 80, 0.15);
+      }
+    }
+
     .card-arrow {
       position: absolute;
       bottom: 20px;
@@ -879,11 +921,10 @@ export class TournamentsListComponent implements OnInit {
   particles = Array.from({ length: 8 }, (_, i) => i);
 
   private gameImages: Record<string, string> = {
+    'Bo1': '/assets/games/bo1.webp',
     'Bo2': '/assets/games/bo2.webp',
-    'Bo3': '/assets/games/bo3.jpg',
-    'MW2': '/assets/games/mw2.jpg',
-    'MW3': '/assets/games/mw3.webp',
-    'Ghosts': '/assets/games/ghosts.webp',
+    'Mw2': '/assets/games/mw2.webp',
+    'Mw3': '/assets/games/mw3.webp',
   };
 
   constructor(
@@ -896,11 +937,12 @@ export class TournamentsListComponent implements OnInit {
   }
 
   get featuredTournament(): Tournament | null {
-    // Find an active tournament to feature
-    const active = this.tournaments.find(
+    const featured = this.tournaments.find(t => t.isFeatured);
+    if (featured) return featured;
+    // Fallback: first active tournament
+    return this.tournaments.find(
       t => t.status === 'REGISTRATION' || t.status === 'IN_PROGRESS'
-    );
-    return active || null;
+    ) || null;
   }
 
   ngOnInit(): void {
@@ -946,5 +988,13 @@ export class TournamentsListComponent implements OnInit {
       case 'CANCELLED': return 'Cancelled';
       default: return status;
     }
+  }
+
+  featureTournament(event: Event, tournamentId: string): void {
+    event.stopPropagation();
+    event.preventDefault();
+    this.tournamentsService.featureTournament(tournamentId).subscribe({
+      next: () => this.loadTournaments(),
+    });
   }
 }

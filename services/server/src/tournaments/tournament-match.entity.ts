@@ -9,7 +9,6 @@ import {
 } from 'typeorm';
 import { Tournament } from './tournament.entity';
 import { User } from '../users/user.entity';
-import { GameMap } from '../games/game-map.entity';
 
 export type TournamentMatchStatus = 'PENDING' | 'READY' | 'IN_PROGRESS' | 'COMPLETED';
 
@@ -62,12 +61,11 @@ export class TournamentMatch {
   @JoinColumn({ name: 'nextMatchId' })
   nextMatch: TournamentMatch;
 
-  @Column({ nullable: true })
-  gameMapId: string;
+  @Column({ default: false })
+  isBye: boolean;
 
-  @ManyToOne(() => GameMap, { nullable: true })
-  @JoinColumn({ name: 'gameMapId' })
-  gameMap: GameMap;
+  @Column({ type: 'jsonb', nullable: true })
+  gameMaps: { id: string; mapName: string }[];
 
   @CreateDateColumn()
   createdAt: Date;

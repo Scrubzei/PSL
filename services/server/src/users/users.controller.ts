@@ -14,31 +14,19 @@ export class UsersController {
   @Get()
   async findAll(@Query('username') username?: string) {
     if (username) {
-      const users = await this.usersService.searchByUsername(username);
-      return users.map(({ password, ...user }) => user);
+      return this.usersService.searchByUsername(username);
     }
-    const users = await this.usersService.findAll();
-    return users.map(({ password, ...user }) => user);
+    return this.usersService.findAll();
   }
 
   @Get('by-username/:username')
   async findByUsername(@Param('username') username: string) {
-    const user = await this.usersService.findByUsernameExact(username);
-    if (!user) {
-      return null;
-    }
-    const { password, ...result } = user;
-    return result;
+    return this.usersService.findByUsernameExact(username) ?? null;
   }
 
   @Get('by-discord/:discordId')
   async findByDiscordId(@Param('discordId') discordId: string) {
-    const user = await this.usersService.findByDiscordId(discordId);
-    if (!user) {
-      return null;
-    }
-    const { password, ...result } = user;
-    return result;
+    return this.usersService.findByDiscordId(discordId) ?? null;
   }
 
   @Get('by-discord/:discordId/stats')
@@ -48,21 +36,15 @@ export class UsersController {
       return null;
     }
     const dashboardStats = await this.usersService.getUserDashboardStats(user.id);
-    const { password, ...userWithoutPassword } = user;
     return {
-      user: userWithoutPassword,
+      user,
       stats: dashboardStats,
     };
   }
 
   @Get(':id')
   async findOne(@Param('id') id: string) {
-    const user = await this.usersService.findById(id);
-    if (!user) {
-      return null;
-    }
-    const { password, ...result } = user;
-    return result;
+    return this.usersService.findById(id) ?? null;
   }
 
   @Get(':id/stats')

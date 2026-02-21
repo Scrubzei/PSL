@@ -2,7 +2,8 @@ import { Events, Interaction } from 'discord.js';
 import { handleSelectMenu, handleButton } from '../commands/leaderboard.js';
 import { handleMapSelect, handleBestOfSelect, handleNavButton, handleChallengeResponse } from '../commands/chall.js';
 import { handleTournamentSelect } from '../commands/tournaments.js';
-import { handleAnnounceSelect, handleAnnounceButton } from '../commands/announce.js';
+import { handleAnnounceSelect } from '../commands/announce.js';
+import { handleBracketSelect, handleBracketRefresh } from '../commands/bracket.js';
 
 export const name = Events.InteractionCreate;
 export const once = false;
@@ -89,6 +90,16 @@ export async function execute(interaction: Interaction) {
       return;
     }
 
+    // Bracket selection
+    if (interaction.customId.startsWith('bracket_select_')) {
+      try {
+        await handleBracketSelect(interaction);
+      } catch (error) {
+        console.error('Error handling bracket select:', error);
+      }
+      return;
+    }
+
     return;
   }
 
@@ -116,16 +127,6 @@ export async function execute(interaction: Interaction) {
       return;
     }
 
-    // Announce signup button
-    if (interaction.customId.startsWith('announce_signup_')) {
-      try {
-        await handleAnnounceButton(interaction);
-      } catch (error) {
-        console.error('Error handling announce button:', error);
-      }
-      return;
-    }
-
     // Challenge accept/decline buttons
     if (interaction.customId.startsWith('chall_accept_') ||
         interaction.customId.startsWith('chall_decline_')) {
@@ -133,6 +134,16 @@ export async function execute(interaction: Interaction) {
         await handleChallengeResponse(interaction);
       } catch (error) {
         console.error('Error handling challenge response:', error);
+      }
+      return;
+    }
+
+    // Bracket refresh button
+    if (interaction.customId.startsWith('bracket_refresh_')) {
+      try {
+        await handleBracketRefresh(interaction);
+      } catch (error) {
+        console.error('Error handling bracket refresh:', error);
       }
       return;
     }

@@ -17,7 +17,13 @@
       "Bash(ssh slb:*)",
       "Bash(curl:*)",
       "Bash(magick:*)",
-      "Bash(git push:*)"
+      "Bash(git push:*)",
+      "Bash(git add:*)",
+      "Bash(git commit:*)",
+      "Bash(git tag:*)",
+      "Bash(gh run view:*)",
+      "Bash(gh release view:*)",
+      "Bash(xargs:*)"
     ],
     "deny": [],
     "ask": []

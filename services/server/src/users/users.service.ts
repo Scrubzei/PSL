@@ -4,8 +4,6 @@ import { Repository } from 'typeorm';
 import { User } from './user.entity';
 import { Match } from '../matches/match.entity';
 import { LeaderboardEntry } from '../leaderboards/leaderboard-entry.entity';
-import * as bcrypt from 'bcrypt';
-
 export interface UserProfileStats {
   totalWins: number;
   totalLosses: number;
@@ -65,28 +63,8 @@ export class UsersService {
     private leaderboardEntriesRepository: Repository<LeaderboardEntry>,
   ) {}
 
-  async create(email: string, password: string, username: string): Promise<User> {
-    const hashedPassword = await bcrypt.hash(password, 10);
-    const user = this.usersRepository.create({
-      email,
-      password: hashedPassword,
-      username,
-    });
-    return this.usersRepository.save(user);
-  }
-
-  async findByEmail(email: string): Promise<User | undefined> {
-    return this.usersRepository.findOne({ where: { email } });
-  }
-
   async findByUsername(username: string): Promise<User | undefined> {
     return this.usersRepository.findOne({ where: { username } });
-  }
-
-  async findByEmailOrUsername(identifier: string): Promise<User | undefined> {
-    return this.usersRepository.findOne({
-      where: [{ email: identifier }, { username: identifier }]
-    });
   }
 
   async findById(id: string): Promise<User | undefined> {
@@ -97,17 +75,8 @@ export class UsersService {
     return this.usersRepository.findOne({ where: { discordId } });
   }
 
-  async createFromDiscord(
-    discordId: string,
-    email: string,
-    discordAvatar: string | null,
-  ): Promise<User> {
-    const user = this.usersRepository.create({
-      discordId,
-      email,
-      discordAvatar,
-      // username and password are null for Discord-only users initially
-    });
+  async createFromDiscord(discordId: string): Promise<User> {
+    const user = this.usersRepository.create({ discordId });
     return this.usersRepository.save(user);
   }
 
@@ -120,13 +89,16 @@ export class UsersService {
     return this.usersRepository.save(user);
   }
 
-  async updateProfile(userId: string, data: { plutoniumUsername?: string }): Promise<User> {
+  async updateProfile(userId: string, data: { plutoniumUsername?: string; xboxGamertag?: string }): Promise<User> {
     const user = await this.findById(userId);
     if (!user) {
       throw new Error('User not found');
     }
     if (data.plutoniumUsername !== undefined) {
       user.plutoniumUsername = data.plutoniumUsername;
+    }
+    if (data.xboxGamertag !== undefined) {
+      user.xboxGamertag = data.xboxGamertag;
     }
     return this.usersRepository.save(user);
   }

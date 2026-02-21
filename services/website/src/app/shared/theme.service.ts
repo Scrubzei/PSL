@@ -8,27 +8,16 @@ const PLATFORM_KEY = 'selected_platform';
   providedIn: 'root'
 })
 export class ThemeService {
-  currentPlatform = signal<Platform>('Plutonium');
+  currentPlatform = signal<Platform>('PS3');
 
   setPlatform(platform: Platform): void {
     this.currentPlatform.set(platform);
     localStorage.setItem(PLATFORM_KEY, platform);
-    this.applyTheme(platform);
-  }
-
-  private applyTheme(platform: Platform): void {
-    const body = document.body;
-
-    // Remove existing platform classes
-    body.classList.remove('theme-plutonium', 'theme-iw4x', 'theme-xbox', 'theme-ps3', 'theme-gold');
-
-    // Add new platform class
-    body.classList.add(`theme-${platform.toLowerCase()}`);
+    // Always keep PS3 blue theme
   }
 
   applyGoldTheme(): void {
     const body = document.body;
-    body.classList.remove('theme-plutonium', 'theme-iw4x', 'theme-xbox', 'theme-ps3');
     body.classList.add('theme-gold');
   }
 
@@ -44,6 +33,5 @@ export class ThemeService {
     if (saved && ['Plutonium', 'IW4X', 'Xbox', 'PS3'].includes(saved)) {
       this.currentPlatform.set(saved);
     }
-    this.applyTheme(this.currentPlatform());
   }
 }

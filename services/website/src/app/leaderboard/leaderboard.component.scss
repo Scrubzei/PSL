@@ -173,37 +173,12 @@
     background: rgba(255, 255, 255, 0.05);
   }
 
-  // Platform-specific active colors
-  &.active.xbox {
-    background: #107C10;
+  &.active {
+    background: #2563EB;
     border-color: transparent;
     color: white;
     font-weight: 700;
-    box-shadow: 0 4px 20px rgba(16, 124, 16, 0.4);
-  }
-
-  &.active.ps3 {
-    background: #003791;
-    border-color: transparent;
-    color: white;
-    font-weight: 700;
-    box-shadow: 0 4px 20px rgba(0, 55, 145, 0.4);
-  }
-
-  &.active.plutonium {
-    background: #bf2120;
-    border-color: transparent;
-    color: white;
-    font-weight: 700;
-    box-shadow: 0 4px 20px rgba(191, 33, 32, 0.4);
-  }
-
-  &.active.iw4x {
-    background: #7C3AED;
-    border-color: transparent;
-    color: white;
-    font-weight: 700;
-    box-shadow: 0 4px 20px rgba(124, 58, 237, 0.4);
+    box-shadow: 0 4px 20px rgba(37, 99, 235, 0.4);
   }
 }
 

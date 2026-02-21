@@ -16,7 +16,6 @@ interface UserStatsResponse {
     id: string;
     username: string;
     avatar?: string;
-    discordAvatar?: string;
   };
   stats: {
     level: number;
@@ -81,7 +80,7 @@ export async function execute(interaction: ChatInputCommandInteraction) {
     const { generateRankCard } = await loadRankCardGenerator();
     const cardBuffer = await generateRankCard({
       username: user.username || 'Unknown',
-      avatar: user.avatar || user.discordAvatar || targetUser.displayAvatarURL({ extension: 'png', size: 256 }),
+      avatar: user.avatar || targetUser.displayAvatarURL({ extension: 'png', size: 256 }),
       level: stats.level || 1,
       totalXp: stats.totalXp || 0,
       totalWins: stats.totalWins || 0,

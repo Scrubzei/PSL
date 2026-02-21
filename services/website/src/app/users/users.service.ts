@@ -5,7 +5,6 @@ import { environment } from '../../environments/environment';
 
 export interface UserProfile {
   id: string;
-  email: string;
   username: string;
   avatar?: string;
   goldTrophies: number;
@@ -104,7 +103,7 @@ export class UsersService {
     });
   }
 
-  updateProfile(data: { plutoniumUsername?: string }): Observable<any> {
+  updateProfile(data: { plutoniumUsername?: string; xboxGamertag?: string }): Observable<any> {
     return this.http.patch(`${environment.apiUrl}/auth/profile`, data);
   }
 

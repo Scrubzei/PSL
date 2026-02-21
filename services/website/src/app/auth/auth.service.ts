@@ -9,27 +9,16 @@ export type UserRole = 'player' | 'ref' | 'admin';
 
 export interface User {
   id: string;
-  email: string;
   username: string | null;
   role: UserRole;
   avatar?: string;
   plutoniumUsername?: string | null;
+  xboxGamertag?: string | null;
 }
 
 export interface AuthResponse {
   access_token: string;
   user: User;
-}
-
-export interface LoginRequest {
-  identifier: string;
-  password: string;
-}
-
-export interface RegisterRequest {
-  email: string;
-  password: string;
-  username: string;
 }
 
 export interface PendingAuthAction {
@@ -67,18 +56,6 @@ export class AuthService {
     this.loadUserFromToken();
   }
 
-  register(data: RegisterRequest): Observable<AuthResponse> {
-    return this.http.post<AuthResponse>(`${this.API_URL}/register`, data).pipe(
-      tap(response => this.handleAuthResponse(response))
-    );
-  }
-
-  login(data: LoginRequest): Observable<AuthResponse> {
-    return this.http.post<AuthResponse>(`${this.API_URL}/login`, data).pipe(
-      tap(response => this.handleAuthResponse(response))
-    );
-  }
-
   logout(): void {
     localStorage.removeItem(this.TOKEN_KEY);
     this.currentUser.set(null);
@@ -92,23 +69,6 @@ export class AuthService {
 
   isAuthenticated(): boolean {
     return !!this.getToken();
-  }
-
-  private handleAuthResponse(response: AuthResponse): void {
-    localStorage.setItem(this.TOKEN_KEY, response.access_token);
-    this.currentUser.set(response.user);
-    // Clear old notifications and refresh for the new user
-    this.notificationsService.clearNotifications();
-    this.notificationsService.refreshNotifications();
-
-    // Check for pending match redirect
-    const pendingRedirect = localStorage.getItem('pendingMatchRedirect');
-    if (pendingRedirect) {
-      localStorage.removeItem('pendingMatchRedirect');
-      this.router.navigate([pendingRedirect]);
-    } else {
-      this.router.navigate(['/dashboard']);
-    }
   }
 
   private loadUserFromToken(): void {

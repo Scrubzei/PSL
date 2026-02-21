@@ -6,7 +6,6 @@ import { AuthService } from './auth.service';
 import { AuthController } from './auth.controller';
 import { UsersModule } from '../users/users.module';
 
-import { LocalStrategy } from './strategies/local.strategy';
 import { JwtStrategy } from './strategies/jwt.strategy';
 import { DiscordStrategy } from './strategies/discord.strategy';
 
@@ -25,7 +24,7 @@ import { DiscordStrategy } from './strategies/discord.strategy';
     }),
   ],
   controllers: [AuthController],
-  providers: [AuthService, LocalStrategy, JwtStrategy, DiscordStrategy],
+  providers: [AuthService, JwtStrategy, DiscordStrategy],
   exports: [AuthService],
 })
 export class AuthModule {}

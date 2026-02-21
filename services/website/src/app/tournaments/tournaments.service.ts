@@ -18,6 +18,10 @@ export interface Tournament {
   startDate: string | null;
   roundDeadlines: { name: string; deadline: string | null }[] | null;
   prizePool: { place: number; prize: string }[] | null;
+  howItWorks: string | null;
+  disqualifications: string[] | null;
+  sponsors: { name: string; url?: string }[] | null;
+  isFeatured: boolean;
   createdAt: string;
   updatedAt: string;
   game: { id: string; name: string };
@@ -36,6 +40,11 @@ export interface TournamentDetail extends Tournament {
   }[];
 }
 
+export interface GameMap {
+  id: string;
+  mapName: string;
+}
+
 export interface TournamentMatch {
   id: string;
   round: number;
@@ -45,7 +54,8 @@ export interface TournamentMatch {
   player1: { id: string; username: string } | null;
   player2: { id: string; username: string } | null;
   winner: { id: string; username: string } | null;
-  gameMap?: { id: string; mapName: string } | null;
+  gameMaps?: GameMap[];
+  isBye?: boolean;
 }
 
 export interface MyMatch {
@@ -56,7 +66,8 @@ export interface MyMatch {
   player1: { id: string; username: string } | null;
   player2: { id: string; username: string } | null;
   winner: { id: string; username: string } | null;
-  gameMap: { id: string; mapName: string } | null;
+  gameMaps?: GameMap[];
+  isBye?: boolean;
 }
 
 export interface MyMatchResponse {
@@ -71,7 +82,7 @@ export interface ActiveTournamentMatch {
     status: string;
     player1: { id: string; username: string } | null;
     player2: { id: string; username: string } | null;
-    gameMap: { id: string; mapName: string } | null;
+    gameMaps?: GameMap[];
   };
   tournament: {
     id: string;
@@ -98,6 +109,10 @@ export interface CreateTournamentDto {
   registrationDeadline?: string;
   startDate?: string;
   roundDeadlines?: { name: string; deadline: string | null }[];
+  howItWorks?: string;
+  disqualifications?: string[];
+  sponsors?: { name: string; url?: string }[];
+  isFeatured?: boolean;
 }
 
 @Injectable({ providedIn: 'root' })
@@ -130,6 +145,14 @@ export class TournamentsService {
     return this.http.get<BracketResponse>(`${this.API_URL}/${tournamentId}/bracket`);
   }
 
+  featureTournament(tournamentId: string): Observable<Tournament> {
+    return this.http.patch<Tournament>(`${this.API_URL}/${tournamentId}/feature`, {});
+  }
+
+  updateSeeds(tournamentId: string, participantIds: string[]): Observable<any> {
+    return this.http.patch(`${this.API_URL}/${tournamentId}/seed`, { participantIds });
+  }
+
   startTournament(tournamentId: string): Observable<Tournament> {
     return this.http.post<Tournament>(`${this.API_URL}/${tournamentId}/start`, {});
   }
@@ -146,5 +169,13 @@ export class TournamentsService {
 
   getActiveMatches(): Observable<ActiveTournamentMatch[]> {
     return this.http.get<ActiveTournamentMatch[]>(`${this.API_URL}/user/active-matches`);
+  }
+
+  updateMatchMaps(matchId: string, mapIds: string[], gameId: string): Observable<any> {
+    return this.http.patch(`${this.API_URL}/matches/${matchId}/maps`, { mapIds, gameId });
+  }
+
+  getGameMaps(gameName: string): Observable<GameMap[]> {
+    return this.http.get<GameMap[]>(`${environment.apiUrl}/games/${gameName}/maps`);
   }
 }

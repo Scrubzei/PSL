@@ -2,8 +2,6 @@ import { Injectable, ConflictException, BadRequestException, NotFoundException, 
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
 import { UsersService } from '../users/users.service';
-import * as bcrypt from 'bcrypt';
-import { RegisterDto } from './dto/register.dto';
 import { validateUsername } from './utils/username-validator';
 
 @Injectable()
@@ -14,22 +12,12 @@ export class AuthService {
     private configService: ConfigService,
   ) {}
 
-  async validateUser(identifier: string, password: string): Promise<any> {
-    const user = await this.usersService.findByEmailOrUsername(identifier);
-    if (user && await bcrypt.compare(password, user.password)) {
-      const { password: _, ...result } = user;
-      return result;
-    }
-    return null;
-  }
-
   async login(user: any) {
-    const payload = { email: user.email, sub: user.id, role: user.role };
+    const payload = { sub: user.id, role: user.role };
     return {
       access_token: this.jwtService.sign(payload),
       user: {
         id: user.id,
-        email: user.email,
         username: user.username,
         role: user.role,
         avatar: user.avatar,
@@ -37,26 +25,8 @@ export class AuthService {
     };
   }
 
-  async register(registerDto: RegisterDto) {
-    const existingUser = await this.usersService.findByEmail(registerDto.email);
-    if (existingUser) {
-      throw new ConflictException('Email already exists');
-    }
-
-    const user = await this.usersService.create(
-      registerDto.email,
-      registerDto.password,
-      registerDto.username,
-    );
-
-    const { password, ...result } = user;
-    return this.login(result);
-  }
-
   async validateDiscordLogin(profile: {
     discordId: string;
-    email: string;
-    avatar: string | null;
     accessToken: string;
   }) {
     // Add user to Discord server
@@ -66,15 +36,6 @@ export class AuthService {
     let user = await this.usersService.findByDiscordId(profile.discordId);
 
     if (user) {
-      // Existing user - update avatar if changed
-      if (profile.avatar && user.discordAvatar !== profile.avatar) {
-        user.discordAvatar = profile.avatar;
-        // Use avatar from Discord if no custom avatar set
-        if (!user.avatar) {
-          user.avatar = profile.avatar;
-        }
-      }
-
       const needsUsername = !user.username;
       const loginResult = await this.login(user);
 
@@ -84,34 +45,8 @@ export class AuthService {
       };
     }
 
-    // Check if email already exists (user registered via email/password)
-    const existingEmailUser = await this.usersService.findByEmail(profile.email);
-    if (existingEmailUser) {
-      // Link Discord to existing account
-      existingEmailUser.discordId = profile.discordId;
-      existingEmailUser.discordAvatar = profile.avatar;
-      if (!existingEmailUser.avatar && profile.avatar) {
-        existingEmailUser.avatar = profile.avatar;
-      }
-
-      const loginResult = await this.login(existingEmailUser);
-      return {
-        ...loginResult,
-        needsUsername: !existingEmailUser.username,
-      };
-    }
-
     // New user - create account
-    user = await this.usersService.createFromDiscord(
-      profile.discordId,
-      profile.email,
-      profile.avatar,
-    );
-
-    // Set avatar to Discord avatar for new users
-    if (profile.avatar) {
-      user.avatar = profile.avatar;
-    }
+    user = await this.usersService.createFromDiscord(profile.discordId);
 
     const loginResult = await this.login(user);
 
@@ -170,15 +105,13 @@ export class AuthService {
 
     // Set username
     const user = await this.usersService.setUsername(userId, username);
-    const { password, ...result } = user;
 
     return {
       user: {
-        id: result.id,
-        email: result.email,
-        username: result.username,
-        role: result.role,
-        avatar: result.avatar,
+        id: user.id,
+        username: user.username,
+        role: user.role,
+        avatar: user.avatar,
       },
     };
   }

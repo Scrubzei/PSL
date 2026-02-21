@@ -1,4 +1,4 @@
-import { Client, Collection, GatewayIntentBits, REST, Routes } from 'discord.js';
+import { AttachmentBuilder, Client, Collection, ChannelType, GatewayIntentBits, REST, Routes } from 'discord.js';
 import { config } from 'dotenv';
 import { readdirSync } from 'fs';
 import { join, dirname } from 'path';
@@ -128,104 +128,75 @@ app.post('/api/dm', authMiddleware, async (req: express.Request, res: express.Re
   }
 });
 
-// Tournament signup DM
+// Tournament signup channel announcement
 app.post('/api/dm/tournament-signup', authMiddleware, async (req: express.Request, res: express.Response) => {
-  console.log('[Botzei] Received tournament signup DM request:', JSON.stringify(req.body));
+  console.log('[Botzei] Received tournament signup request:', JSON.stringify(req.body));
   try {
-    const { discordId, username, tournamentName, tournamentId, spotsLeft, maxParticipants, startDate, roundDeadlines } = req.body;
+    const { discordId, username, tournamentName, tournamentId } = req.body;
 
     if (!discordId) {
       return res.status(400).json({ error: 'discordId is required' });
     }
 
-    const user = await client.users.fetch(discordId);
-    if (!user) {
-      return res.status(404).json({ error: 'User not found' });
-    }
-
     const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:4200';
+    const tournamentUrl = `${frontendUrl}/tournaments/${tournamentId}`;
 
-    const fields: { name: string; value: string; inline?: boolean }[] = [
-      {
-        name: 'Spots Filled',
-        value: `${maxParticipants - spotsLeft}/${maxParticipants}`,
-        inline: true,
-      },
-      {
-        name: 'Spots Remaining',
-        value: `${spotsLeft}`,
-        inline: true,
-      },
-    ];
-
-    // Add start date
-    if (startDate) {
-      const d = new Date(startDate);
-      fields.push({
-        name: 'Tournament Starts',
-        value: d.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' }),
-      });
+    // Find the signups and general channels across all guilds
+    let signupChannel = null;
+    let generalChannel = null;
+    for (const guild of client.guilds.cache.values()) {
+      if (!signupChannel) {
+        const found = guild.channels.cache.find(
+          (ch) => ch.name === '༝︱signups' && ch.type === ChannelType.GuildText
+        );
+        if (found) signupChannel = found;
+      }
+      if (!generalChannel) {
+        const found = guild.channels.cache.find(
+          (ch) => ch.name === '༝︱general' && ch.type === ChannelType.GuildText
+        );
+        if (found) generalChannel = found;
+      }
     }
 
-    // Add round schedule
-    if (roundDeadlines && roundDeadlines.length > 0) {
-      const scheduleLines = roundDeadlines.map((r: { name: string; deadline: string | null }) => {
-        if (r.deadline) {
-          const d = new Date(r.deadline);
-          return `**${r.name}** — ${d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}`;
-        }
-        return `**${r.name}** — TBD`;
-      });
-      fields.push({
-        name: '📅 Schedule',
-        value: scheduleLines.join('\n'),
-      });
+    if (!signupChannel || !signupChannel.isTextBased()) {
+      return res.status(404).json({ error: 'signups channel not found' });
     }
 
-    // Add info about refs and no-shows
-    fields.push({
-      name: '📋 How It Works',
-      value: 'Once the tournament starts, refs will help you schedule your matches. Each player picks a map and both agree on a third — if they can\'t agree, the website will randomly select it. If a time is agreed upon and a player fails to show, they may be disqualified.',
-    });
-
-    const embed = {
-      color: 0x4caf50,
-      title: '🎮 Tournament Registration Confirmed!',
-      description: `You've successfully signed up for **${tournamentName}**!`,
-      fields,
-      footer: {
-        text: '1v1 Leaderboards',
-      },
-      timestamp: new Date().toISOString(),
+    const buildMessage = async () => {
+      const logoPath = join(__dirname, 'assets', 'logo.png');
+      const logoAttachment = new AttachmentBuilder(logoPath, { name: 'logo.png' });
+      const { createCanvas } = await import('canvas');
+      const spacer = createCanvas(400, 1);
+      const spacerAttachment = new AttachmentBuilder(spacer.toBuffer('image/png'), { name: 'spacer.png' });
+      return {
+        embeds: [{
+          color: 0x4caf50,
+          author: {
+            name: '1v1 Leaderboards',
+            icon_url: 'attachment://logo.png',
+          },
+          description: `<@${discordId}> signed up for **${tournamentName}**\n\n[View Tournament](${tournamentUrl})`,
+          image: { url: 'attachment://spacer.png' },
+        }],
+        files: [logoAttachment, spacerAttachment],
+      };
     };
 
-    await user.send({
-      content: `Hey ${username}! 👋`,
-      embeds: [embed],
-      components: [
-        {
-          type: 1,
-          components: [
-            {
-              type: 2,
-              style: 5,
-              label: 'View Tournament',
-              url: `${frontendUrl}/tournaments/${tournamentId}`,
-            },
-          ],
-        },
-      ],
-    });
+    await signupChannel.send(await buildMessage());
+
+    if (generalChannel && generalChannel.isTextBased()) {
+      try {
+        await generalChannel.send(await buildMessage());
+      } catch (err) {
+        console.error('[Botzei] Failed to post signup in general:', err);
+      }
+    }
 
     res.json({ success: true });
   } catch (error: any) {
-    console.error('Error sending tournament signup DM:', error);
-
-    if (error.code === 50007) {
-      return res.status(400).json({ error: 'Cannot send DM to this user (DMs disabled)' });
-    }
-
-    res.status(500).json({ error: error.message || 'Failed to send DM' });
+    console.error('Error sending tournament signup announcement:', error);
+    res.status(500).json({ error: error.message || 'Failed to send announcement' });
   }
 });
 

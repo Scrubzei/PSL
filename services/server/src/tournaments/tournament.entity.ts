@@ -58,6 +58,18 @@ export class Tournament {
   @Column({ type: 'jsonb', nullable: true })
   prizePool: { place: number; prize: string }[];
 
+  @Column({ nullable: true })
+  howItWorks: string;
+
+  @Column({ type: 'jsonb', nullable: true })
+  sponsors: { name: string; url?: string }[];
+
+  @Column({ type: 'jsonb', nullable: true })
+  disqualifications: string[];
+
+  @Column({ default: false })
+  isFeatured: boolean;
+
   @ManyToOne(() => Game)
   @JoinColumn({ name: 'gameId' })
   game: Game;

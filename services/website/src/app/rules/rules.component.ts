@@ -1,80 +1,114 @@
-import { Component } from '@angular/core';
+import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { ActivatedRoute, Router } from '@angular/router';
+import { MatIconModule } from '@angular/material/icon';
 
 @Component({
   selector: 'app-rules',
   standalone: true,
-  imports: [CommonModule],
+  imports: [CommonModule, MatIconModule],
   template: `
     <div class="page-wrapper">
       <div class="rules-container">
-        <h1>Black Ops 2 — 1v1 Rules</h1>
+        <h1>1v1 Rules</h1>
 
-        <section>
-          <h2>Free For All Settings</h2>
-          <div class="settings-grid">
-            <div class="setting"><span class="setting-label">Time Limit</span><span class="setting-value">Unlimited</span></div>
-            <div class="setting"><span class="setting-label">Score Limit</span><span class="setting-value">20 Points</span></div>
-            <div class="setting"><span class="setting-label">Hardcore</span><span class="setting-value">Off</span></div>
+        <div class="game-tabs">
+          <button
+            class="game-tab"
+            [class.active]="activeGame === 'bo2'"
+            (click)="setGame('bo2')">
+            Black Ops 2
+          </button>
+          <button
+            class="game-tab"
+            [class.active]="activeGame === 'mw2'"
+            (click)="setGame('mw2')">
+            Modern Warfare 2
+          </button>
+        </div>
+
+        <!-- BO2 Rules -->
+        @if (activeGame === 'bo2') {
+          <section>
+            <h2>Free For All Settings</h2>
+            <div class="settings-grid">
+              <div class="setting"><span class="setting-label">Time Limit</span><span class="setting-value">Unlimited</span></div>
+              <div class="setting"><span class="setting-label">Score Limit</span><span class="setting-value">20 Points</span></div>
+              <div class="setting"><span class="setting-label">Hardcore</span><span class="setting-value">Off</span></div>
+            </div>
+            <p class="note">*Spawntrapping on Nuketown has a score limit of 50 points</p>
+          </section>
+
+          <section>
+            <h2>Health & Damage</h2>
+            <div class="settings-grid">
+              <div class="setting"><span class="setting-label">Health</span><span class="setting-value">30%</span></div>
+              <div class="setting"><span class="setting-label">Health Regeneration</span><span class="setting-value">Normal</span></div>
+              <div class="setting"><span class="setting-label">Headshots Only</span><span class="setting-value">No</span></div>
+              <div class="setting"><span class="setting-label">Hit Indicator</span><span class="setting-value">On</span></div>
+            </div>
+          </section>
+
+          <section>
+            <h2>General Settings</h2>
+            <div class="settings-grid">
+              <div class="setting"><span class="setting-label">Scorestreaks</span><span class="setting-value">Not Allowed</span></div>
+              <div class="setting"><span class="setting-label">Pre-Match Timer</span><span class="setting-value">15 Seconds</span></div>
+              <div class="setting"><span class="setting-label">Pre-Round Timer</span><span class="setting-value">5 Seconds</span></div>
+              <div class="setting"><span class="setting-label">Auto Team Balance</span><span class="setting-value">Off</span></div>
+              <div class="setting"><span class="setting-label">Team Change In-Game</span><span class="setting-value">Allowed</span></div>
+              <div class="setting"><span class="setting-label">Dynamic Map Elements</span><span class="setting-value">Yes</span></div>
+              <div class="setting"><span class="setting-label">Killcam</span><span class="setting-value">Disabled (Enabled if non-spawntrapping)</span></div>
+              <div class="setting"><span class="setting-label">3rd Person Spectating</span><span class="setting-value">Allowed</span></div>
+              <div class="setting"><span class="setting-label">CODcasting</span><span class="setting-value">Allowed</span></div>
+              <div class="setting"><span class="setting-label">Minimap</span><span class="setting-value">Constant</span></div>
+              <div class="setting"><span class="setting-label">Scorestreak Delay</span><span class="setting-value">Off</span></div>
+            </div>
+          </section>
+
+          <section>
+            <h2>Warnings</h2>
+            <p class="section-desc">The following will result in a warning. Two warnings will result in a disqualification.</p>
+            <ul>
+              <li>Incorrect rules and setup</li>
+              <li>Illegal class setup</li>
+              <li>Spawning out and spawning back in / killing yourself with ammo</li>
+              <li>Using or throwing equipment that corrupts the game (e.g. throwing a C4 into a spawn to prevent a player from spawning there)</li>
+              <li>Reload cancelling (unless you're in a spawntrap)</li>
+              <li>Stalling the match by avoiding all engagements (Ring/Rose)</li>
+              <li>Lean (unless you're spawntrapping)</li>
+              <li>Fast spawning</li>
+            </ul>
+          </section>
+
+          <section>
+            <h2>Disqualifications</h2>
+            <p class="section-desc">The following will result in a disqualification:</p>
+            <ul>
+              <li>Glitch snaking</li>
+              <li>Killing with an illegal setup, rules, or class</li>
+              <li>Killing a player not participating in the match</li>
+              <li>Hardscoping, hardscope jumpshots, relapse shots</li>
+              <li>Killing a player with explosive objects on the map (barrels, cars, tanks) is legal, but only if the explosion was caused by a sniper</li>
+              <li>Any form of cheating that gives you an unfair advantage — hacking/mods, IP flooding/DDoS, manipulating in-game mechanics/glitching, or assistance from a non-competing player</li>
+              <li>Refusing a PC check or screen share request from a ref</li>
+            </ul>
+          </section>
+        }
+
+        <!-- MW2 Rules -->
+        @if (activeGame === 'mw2') {
+          <div class="coming-soon">
+            <mat-icon>construction</mat-icon>
+            <h2>Rules are being built</h2>
+            <p>The full Modern Warfare 2 ruleset will be released March 1st.</p>
           </div>
-          <p class="note">*Spawntrapping on Nuketown has a score limit of 50 points</p>
-        </section>
+        }
 
-        <section>
-          <h2>Health & Damage</h2>
-          <div class="settings-grid">
-            <div class="setting"><span class="setting-label">Health</span><span class="setting-value">30%</span></div>
-            <div class="setting"><span class="setting-label">Health Regeneration</span><span class="setting-value">Normal</span></div>
-            <div class="setting"><span class="setting-label">Headshots Only</span><span class="setting-value">No</span></div>
-            <div class="setting"><span class="setting-label">Hit Indicator</span><span class="setting-value">On</span></div>
-          </div>
-        </section>
-
-        <section>
-          <h2>General Settings</h2>
-          <div class="settings-grid">
-            <div class="setting"><span class="setting-label">Scorestreaks</span><span class="setting-value">Not Allowed</span></div>
-            <div class="setting"><span class="setting-label">Pre-Match Timer</span><span class="setting-value">15 Seconds</span></div>
-            <div class="setting"><span class="setting-label">Pre-Round Timer</span><span class="setting-value">5 Seconds</span></div>
-            <div class="setting"><span class="setting-label">Auto Team Balance</span><span class="setting-value">Off</span></div>
-            <div class="setting"><span class="setting-label">Team Change In-Game</span><span class="setting-value">Allowed</span></div>
-            <div class="setting"><span class="setting-label">Dynamic Map Elements</span><span class="setting-value">Yes</span></div>
-            <div class="setting"><span class="setting-label">Killcam</span><span class="setting-value">Disabled (Enabled if non-spawntrapping)</span></div>
-            <div class="setting"><span class="setting-label">3rd Person Spectating</span><span class="setting-value">Allowed</span></div>
-            <div class="setting"><span class="setting-label">CODcasting</span><span class="setting-value">Allowed</span></div>
-            <div class="setting"><span class="setting-label">Minimap</span><span class="setting-value">Constant</span></div>
-            <div class="setting"><span class="setting-label">Scorestreak Delay</span><span class="setting-value">Off</span></div>
-          </div>
-        </section>
-
-        <section>
-          <h2>Warnings</h2>
-          <p class="section-desc">The following will result in a warning. Two warnings will result in a disqualification.</p>
-          <ul>
-            <li>Incorrect rules and setup</li>
-            <li>Illegal class setup</li>
-            <li>Spawning out and spawning back in / killing yourself with ammo</li>
-            <li>Using or throwing equipment that corrupts the game (e.g. throwing a C4 into a spawn to prevent a player from spawning there)</li>
-            <li>Reload cancelling (unless you're in a spawntrap)</li>
-            <li>Stalling the match by avoiding all engagements (Ring/Rose)</li>
-            <li>Lean (unless you're spawntrapping)</li>
-            <li>Fast spawning</li>
-          </ul>
-        </section>
-
-        <section>
-          <h2>Disqualifications</h2>
-          <p class="section-desc">The following will result in a disqualification:</p>
-          <ul>
-            <li>Glitch snaking</li>
-            <li>Killing with an illegal setup, rules, or class</li>
-            <li>Killing a player not participating in the match</li>
-            <li>Hardscoping, hardscope jumpshots, relapse shots</li>
-            <li>Killing a player with explosive objects on the map (barrels, cars, tanks) is legal, but only if the explosion was caused by a sniper</li>
-            <li>Any form of cheating that gives you an unfair advantage — hacking/mods, IP flooding/DDoS, manipulating in-game mechanics/glitching, or assistance from a non-competing player</li>
-          </ul>
-        </section>
-        <p class="disclaimer">Rules are subject to change. Not all situations are covered here.</p>
+        @if (activeGame === 'bo2') {
+          <p class="disclaimer">A ref may request a PC check or screen share at any time. Failure to comply will result in a disqualification.</p>
+          <p class="disclaimer">Rules are subject to change. Not all situations are covered here.</p>
+        }
       </div>
     </div>
   `,
@@ -189,6 +223,67 @@ import { CommonModule } from '@angular/common';
       color: rgba(255, 255, 255, 0.5);
     }
 
+    .game-tabs {
+      display: flex;
+      gap: 8px;
+      margin-bottom: 32px;
+    }
+
+    .game-tab {
+      padding: 10px 24px;
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: 10px;
+      background: rgba(255, 255, 255, 0.02);
+      color: rgba(255, 255, 255, 0.5);
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      font-family: inherit;
+
+      &:hover {
+        border-color: rgba(255, 255, 255, 0.2);
+        color: white;
+        background: rgba(255, 255, 255, 0.05);
+      }
+
+      &.active {
+        background: #2563EB;
+        border-color: transparent;
+        color: white;
+        box-shadow: 0 4px 20px rgba(37, 99, 235, 0.4);
+      }
+    }
+
+    .coming-soon {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      text-align: center;
+      padding: 60px 20px;
+
+      mat-icon {
+        font-size: 48px;
+        width: 48px;
+        height: 48px;
+        color: rgba(255, 255, 255, 0.15);
+        margin-bottom: 16px;
+      }
+
+      h2 {
+        border: none;
+        padding: 0;
+        margin: 0 0 8px;
+        color: rgba(255, 255, 255, 0.8);
+      }
+
+      p {
+        margin: 0;
+        font-size: 14px;
+        color: rgba(255, 255, 255, 0.4);
+      }
+    }
+
     .disclaimer {
       margin: 40px 0 0;
       padding-top: 24px;
@@ -206,7 +301,37 @@ import { CommonModule } from '@angular/common';
       h1 {
         font-size: 28px;
       }
+
+      .game-tab {
+        flex: 1;
+        text-align: center;
+      }
     }
   `]
 })
-export class RulesComponent {}
+export class RulesComponent implements OnInit {
+  activeGame: 'bo2' | 'mw2' = 'bo2';
+
+  constructor(
+    private route: ActivatedRoute,
+    private router: Router
+  ) {}
+
+  ngOnInit(): void {
+    this.route.queryParams.subscribe(params => {
+      const game = params['game'];
+      if (game === 'bo2' || game === 'mw2') {
+        this.activeGame = game;
+      }
+    });
+  }
+
+  setGame(game: 'bo2' | 'mw2'): void {
+    this.activeGame = game;
+    this.router.navigate([], {
+      relativeTo: this.route,
+      queryParams: { game },
+      queryParamsHandling: 'merge'
+    });
+  }
+}

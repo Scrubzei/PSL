@@ -9,9 +9,6 @@ import { HallOfFameService } from './shared/hall-of-fame.service';
 import { NavbarComponent } from './shared/navbar.component';
 import { WelcomeModalComponent } from './shared/welcome-modal.component';
 
-import { ActiveMatchModalComponent } from './shared/active-match-modal.component';
-import { TournamentsService } from './tournaments/tournaments.service';
-import { AuthService } from './auth/auth.service';
 import { filter } from 'rxjs/operators';
 
 interface HallOfFamePlayer {
@@ -430,8 +427,6 @@ export class AppComponent implements OnInit {
     public hofService: HallOfFameService,
     private router: Router,
     private dialog: MatDialog,
-    private tournamentsService: TournamentsService,
-    private authService: AuthService,
   ) {
     // Register Material Symbols font
     this.iconRegistry.setDefaultFontSetClass('material-symbols-outlined');
@@ -441,14 +436,6 @@ export class AppComponent implements OnInit {
     effect(() => {
       if (this.hofService.isOpen()) {
         this.openHof();
-      }
-    });
-
-    // Check for active matches when user becomes available
-    effect(() => {
-      const user = this.authService.currentUser();
-      if (user) {
-        this.checkForActiveMatches();
       }
     });
 
@@ -465,59 +452,6 @@ export class AppComponent implements OnInit {
   ngOnInit(): void {
     this.themeService.init();
     this.showWelcomeModal();
-  }
-
-  private activeMatchCheckDone = false;
-
-  private checkForActiveMatches(): void {
-    // Only run once per session
-    if (this.activeMatchCheckDone) {
-      return;
-    }
-    this.activeMatchCheckDone = true;
-
-    // Check if we've shown the modal recently (avoid spamming on every page load)
-    const lastShown = localStorage.getItem('activeMatchModalLastShown');
-    const now = Date.now();
-    const oneHour = 60 * 60 * 1000;
-
-    if (lastShown && (now - parseInt(lastShown, 10)) < oneHour) {
-      return;
-    }
-
-    this.tournamentsService.getActiveMatches().subscribe({
-      next: (matches) => {
-        if (matches.length > 0) {
-          // Show modal for the first active match
-          setTimeout(() => {
-            this.showActiveMatchModal(matches[0]);
-          }, 1000); // Delay to let other modals finish
-        }
-      },
-      error: () => {
-        // Silently fail - user might not be authenticated
-      }
-    });
-  }
-
-  private showActiveMatchModal(matchData: any): void {
-    // Don't show if we're already on a tournament page
-    if (this.router.url.includes('/tournaments/')) {
-      return;
-    }
-
-    const dialogRef = this.dialog.open(ActiveMatchModalComponent, {
-      panelClass: 'active-match-dialog',
-      autoFocus: false,
-      data: {
-        ...matchData,
-        currentUserId: this.authService.currentUser()?.id
-      }
-    });
-
-    dialogRef.afterClosed().subscribe(() => {
-      localStorage.setItem('activeMatchModalLastShown', Date.now().toString());
-    });
   }
 
   private showWelcomeModal(): void {
@@ -540,7 +474,6 @@ export class AppComponent implements OnInit {
   private openHof(): void {
     // Add slow transition first, then gold theme
     document.body.classList.add('slow-transition');
-    document.body.classList.remove('theme-xbox', 'theme-ps3', 'theme-plutonium');
 
     // Small delay to ensure transition is applied before color change
     requestAnimationFrame(() => {

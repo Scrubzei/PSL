@@ -3,6 +3,7 @@ import {
   IsUUID,
   IsString,
   IsNumber,
+  IsBoolean,
   Min,
   Max,
   IsOptional,
@@ -84,4 +85,21 @@ export class CreateTournamentDto {
   @ValidateNested({ each: true })
   @Type(() => PrizeEntryDto)
   prizePool?: PrizeEntryDto[];
+
+  @IsOptional()
+  @IsString()
+  howItWorks?: string;
+
+  @IsOptional()
+  @IsArray()
+  sponsors?: { name: string; url?: string }[];
+
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  disqualifications?: string[];
+
+  @IsOptional()
+  @IsBoolean()
+  isFeatured?: boolean;
 }

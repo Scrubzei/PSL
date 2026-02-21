@@ -18,6 +18,7 @@ import { ReportResultDialogComponent } from './report-result-dialog.component';
 import { AuthModalComponent } from '../auth/auth-modal/auth-modal.component';
 import { TournamentJoinModalComponent } from './tournament-join-modal.component';
 import { UsersService } from '../users/users.service';
+import { CdkDragDrop, CdkDrag, CdkDropList, moveItemInArray } from '@angular/cdk/drag-drop';
 
 @Component({
   selector: 'app-tournament-detail',
@@ -34,7 +35,9 @@ import { UsersService } from '../users/users.service';
     MatProgressBarModule,
     MatTooltipModule,
     MatSnackBarModule,
-    MatDialogModule
+    MatDialogModule,
+    CdkDrag,
+    CdkDropList
   ],
   template: `
     <div class="tournament-detail-container">
@@ -83,7 +86,7 @@ import { UsersService } from '../users/users.service';
               <div class="hero-meta">
                 <span class="meta-item">
                   <mat-icon>sports_esports</mat-icon>
-                  {{ tournament.game.name }}
+                  {{ tournament.game.name.toUpperCase() }}
                 </span>
                 <span class="meta-divider"></span>
                 <span class="meta-item">
@@ -120,13 +123,13 @@ import { UsersService } from '../users/users.service';
                 </button>
               }
             }
-            @if ((tournament.status === 'IN_PROGRESS' || tournament.status === 'COMPLETED') && (tournament.isSignedUp || isAdmin)) {
+            @if (tournament.status === 'IN_PROGRESS' || tournament.status === 'COMPLETED') {
               <button mat-raised-button class="action-btn bracket-btn" [routerLink]="['/tournaments', tournament.slug, 'bracket']">
                 <mat-icon>account_tree</mat-icon>
                 View Bracket
               </button>
             }
-            @if (isAdmin && tournament.status === 'REGISTRATION' && isTournamentFull()) {
+            @if (isAdmin && tournament.status === 'REGISTRATION' && isTournamentFull() && seedsSaved) {
               <button class="start-btn" (click)="startTournament()" [disabled]="actionLoading">
                 @if (actionLoading) {
                   <mat-spinner diameter="24"></mat-spinner>
@@ -189,11 +192,15 @@ import { UsersService } from '../users/users.service';
                     </div>
                   </div>
 
-                  @if (myMatch.gameMap) {
-                    <div class="map-info">
-                      <mat-icon>map</mat-icon>
-                      <span class="map-label">Map:</span>
-                      <span class="map-name">{{ myMatch.gameMap.mapName }}</span>
+                  @if (myMatch.gameMaps?.length) {
+                    <div class="maps-info">
+                      @for (map of myMatch.gameMaps; track map.id; let i = $index) {
+                        <div class="map-info">
+                          <mat-icon>map</mat-icon>
+                          <span class="map-label">Map {{ i + 1 }}:</span>
+                          <span class="map-name">{{ map.mapName }}</span>
+                        </div>
+                      }
                     </div>
                   }
 
@@ -254,6 +261,34 @@ import { UsersService } from '../users/users.service';
                 </div>
               </div>
             }
+          </div>
+        }
+
+        <!-- Sponsors -->
+        @if (tournament.sponsors?.length) {
+          <div class="sponsors-banner">
+            <div class="sponsors-header">
+              <mat-icon class="sponsors-icon">star</mat-icon>
+              <span>Sponsored By</span>
+            </div>
+            <div class="sponsors-list">
+              @for (sponsor of tournament.sponsors; track sponsor.name) {
+                <div class="sponsor-chip">
+                  @if (sponsor.url) {
+                    <a [href]="sponsor.url" target="_blank" rel="noopener" class="sponsor-link">
+                      <mat-icon>diamond</mat-icon>
+                      {{ sponsor.name }}
+                      <mat-icon class="ext">open_in_new</mat-icon>
+                    </a>
+                  } @else {
+                    <span class="sponsor-name">
+                      <mat-icon>diamond</mat-icon>
+                      {{ sponsor.name }}
+                    </span>
+                  }
+                </div>
+              }
+            </div>
           </div>
         }
 
@@ -325,7 +360,7 @@ import { UsersService } from '../users/users.service';
           <div class="glass-card participants-card">
             <div class="card-header">
               <mat-icon>groups</mat-icon>
-              <h2>Participants</h2>
+              <h2>{{ isAdmin && tournament.status === 'REGISTRATION' ? 'Seed Order' : 'Participants' }}</h2>
               <span class="participant-count">{{ tournament.participants.length }}</span>
             </div>
             <div class="card-content">
@@ -337,6 +372,39 @@ import { UsersService } from '../users/users.service';
                   <h3>No Participants Yet</h3>
                   <p>Be the first to join this tournament!</p>
                 </div>
+              } @else if (isAdmin && tournament.status === 'REGISTRATION') {
+                <!-- Admin drag-and-drop seeding -->
+                <p class="seed-hint">Drag to reorder seeds. #1 seed plays the last seed.</p>
+                <div class="participants-grid" cdkDropList (cdkDropListDropped)="onSeedDrop($event)">
+                  @for (participant of seedsOrder; track participant.id; let i = $index) {
+                    <div class="participant-card seed-draggable" cdkDrag [class.you]="isCurrentUser(participant.user.id)">
+                      <mat-icon class="drag-handle" cdkDragHandle>drag_indicator</mat-icon>
+                      <div class="participant-rank">#{{ i + 1 }}</div>
+                      <div class="participant-avatar">
+                        <span>{{ participant.user.username.charAt(0).toUpperCase() }}</span>
+                      </div>
+                      <div class="participant-info">
+                        <span class="participant-name">
+                          {{ participant.user.username }}
+                          @if (isCurrentUser(participant.user.id)) {
+                            <span class="you-badge">You</span>
+                          }
+                        </span>
+                      </div>
+                    </div>
+                  }
+                </div>
+                <button class="save-seeds-btn" (click)="saveSeeds()" [disabled]="seedsSaving || seedsSaved">
+                  @if (seedsSaving) {
+                    <mat-spinner diameter="20"></mat-spinner>
+                  } @else if (seedsSaved) {
+                    <mat-icon>check</mat-icon>
+                    <span>Seeds Saved</span>
+                  } @else {
+                    <mat-icon>save</mat-icon>
+                    <span>Save Seeds</span>
+                  }
+                </button>
               } @else {
                 <div class="participants-grid">
                   @for (participant of tournament.participants; track participant.id; let i = $index) {
@@ -1027,6 +1095,94 @@ import { UsersService } from '../users/users.service';
       }
     }
 
+    /* Sponsors Banner */
+    .sponsors-banner {
+      margin: 16px 0;
+      padding: 20px 24px;
+      background: linear-gradient(135deg, rgba(240, 200, 80, 0.06) 0%, rgba(255, 215, 0, 0.02) 100%);
+      border: 1px solid rgba(240, 200, 80, 0.15);
+      border-radius: 14px;
+      position: relative;
+      overflow: hidden;
+
+      &::before {
+        content: '';
+        position: absolute;
+        inset: 0;
+        background: radial-gradient(ellipse at 20% 50%, rgba(240, 200, 80, 0.08) 0%, transparent 60%);
+        pointer-events: none;
+      }
+    }
+
+    .sponsors-header {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 14px;
+      font-size: 11px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      color: #f0c850;
+      position: relative;
+    }
+
+    .sponsors-icon {
+      font-size: 16px;
+      width: 16px;
+      height: 16px;
+      filter: drop-shadow(0 0 4px rgba(240, 200, 80, 0.5));
+    }
+
+    .sponsors-list {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      position: relative;
+    }
+
+    .sponsor-chip {
+      display: flex;
+    }
+
+    .sponsor-link, .sponsor-name {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 10px 18px;
+      background: rgba(240, 200, 80, 0.08);
+      border: 1px solid rgba(240, 200, 80, 0.18);
+      border-radius: 10px;
+      color: #f0c850;
+      font-size: 14px;
+      font-weight: 600;
+      text-decoration: none;
+      transition: all 0.2s ease;
+      letter-spacing: 0.2px;
+
+      mat-icon {
+        font-size: 16px;
+        width: 16px;
+        height: 16px;
+        color: #f0c850;
+        filter: drop-shadow(0 0 3px rgba(240, 200, 80, 0.4));
+      }
+
+      .ext {
+        font-size: 13px;
+        width: 13px;
+        height: 13px;
+        opacity: 0.5;
+        filter: none;
+      }
+    }
+
+    .sponsor-link:hover {
+      background: rgba(240, 200, 80, 0.14);
+      border-color: rgba(240, 200, 80, 0.3);
+      box-shadow: 0 0 20px rgba(240, 200, 80, 0.1);
+    }
+
     /* Content Grid */
     .content-grid {
       display: grid;
@@ -1208,6 +1364,83 @@ import { UsersService } from '../users/users.service';
         &:hover {
           background: rgba(255, 255, 255, 0.2);
         }
+      }
+    }
+
+    /* Seed UI */
+    .seed-hint {
+      margin: 0 0 8px;
+      font-size: 12px;
+      color: rgba(255, 255, 255, 0.4);
+    }
+
+    .seed-draggable {
+      cursor: grab;
+      transition: background 0.15s ease, box-shadow 0.15s ease;
+
+      &:active {
+        cursor: grabbing;
+      }
+    }
+
+    .drag-handle {
+      color: rgba(255, 255, 255, 0.3);
+      font-size: 18px;
+      width: 18px;
+      height: 18px;
+      margin-right: 4px;
+      cursor: grab;
+    }
+
+    .cdk-drag-preview {
+      background: rgba(var(--theme-primary-rgb), 0.15);
+      border: 1px solid rgba(var(--theme-primary-rgb), 0.4);
+      border-radius: 8px;
+      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 12px;
+    }
+
+    .cdk-drag-placeholder {
+      opacity: 0.3;
+    }
+
+    .cdk-drag-animating {
+      transition: transform 200ms ease;
+    }
+
+    .save-seeds-btn {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      width: 100%;
+      margin-top: 12px;
+      padding: 10px 16px;
+      background: var(--theme-primary);
+      border: none;
+      border-radius: 8px;
+      color: white;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s ease;
+
+      &:hover:not(:disabled) {
+        filter: brightness(1.15);
+      }
+
+      &:disabled {
+        opacity: 0.6;
+        cursor: default;
+      }
+
+      mat-icon {
+        font-size: 18px;
+        width: 18px;
+        height: 18px;
       }
     }
 
@@ -1550,12 +1783,18 @@ import { UsersService } from '../users/users.service';
       padding: 0 8px;
     }
 
+    .maps-info {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
     .map-info {
       display: flex;
       align-items: center;
       justify-content: center;
       gap: 8px;
-      padding: 12px 20px;
+      padding: 10px 20px;
       background: rgba(255, 255, 255, 0.03);
       border-radius: 8px;
 
@@ -1611,6 +1850,9 @@ export class TournamentDetailComponent implements OnInit, OnDestroy {
   isDeadlineUrgent = false;
   myMatch: MyMatch | null = null;
   myMatchLoading = false;
+  seedsOrder: TournamentDetail['participants'] = [];
+  seedsSaved = false;
+  seedsSaving = false;
   private countdownInterval?: ReturnType<typeof setInterval>;
 
   particles = Array.from({ length: 20 }, (_, i) => ({
@@ -1747,6 +1989,11 @@ export class TournamentDetailComponent implements OnInit, OnDestroy {
         this.tournament = tournament;
         this.loading = false;
         this.setThemeFromPlatform();
+        // Initialize seed order for admin seeding UI
+        if (tournament.status === 'REGISTRATION' && tournament.participants.length > 0) {
+          this.seedsOrder = [...tournament.participants];
+          this.seedsSaved = tournament.participants.every(p => p.seed != null);
+        }
         if (tournament.registrationDeadline && tournament.status === 'REGISTRATION') {
           this.startCountdown();
         }
@@ -1841,10 +2088,15 @@ export class TournamentDetailComponent implements OnInit, OnDestroy {
       autoFocus: false,
       data: {
         tournamentName: this.tournament.name,
+        gameName: this.tournament.game?.name || '',
+        platformName: this.tournament.platform?.name || '',
         plutoniumUsername: this.authService.currentUser()?.plutoniumUsername || null,
+        xboxGamertag: this.authService.currentUser()?.xboxGamertag || null,
         startDate: this.tournament.startDate,
         roundDeadlines: this.tournament.roundDeadlines || null,
         prizePool: this.tournament.prizePool || null,
+        howItWorks: this.tournament.howItWorks || null,
+        disqualifications: this.tournament.disqualifications || null,
       }
     });
 
@@ -1853,20 +2105,33 @@ export class TournamentDetailComponent implements OnInit, OnDestroy {
 
       this.actionLoading = true;
 
-      // Save plutonium username if it changed
-      const currentPluto = this.authService.currentUser()?.plutoniumUsername || '';
-      if (result.plutoniumUsername !== currentPluto) {
-        this.usersService.updateProfile({ plutoniumUsername: result.plutoniumUsername }).subscribe({
+      // Save platform username if it changed
+      const profileUpdate: { plutoniumUsername?: string; xboxGamertag?: string } = {};
+      const user = this.authService.currentUser();
+
+      if (result.xboxGamertag !== undefined) {
+        const currentGamertag = user?.xboxGamertag || '';
+        if (result.xboxGamertag !== currentGamertag) {
+          profileUpdate.xboxGamertag = result.xboxGamertag;
+        }
+      }
+      if (result.plutoniumUsername !== undefined) {
+        const currentPluto = user?.plutoniumUsername || '';
+        if (result.plutoniumUsername !== currentPluto) {
+          profileUpdate.plutoniumUsername = result.plutoniumUsername;
+        }
+      }
+
+      if (Object.keys(profileUpdate).length > 0) {
+        this.usersService.updateProfile(profileUpdate).subscribe({
           next: () => {
-            // Update the current user signal with new plutonium username
-            const user = this.authService.currentUser();
             if (user) {
-              this.authService.currentUser.set({ ...user, plutoniumUsername: result.plutoniumUsername });
+              this.authService.currentUser.set({ ...user, ...profileUpdate });
             }
             this.doTournamentSignup();
           },
           error: () => {
-            this.snackBar.open('Failed to save Plutonium username', 'Close', { duration: 3000 });
+            this.snackBar.open('Failed to save profile', 'Close', { duration: 3000 });
             this.actionLoading = false;
           }
         });
@@ -1903,6 +2168,28 @@ export class TournamentDetailComponent implements OnInit, OnDestroy {
       error: (err) => {
         this.snackBar.open(err.error?.message || 'Failed to withdraw', 'Close', { duration: 3000 });
         this.actionLoading = false;
+      }
+    });
+  }
+
+  onSeedDrop(event: CdkDragDrop<any[]>): void {
+    moveItemInArray(this.seedsOrder, event.previousIndex, event.currentIndex);
+    this.seedsSaved = false;
+  }
+
+  saveSeeds(): void {
+    if (!this.tournament) return;
+    this.seedsSaving = true;
+    const participantIds = this.seedsOrder.map(p => p.user.id);
+    this.tournamentsService.updateSeeds(this.tournament.id, participantIds).subscribe({
+      next: () => {
+        this.seedsSaved = true;
+        this.seedsSaving = false;
+        this.snackBar.open('Seeds saved', 'Close', { duration: 3000 });
+      },
+      error: (err) => {
+        this.seedsSaving = false;
+        this.snackBar.open(err.error?.message || 'Failed to save seeds', 'Close', { duration: 3000 });
       }
     });
   }

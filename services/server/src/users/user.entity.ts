@@ -7,12 +7,6 @@ export class User {
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
-  @Column({ unique: true })
-  email: string;
-
-  @Column({ nullable: true })
-  password: string;
-
   @Column({ nullable: true })
   username: string;
 
@@ -26,10 +20,10 @@ export class User {
   discordId: string;
 
   @Column({ nullable: true })
-  discordAvatar: string;
+  plutoniumUsername: string;
 
   @Column({ nullable: true })
-  plutoniumUsername: string;
+  xboxGamertag: string;
 
   @Column({ default: 0 })
   goldTrophies: number;

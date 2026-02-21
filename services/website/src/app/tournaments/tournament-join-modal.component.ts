@@ -7,10 +7,15 @@ import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 
 export interface TournamentJoinModalData {
   tournamentName: string;
+  gameName: string;
+  platformName: string;
   plutoniumUsername: string | null;
+  xboxGamertag: string | null;
   startDate: string | Date | null;
   roundDeadlines: { name: string; deadline: string | null }[] | null;
   prizePool: { place: number; prize: string }[] | null;
+  howItWorks: string | null;
+  disqualifications: string[] | null;
 }
 
 interface RoundSchedule {
@@ -54,14 +59,16 @@ interface RoundSchedule {
         </div>
       }
 
-      <!-- Rules -->
-      <div class="rules-section">
-        <h3>
-          <mat-icon>gavel</mat-icon>
-          Rules
-        </h3>
-        <p>All participants must follow <a href="/rules" target="_blank" rel="noopener" class="rules-link">1v1 Leaderboards Rules</a>.</p>
-      </div>
+      <!-- Rules (hidden for MW2) -->
+      @if (!isMw2) {
+        <div class="rules-section">
+          <h3>
+            <mat-icon>gavel</mat-icon>
+            Rules
+          </h3>
+          <p>All participants must follow <a href="/rules" target="_blank" rel="noopener" class="rules-link">1v1 Leaderboards Rules</a>.</p>
+        </div>
+      }
 
       <!-- Schedule -->
       <div class="schedule-section">
@@ -82,8 +89,33 @@ interface RoundSchedule {
             </div>
           }
         </div>
-        <p class="schedule-note">Arrange a match time with your opponent before each deadline. Each player picks a map, and both agree on a third. If no agreement is reached, the website will randomly select the third map. Admins and refs are available to help if needed. <span class="schedule-warning">If a time is agreed upon and a player fails to show, they are disqualified.</span></p>
       </div>
+
+      <!-- How It Works -->
+      @if (data.howItWorks) {
+        <div class="schedule-section">
+          <h3>
+            <mat-icon>info</mat-icon>
+            How It Works
+          </h3>
+          <p class="schedule-note">{{ data.howItWorks }}</p>
+        </div>
+      }
+
+      <!-- Important / Disqualifications -->
+      @if (data.disqualifications?.length) {
+        <div class="important-section">
+          <h3>
+            <mat-icon>warning</mat-icon>
+            Important
+          </h3>
+          <div class="dq-list">
+            @for (dq of data.disqualifications; track dq) {
+              <p class="schedule-note dq-item"><span class="schedule-warning">{{ dq }}</span></p>
+            }
+          </div>
+        </div>
+      }
 
       <!-- Discord Requirement -->
       <div class="discord-section">
@@ -94,34 +126,48 @@ interface RoundSchedule {
           Discord Required
         </h3>
         <p>You must be in our Discord server to participate in tournaments.</p>
-        <a href="https://discord.gg/1v1leaderboards" target="_blank" rel="noopener" class="discord-link">
+        <a href="https://discord.gg/1v1lb" target="_blank" rel="noopener" class="discord-link">
           <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
             <path d="M20.317 4.37a19.791 19.791 0 0 0-4.885-1.515.074.074 0 0 0-.079.037c-.21.375-.444.864-.608 1.25a18.27 18.27 0 0 0-5.487 0 12.64 12.64 0 0 0-.617-1.25.077.077 0 0 0-.079-.037A19.736 19.736 0 0 0 3.677 4.37a.07.07 0 0 0-.032.027C.533 9.046-.32 13.58.099 18.057a.082.082 0 0 0 .031.057 19.9 19.9 0 0 0 5.993 3.03.078.078 0 0 0 .084-.028 14.09 14.09 0 0 0 1.226-1.994.076.076 0 0 0-.041-.106 13.107 13.107 0 0 1-1.872-.892.077.077 0 0 1-.008-.128 10.2 10.2 0 0 0 .372-.292.074.074 0 0 1 .077-.01c3.928 1.793 8.18 1.793 12.062 0a.074.074 0 0 1 .078.01c.12.098.246.198.373.292a.077.077 0 0 1-.006.127 12.299 12.299 0 0 1-1.873.892.077.077 0 0 0-.041.107c.36.698.772 1.362 1.225 1.993a.076.076 0 0 0 .084.028 19.839 19.839 0 0 0 6.002-3.03.077.077 0 0 0 .032-.054c.5-5.177-.838-9.674-3.549-13.66a.061.061 0 0 0-.031-.03zM8.02 15.33c-1.183 0-2.157-1.085-2.157-2.419 0-1.333.956-2.419 2.157-2.419 1.21 0 2.176 1.096 2.157 2.42 0 1.333-.956 2.418-2.157 2.418zm7.975 0c-1.183 0-2.157-1.085-2.157-2.419 0-1.333.955-2.419 2.157-2.419 1.21 0 2.176 1.096 2.157 2.42 0 1.333-.946 2.418-2.157 2.418z"/>
           </svg>
-          Join discord.gg/1v1leaderboards
+          Join discord.gg/1v1lb
           <mat-icon class="external">open_in_new</mat-icon>
         </a>
       </div>
 
-      <!-- Plutonium Username -->
+      <!-- Platform Username -->
       <div class="pluto-section">
-        <h3>
-          <mat-icon>person</mat-icon>
-          Plutonium Username
-        </h3>
-        <p>Enter the username you use on Plutonium. This is required to participate.</p>
-        <input
-          type="text"
-          [(ngModel)]="plutoniumUsername"
-          placeholder="Your Plutonium username"
-          class="pluto-input"
-        />
+        @if (isXbox) {
+          <h3>
+            <mat-icon>person</mat-icon>
+            Xbox Gamertag
+          </h3>
+          <p>Enter your Xbox Gamertag. This is required to participate.</p>
+          <input
+            type="text"
+            [(ngModel)]="xboxGamertag"
+            placeholder="Your Xbox Gamertag"
+            class="pluto-input"
+          />
+        } @else {
+          <h3>
+            <mat-icon>person</mat-icon>
+            Plutonium Username
+          </h3>
+          <p>Enter the username you use on Plutonium. This is required to participate.</p>
+          <input
+            type="text"
+            [(ngModel)]="plutoniumUsername"
+            placeholder="Your Plutonium username"
+            class="pluto-input"
+          />
+        }
       </div>
 
       <!-- Actions -->
       <div class="actions">
         <button class="cancel-btn" (click)="cancel()">Cancel</button>
-        <button class="confirm-btn" (click)="confirm()" [disabled]="!plutoniumUsername.trim()">
+        <button class="confirm-btn" (click)="confirm()" [disabled]="!usernameValid">
           <mat-icon>bolt</mat-icon>
           Confirm & Join
         </button>
@@ -155,6 +201,22 @@ interface RoundSchedule {
         font-size: 20px;
         font-weight: 700;
         color: white;
+      }
+    }
+
+    .important-section {
+      margin-bottom: 20px;
+      padding: 16px;
+      background: rgba(239, 68, 68, 0.04);
+      border-radius: 10px;
+      border: 1px solid rgba(239, 68, 68, 0.25);
+
+      h3 {
+        color: #ef4444;
+
+        mat-icon {
+          color: #ef4444;
+        }
       }
     }
 
@@ -345,9 +407,19 @@ interface RoundSchedule {
     }
 
     .schedule-warning {
-      text-decoration: underline;
       color: rgba(255, 255, 255, 0.9);
       font-weight: 600;
+    }
+
+    .dq-list {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      margin-top: 12px;
+    }
+
+    .dq-item {
+      margin: 0;
     }
 
     .pluto-input {
@@ -432,15 +504,25 @@ interface RoundSchedule {
 export class TournamentJoinModalComponent implements AfterViewInit {
   @ViewChild('modalContent') modalContent!: ElementRef;
   plutoniumUsername: string;
+  xboxGamertag: string;
   rounds: RoundSchedule[] = [];
   startDateFormatted = '';
+  isMw2 = false;
+  isXbox = false;
 
   constructor(
     private dialogRef: MatDialogRef<TournamentJoinModalComponent>,
     @Inject(MAT_DIALOG_DATA) public data: TournamentJoinModalData,
   ) {
     this.plutoniumUsername = data.plutoniumUsername || '';
+    this.xboxGamertag = data.xboxGamertag || '';
+    this.isMw2 = data.gameName?.toLowerCase() === 'mw2';
+    this.isXbox = data.platformName?.toLowerCase() === 'xbox';
     this.buildSchedule();
+  }
+
+  get usernameValid(): boolean {
+    return this.isXbox ? !!this.xboxGamertag.trim() : !!this.plutoniumUsername.trim();
   }
 
   ngAfterViewInit(): void {
@@ -477,7 +559,11 @@ export class TournamentJoinModalComponent implements AfterViewInit {
   }
 
   confirm(): void {
-    if (!this.plutoniumUsername.trim()) return;
-    this.dialogRef.close({ confirmed: true, plutoniumUsername: this.plutoniumUsername.trim() });
+    if (!this.usernameValid) return;
+    if (this.isXbox) {
+      this.dialogRef.close({ confirmed: true, xboxGamertag: this.xboxGamertag.trim() });
+    } else {
+      this.dialogRef.close({ confirmed: true, plutoniumUsername: this.plutoniumUsername.trim() });
+    }
   }
 }

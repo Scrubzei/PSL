@@ -12,6 +12,7 @@ import { TournamentsService, TournamentMatch, BracketResponse } from './tourname
 import { AuthService } from '../auth/auth.service';
 import { ThemeService, Platform } from '../shared/theme.service';
 import { ReportResultDialogComponent } from './report-result-dialog.component';
+import { MapPickerDialogComponent } from './map-picker-dialog.component';
 
 interface RoundData {
   roundNumber: number;
@@ -64,7 +65,7 @@ interface RoundData {
               <div class="meta-row">
                 <span class="meta-item">
                   <mat-icon>sports_esports</mat-icon>
-                  {{ bracketData.tournament.game.name }}
+                  {{ bracketData.tournament.game.name.toUpperCase() }}
                 </span>
                 <span class="meta-divider"></span>
                 <span class="meta-item">
@@ -126,9 +127,14 @@ interface RoundData {
                              [class.pending]="match.status === 'PENDING'"
                              [class.ready]="match.status === 'READY'"
                              [class.completed]="match.status === 'COMPLETED'"
-                             [class.finals]="round.roundNumber === 1">
+                             [class.finals]="round.roundNumber === 1"
+                             [class.bye]="match.isBye">
 
-                          @if (match.status === 'READY') {
+                          @if (match.isBye) {
+                            <div class="bye-badge">
+                              <span>BYE</span>
+                            </div>
+                          } @else if (match.status === 'READY') {
                             <div class="live-indicator">
                               <span class="live-dot"></span>
                               <span>LIVE</span>
@@ -137,31 +143,46 @@ interface RoundData {
 
                           <div class="match-number">Match {{ match.matchNumber }}</div>
 
-                          @if (match.gameMap) {
-                            <div class="match-map">
-                              <mat-icon>map</mat-icon>
-                              <span>{{ match.gameMap.mapName }}</span>
+                          @if (match.gameMaps?.length && !match.isBye) {
+                            <div class="match-maps">
+                              @for (map of match.gameMaps; track map.id; let mapIdx = $index) {
+                                <div class="map-row">
+                                  <mat-icon>map</mat-icon>
+                                  <span class="map-num">{{ mapIdx + 1 }}.</span>
+                                  <span>{{ map.mapName }}</span>
+                                </div>
+                              }
+                              @if (canReportResult) {
+                                <button class="edit-maps-btn" (click)="openMapPicker(match); $event.stopPropagation()">
+                                  <mat-icon>edit</mat-icon>
+                                </button>
+                              }
                             </div>
+                          } @else if (!match.isBye && canReportResult) {
+                            <button class="edit-maps-btn standalone" (click)="openMapPicker(match); $event.stopPropagation()">
+                              <mat-icon>add</mat-icon>
+                              <span>Set Maps</span>
+                            </button>
                           }
 
                           <div class="players">
                             <!-- Player 1 -->
                             <div class="player-slot"
-                                 [class.winner]="match.status === 'COMPLETED' && match.winner?.id === match.player1?.id"
-                                 [class.loser]="match.status === 'COMPLETED' && match.player1 && match.winner?.id !== match.player1?.id">
+                                 [class.winner]="match.status === 'COMPLETED' && !match.isBye && match.winner?.id === match.player1?.id"
+                                 [class.loser]="match.status === 'COMPLETED' && !match.isBye && match.player1 && match.winner?.id !== match.player1?.id">
                               @if (match.player1) {
                                 <div class="player-avatar">
                                   <span>{{ match.player1.username.charAt(0).toUpperCase() }}</span>
                                 </div>
                                 <span class="player-name">{{ match.player1.username }}</span>
-                                @if (match.status === 'COMPLETED' && match.winner?.id === match.player1?.id) {
+                                @if (match.status === 'COMPLETED' && !match.isBye && match.winner?.id === match.player1?.id) {
                                   <mat-icon class="winner-icon">emoji_events</mat-icon>
                                 }
                               } @else {
                                 <div class="player-avatar tbd">
-                                  <mat-icon>help_outline</mat-icon>
+                                  <mat-icon>{{ match.isBye ? 'block' : 'help_outline' }}</mat-icon>
                                 </div>
-                                <span class="player-name tbd">TBD</span>
+                                <span class="player-name" [class.tbd]="!match.isBye" [class.bye-text]="match.isBye">{{ match.isBye ? 'BYE' : 'TBD' }}</span>
                               }
                             </div>
 
@@ -171,26 +192,26 @@ interface RoundData {
 
                             <!-- Player 2 -->
                             <div class="player-slot"
-                                 [class.winner]="match.status === 'COMPLETED' && match.winner?.id === match.player2?.id"
-                                 [class.loser]="match.status === 'COMPLETED' && match.player2 && match.winner?.id !== match.player2?.id">
+                                 [class.winner]="match.status === 'COMPLETED' && !match.isBye && match.winner?.id === match.player2?.id"
+                                 [class.loser]="match.status === 'COMPLETED' && !match.isBye && match.player2 && match.winner?.id !== match.player2?.id">
                               @if (match.player2) {
                                 <div class="player-avatar">
                                   <span>{{ match.player2.username.charAt(0).toUpperCase() }}</span>
                                 </div>
                                 <span class="player-name">{{ match.player2.username }}</span>
-                                @if (match.status === 'COMPLETED' && match.winner?.id === match.player2?.id) {
+                                @if (match.status === 'COMPLETED' && !match.isBye && match.winner?.id === match.player2?.id) {
                                   <mat-icon class="winner-icon">emoji_events</mat-icon>
                                 }
                               } @else {
                                 <div class="player-avatar tbd">
-                                  <mat-icon>help_outline</mat-icon>
+                                  <mat-icon>{{ match.isBye ? 'block' : 'help_outline' }}</mat-icon>
                                 </div>
-                                <span class="player-name tbd">TBD</span>
+                                <span class="player-name" [class.tbd]="!match.isBye" [class.bye-text]="match.isBye">{{ match.isBye ? 'BYE' : 'TBD' }}</span>
                               }
                             </div>
                           </div>
 
-                          @if ((canReportResult || isUserInMatch(match)) && match.status === 'READY') {
+                          @if (!match.isBye && (canReportResult || isUserInMatch(match)) && match.status === 'READY') {
                             <button class="report-btn" (click)="openReportDialog(match)">
                               <mat-icon>sports_score</mat-icon>
                               Report Winner
@@ -666,6 +687,18 @@ interface RoundData {
           box-shadow: 0 0 40px rgba(var(--color-primary-rgb), 0.2);
         }
       }
+
+      &.bye {
+        opacity: 0.55;
+        border-style: dashed;
+        border-color: rgba(255, 255, 255, 0.1);
+        box-shadow: none;
+
+        &:hover {
+          transform: none;
+          box-shadow: none;
+        }
+      }
     }
 
     @keyframes readyPulse {
@@ -704,6 +737,28 @@ interface RoundData {
       50% { opacity: 0.3; }
     }
 
+    .bye-badge {
+      position: absolute;
+      top: -8px;
+      right: 12px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      padding: 4px 12px;
+      background: var(--color-steel);
+      border-radius: 12px;
+      font-size: 10px;
+      font-weight: 700;
+      color: #0f172a;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+    }
+
+    .bye-text {
+      color: var(--color-steel) !important;
+      font-style: italic !important;
+    }
+
     .match-number {
       font-size: 10px;
       color: var(--color-steel);
@@ -712,23 +767,72 @@ interface RoundData {
       margin-bottom: 8px;
     }
 
-    .match-map {
+    .match-maps {
       display: flex;
-      align-items: center;
-      gap: 6px;
-      font-size: 11px;
-      color: var(--color-silver);
+      flex-direction: column;
+      gap: 2px;
       margin-bottom: 10px;
-      padding: 4px 8px;
+      padding: 6px 8px;
       background: rgba(255, 255, 255, 0.03);
       border-radius: 6px;
-      width: fit-content;
+      position: relative;
+
+      .map-row {
+        display: flex;
+        align-items: center;
+        gap: 4px;
+        font-size: 11px;
+        color: var(--color-silver);
+
+        mat-icon {
+          font-size: 12px;
+          width: 12px;
+          height: 12px;
+          color: var(--color-primary);
+        }
+
+        .map-num {
+          color: var(--color-steel);
+          font-weight: 600;
+          font-size: 10px;
+          min-width: 14px;
+        }
+      }
+    }
+
+    .edit-maps-btn {
+      position: absolute;
+      top: 4px;
+      right: 4px;
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      padding: 2px 6px;
+      background: rgba(var(--color-primary-rgb), 0.15);
+      border: 1px solid rgba(var(--color-primary-rgb), 0.25);
+      border-radius: 4px;
+      color: var(--color-primary-bright, var(--color-primary));
+      cursor: pointer;
+      font-size: 10px;
+      transition: all 0.2s;
 
       mat-icon {
         font-size: 14px;
         width: 14px;
         height: 14px;
-        color: var(--color-primary);
+      }
+
+      &:hover {
+        background: rgba(var(--color-primary-rgb), 0.25);
+      }
+
+      &.standalone {
+        position: relative;
+        top: auto;
+        right: auto;
+        margin-bottom: 10px;
+        padding: 4px 10px;
+        width: fit-content;
       }
     }
 
@@ -1041,6 +1145,25 @@ export class TournamentBracketComponent implements OnInit, OnDestroy {
     if (!this.bracketData) return null;
     const finals = this.bracketData.matches.find(m => m.round === 1);
     return finals?.winner || null;
+  }
+
+  openMapPicker(match: TournamentMatch): void {
+    if (!this.bracketData) return;
+    const dialogRef = this.dialog.open(MapPickerDialogComponent, {
+      width: '400px',
+      data: {
+        matchId: match.id,
+        gameId: this.bracketData.tournament.game.id,
+        gameName: this.bracketData.tournament.game.name,
+        currentMaps: match.gameMaps || [],
+      }
+    });
+
+    dialogRef.afterClosed().subscribe(saved => {
+      if (saved) {
+        this.loadBracket(this.bracketData!.tournament.id);
+      }
+    });
   }
 
   openReportDialog(match: TournamentMatch): void {

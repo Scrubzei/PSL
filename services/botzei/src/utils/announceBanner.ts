@@ -68,6 +68,8 @@ export async function generateAnnounceBanner(options: BannerOptions): Promise<Bu
   const canvas = createCanvas(width * dpr, height * dpr);
   const ctx = canvas.getContext('2d');
   ctx.scale(dpr, dpr);
+  (ctx as any).textDrawingMode = 'glyph';
+  ctx.antialias = 'subpixel';
   const accent = PLATFORM_ACCENTS[platform.toLowerCase()] || PLATFORM_ACCENTS.plutonium;
 
   // === Solid black base ===
@@ -154,7 +156,7 @@ export async function generateAnnounceBanner(options: BannerOptions): Promise<Bu
   // === "TOURNAMENT" label with decorative lines ===
   const labelY = 70;
   ctx.fillStyle = hexToRgba(accent, 0.9);
-  ctx.font = 'bold 11px "DejaVu Sans", sans-serif';
+  ctx.font = 'bold 11px "Arial", "Helvetica Neue", sans-serif';
   ctx.textAlign = 'center';
   ctx.textBaseline = 'top';
   const labelText = 'T O U R N A M E N T';
@@ -177,7 +179,7 @@ export async function generateAnnounceBanner(options: BannerOptions): Promise<Bu
 
   // === Title ===
   ctx.fillStyle = '#ffffff';
-  ctx.font = 'bold 34px "DejaVu Sans", sans-serif';
+  ctx.font = 'bold 34px "Arial", "Helvetica Neue", sans-serif';
   ctx.textAlign = 'center';
   ctx.textBaseline = 'top';
 
@@ -193,7 +195,7 @@ export async function generateAnnounceBanner(options: BannerOptions): Promise<Bu
   curY += 6;
   const gameName = game.toUpperCase();
   const platformName = platform.charAt(0).toUpperCase() + platform.slice(1);
-  ctx.font = '12px "DejaVu Sans", sans-serif';
+  ctx.font = '14px "Arial", "Helvetica Neue", sans-serif';
   ctx.textBaseline = 'top';
 
   const segments = [gameName, platformName, 'Single Elimination'];
@@ -203,12 +205,12 @@ export async function generateAnnounceBanner(options: BannerOptions): Promise<Bu
   let metaX = (width - totalMetaW) / 2;
 
   segments.forEach((seg, i) => {
-    ctx.fillStyle = 'rgba(255, 255, 255, 0.6)';
+    ctx.fillStyle = 'rgba(255, 255, 255, 0.8)';
     ctx.textAlign = 'left';
     ctx.fillText(seg, metaX, curY);
     metaX += segWidths[i];
     if (i < segments.length - 1) {
-      ctx.fillStyle = hexToRgba(accent, 0.6);
+      ctx.fillStyle = hexToRgba(accent, 0.8);
       ctx.fillText('  \u2022  ', metaX, curY);
       metaX += dotWidth;
     }
@@ -218,7 +220,7 @@ export async function generateAnnounceBanner(options: BannerOptions): Promise<Bu
   curY += 20;
   if (startDate) {
     ctx.fillStyle = 'rgba(255, 255, 255, 0.85)';
-    ctx.font = 'bold 16px "DejaVu Sans", sans-serif';
+    ctx.font = 'bold 16px "Arial", "Helvetica Neue", sans-serif';
     ctx.textAlign = 'center';
     ctx.textBaseline = 'top';
     ctx.fillText(formatDate(startDate), width / 2, curY);
@@ -267,14 +269,14 @@ export async function generateAnnounceBanner(options: BannerOptions): Promise<Bu
 
       // Place label
       ctx.fillStyle = medalColor;
-      ctx.font = 'bold 11px "DejaVu Sans", sans-serif';
+      ctx.font = 'bold 11px "Arial", "Helvetica Neue", sans-serif';
       ctx.textAlign = 'center';
       ctx.textBaseline = 'top';
       ctx.fillText(entry.label, cx, prizeY + 10);
 
       // Prize amount
       ctx.fillStyle = '#ffffff';
-      ctx.font = 'bold 20px "DejaVu Sans", sans-serif';
+      ctx.font = 'bold 20px "Arial", "Helvetica Neue", sans-serif';
       ctx.textAlign = 'center';
       ctx.textBaseline = 'top';
       ctx.fillText(entry.prize, cx, prizeY + 28);
@@ -294,7 +296,7 @@ export async function generateAnnounceBanner(options: BannerOptions): Promise<Bu
 
   // === Bottom URL ===
   ctx.fillStyle = 'rgba(255, 255, 255, 0.25)';
-  ctx.font = '11px "DejaVu Sans", sans-serif';
+  ctx.font = '11px "Arial", "Helvetica Neue", sans-serif';
   ctx.textAlign = 'center';
   ctx.textBaseline = 'bottom';
   ctx.fillText('1v1leaderboards.com', width / 2, height - 8);
