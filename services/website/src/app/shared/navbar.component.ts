@@ -8,6 +8,7 @@ import { MatMenuModule } from '@angular/material/menu';
 import { AuthService } from '../auth/auth.service';
 import { NotificationPanelComponent } from './notification-panel.component';
 import { HallOfFameService } from './hall-of-fame.service';
+import { environment } from '../../environments/environment';
 
 @Component({
   selector: 'app-navbar',
@@ -32,6 +33,9 @@ import { HallOfFameService } from './hall-of-fame.service';
       <!-- Desktop Navigation -->
       <nav class="nav-links desktop-only">
         <a routerLink="/leaderboards" routerLinkActive="active">Leaderboards</a>
+        @if (!isProduction) {
+          <a routerLink="/matchfinder" routerLinkActive="active">Matchfinder</a>
+        }
         <a routerLink="/tournaments" routerLinkActive="active">Tournaments</a>
         <a routerLink="/rules" routerLinkActive="active">Rules</a>
       </nav>
@@ -120,6 +124,12 @@ import { HallOfFameService } from './hall-of-fame.service';
           <mat-icon>leaderboard</mat-icon>
           Leaderboards
         </a>
+        @if (!isProduction) {
+          <a routerLink="/matchfinder" routerLinkActive="active" (click)="closeMobileMenu()">
+            <mat-icon>search</mat-icon>
+            Matchfinder
+          </a>
+        }
         <a routerLink="/tournaments" routerLinkActive="active" (click)="closeMobileMenu()">
           <mat-icon>emoji_events</mat-icon>
           Tournaments
@@ -594,6 +604,7 @@ import { HallOfFameService } from './hall-of-fame.service';
 })
 export class NavbarComponent {
   mobileMenuOpen = signal(false);
+  isProduction = environment.production;
 
   constructor(
     public authService: AuthService,

@@ -3,16 +3,14 @@
   <div
     class="bg-image"
     [class.active]="hoveredGame"
-    [style.background-image]="backgroundImage ? 'url(' + backgroundImage + ')' : 'none'">
+    [style.background-image]="hoveredGame ? 'url(assets/games/' + hoveredGame + '.webp)' : 'none'">
   </div>
 
   <!-- Background decorations -->
   <div class="bg-decoration">
     <div class="gradient-orb orb-1"></div>
     <div class="gradient-orb orb-2"></div>
-    <div class="gradient-orb orb-3"></div>
     <div class="grid-lines"></div>
-    <div class="noise-overlay"></div>
   </div>
 
   <div class="leaderboard-container">
@@ -22,54 +20,55 @@
         <span class="badge-dot"></span>
         Live Rankings
       </div>
-      <h1 class="title-gradient">Leaderboards</h1>
-      <p class="subtitle">Choose your platform and prove you're the best</p>
-    </div>
-
-    <!-- Platform Tabs -->
-    <div class="platform-tabs">
-      @for (platform of platforms; track platform) {
-        <button
-          class="platform-tab"
-          [class.active]="selectedPlatform === platform"
-          [class.xbox]="platform === 'Xbox'"
-          [class.ps3]="platform === 'PS3'"
-          [class.plutonium]="platform === 'Plutonium'"
-          [class.iw4x]="platform === 'IW4X'"
-          (click)="onPlatformChange(platform)">
-          {{ platform }}
-        </button>
-      }
+      <h1>Leaderboards</h1>
+      <p class="subtitle">Select a game to view the rankings</p>
     </div>
 
     <!-- Games Grid -->
     <div class="games-grid">
-      @for (leaderboard of leaderboards; track leaderboard.game; let i = $index) {
+      @for (game of games; track game.slug) {
         <div
           class="game-card"
-          (click)="openLeaderboard(leaderboard)"
-          (mouseenter)="onGameHover(leaderboard.game)"
-          (mouseleave)="onGameHover(null)"
-          [style.animation-delay]="i * 0.1 + 's'">
-          <div class="card-inner">
-            <div class="game-image">
-              @if (leaderboard.image) {
-                <img [src]="leaderboard.image" [alt]="leaderboard.game" />
-              } @else {
-                <div class="image-placeholder">
-                  <span>{{ leaderboard.game }}</span>
-                </div>
-              }
-              <div class="image-overlay"></div>
-            </div>
-            <div class="game-info">
-              <h3>{{ leaderboard.game }}</h3>
-              <div class="game-meta">
-                <span class="platform-badge">{{ leaderboard.platform }}</span>
-                <span class="arrow">→</span>
+          [class.expanded]="selectedGame === game.slug"
+          [style.animation-delay]="$index * 0.08 + 's'">
+
+          @if (selectedGame !== game.slug) {
+            <!-- Game Cover -->
+            <div
+              class="card-face card-front"
+              (click)="selectGame(game.slug)"
+              (mouseenter)="hoveredGame = game.slug"
+              (mouseleave)="hoveredGame = null">
+              <div class="game-image">
+                <img [src]="game.image" [alt]="game.name" />
+                <div class="image-overlay"></div>
+              </div>
+              <div class="game-info">
+                <h3>{{ game.name }}</h3>
+                <span class="arrow">&rarr;</span>
               </div>
             </div>
-          </div>
+          } @else {
+            <!-- Platform Selection -->
+            <div class="card-face card-back">
+              <button class="back-btn" (click)="selectGame(null)">
+                <span class="back-arrow">&larr;</span>
+                {{ game.name }}
+              </button>
+              <div class="platform-list">
+                @for (platform of game.platforms; track platform.slug) {
+                  <button
+                    class="platform-btn"
+                    [style.--btn-color]="platform.color"
+                    [style.--btn-hover]="platform.hoverColor"
+                    (click)="selectPlatform(game, platform)">
+                    <i [class]="platform.icon" class="platform-icon"></i>
+                    <span class="platform-name">{{ platform.name }}</span>
+                  </button>
+                }
+              </div>
+            </div>
+          }
         </div>
       }
     </div>

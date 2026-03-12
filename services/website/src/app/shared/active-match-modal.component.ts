@@ -67,15 +67,6 @@ interface ActiveMatchModalData extends ActiveTournamentMatch {
           </div>
         </div>
 
-        @if (data.match.gameMaps?.length) {
-          @for (map of data.match.gameMaps; track map.id; let i = $index) {
-            <div class="map-info">
-              <mat-icon>map</mat-icon>
-              <span class="label">Map {{ i + 1 }}:</span>
-              <span class="value">{{ map.mapName }}</span>
-            </div>
-          }
-        }
 
         <div class="round-info">
           <mat-icon>account_tree</mat-icon>

@@ -136,33 +136,35 @@ interface RoundSchedule {
       </div>
 
       <!-- Platform Username -->
-      <div class="pluto-section">
-        @if (isXbox) {
-          <h3>
-            <mat-icon>person</mat-icon>
-            Xbox Gamertag
-          </h3>
-          <p>Enter your Xbox Gamertag. This is required to participate.</p>
-          <input
-            type="text"
-            [(ngModel)]="xboxGamertag"
-            placeholder="Your Xbox Gamertag"
-            class="pluto-input"
-          />
-        } @else {
-          <h3>
-            <mat-icon>person</mat-icon>
-            Plutonium Username
-          </h3>
-          <p>Enter the username you use on Plutonium. This is required to participate.</p>
-          <input
-            type="text"
-            [(ngModel)]="plutoniumUsername"
-            placeholder="Your Plutonium username"
-            class="pluto-input"
-          />
-        }
-      </div>
+      @if (!isCrossPlatform) {
+        <div class="pluto-section">
+          @if (isXbox) {
+            <h3>
+              <mat-icon>person</mat-icon>
+              Xbox Gamertag
+            </h3>
+            <p>Enter your Xbox Gamertag. This is required to participate.</p>
+            <input
+              type="text"
+              [(ngModel)]="xboxGamertag"
+              placeholder="Your Xbox Gamertag"
+              class="pluto-input"
+            />
+          } @else {
+            <h3>
+              <mat-icon>person</mat-icon>
+              Plutonium Username
+            </h3>
+            <p>Enter the username you use on Plutonium. This is required to participate.</p>
+            <input
+              type="text"
+              [(ngModel)]="plutoniumUsername"
+              placeholder="Your Plutonium username"
+              class="pluto-input"
+            />
+          }
+        </div>
+      }
 
       <!-- Actions -->
       <div class="actions">
@@ -509,6 +511,7 @@ export class TournamentJoinModalComponent implements AfterViewInit {
   startDateFormatted = '';
   isMw2 = false;
   isXbox = false;
+  isCrossPlatform = false;
 
   constructor(
     private dialogRef: MatDialogRef<TournamentJoinModalComponent>,
@@ -518,10 +521,12 @@ export class TournamentJoinModalComponent implements AfterViewInit {
     this.xboxGamertag = data.xboxGamertag || '';
     this.isMw2 = data.gameName?.toLowerCase() === 'mw2';
     this.isXbox = data.platformName?.toLowerCase() === 'xbox';
+    this.isCrossPlatform = data.platformName?.toLowerCase() === 'cross-platform';
     this.buildSchedule();
   }
 
   get usernameValid(): boolean {
+    if (this.isCrossPlatform) return true;
     return this.isXbox ? !!this.xboxGamertag.trim() : !!this.plutoniumUsername.trim();
   }
 
@@ -560,7 +565,9 @@ export class TournamentJoinModalComponent implements AfterViewInit {
 
   confirm(): void {
     if (!this.usernameValid) return;
-    if (this.isXbox) {
+    if (this.isCrossPlatform) {
+      this.dialogRef.close({ confirmed: true });
+    } else if (this.isXbox) {
       this.dialogRef.close({ confirmed: true, xboxGamertag: this.xboxGamertag.trim() });
     } else {
       this.dialogRef.close({ confirmed: true, plutoniumUsername: this.plutoniumUsername.trim() });

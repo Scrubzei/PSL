@@ -22,6 +22,9 @@ export class User {
   @Column({ nullable: true })
   plutoniumUsername: string;
 
+  @Column({ nullable: true, unique: true })
+  plutoId: string;
+
   @Column({ nullable: true })
   xboxGamertag: string;
 

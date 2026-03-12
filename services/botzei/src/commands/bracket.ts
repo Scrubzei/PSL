@@ -63,7 +63,7 @@ export async function execute(interaction: CommandInteraction) {
     if (!res.ok) throw new Error(`API error: ${res.status}`);
 
     const tournaments = (await res.json()) as Tournament[];
-    const active = tournaments.filter(t => t.status === 'IN_PROGRESS');
+    const active = tournaments.filter(t => t.status === 'BRACKET_READY' || t.status === 'IN_PROGRESS');
 
     if (active.length === 0) {
       await interaction.editReply({ content: 'No tournaments are currently running.' });

@@ -234,7 +234,7 @@ export class TournamentsService {
     await this.participantRepository.save(participants);
   }
 
-  async startTournament(tournamentId: string): Promise<Tournament> {
+  async closeRegistration(tournamentId: string, byeUserIds?: string[]): Promise<Tournament> {
     const tournament = await this.findOne(tournamentId);
 
     if (tournament.status !== 'REGISTRATION') {
@@ -245,13 +245,13 @@ export class TournamentsService {
     const count = participants.length;
 
     if (count < 2) {
-      throw new BadRequestException('Need at least 2 participants to start');
+      throw new BadRequestException('Need at least 2 participants to close registration');
     }
 
     // Validate all participants have seeds set by admin
     const unseeded = participants.filter((p) => p.seed == null);
     if (unseeded.length > 0) {
-      throw new BadRequestException('All participants must be seeded before starting');
+      throw new BadRequestException('All participants must be seeded before closing registration');
     }
 
     // Sort by admin-assigned seed order
@@ -259,13 +259,61 @@ export class TournamentsService {
 
     // Round up to nearest power of 2 for byes
     const bracketSize = this.nextPowerOfTwo(count);
+    const numByes = bracketSize - count;
+
+    // If specific bye players requested, reorder so they're at the top (top seeds get byes)
+    if (byeUserIds && byeUserIds.length > 0) {
+      if (numByes === 0) {
+        throw new BadRequestException('No byes available — participant count is already a power of 2');
+      }
+
+      if (byeUserIds.length > numByes) {
+        throw new BadRequestException(
+          `Too many bye players specified (${byeUserIds.length}). Only ${numByes} byes available for ${count} participants`,
+        );
+      }
+
+      const participantUserIds = new Set(participants.map((p) => p.userId));
+      for (const userId of byeUserIds) {
+        if (!participantUserIds.has(userId)) {
+          throw new BadRequestException(`User ${userId} is not a participant in this tournament`);
+        }
+      }
+
+      const byeSet = new Set(byeUserIds);
+      const byeParticipants = participants.filter((p) => byeSet.has(p.userId));
+      const nonByeParticipants = participants.filter((p) => !byeSet.has(p.userId));
+      participants.length = 0;
+      participants.push(...byeParticipants, ...nonByeParticipants);
+    }
 
     // Generate bracket
     await this.generateBracket(tournamentId, participants, bracketSize);
 
-    // Update tournament status
+    // Update tournament status to BRACKET_READY (bracket visible, but not started)
+    tournament.status = 'BRACKET_READY';
+    await this.tournamentRepository.save(tournament);
+
+    return tournament;
+  }
+
+  async startTournament(tournamentId: string): Promise<Tournament> {
+    const tournament = await this.findOne(tournamentId);
+
+    if (tournament.status !== 'BRACKET_READY') {
+      throw new BadRequestException('Tournament bracket must be posted before starting');
+    }
+
     tournament.status = 'IN_PROGRESS';
     await this.tournamentRepository.save(tournament);
+
+    // Send notifications for all READY matches now that the tournament is live
+    const readyMatches = await this.matchRepository.find({
+      where: { tournamentId, status: 'READY' },
+    });
+    for (const match of readyMatches) {
+      await this.notifyMatchReady(match);
+    }
 
     return tournament;
   }
@@ -286,6 +334,10 @@ export class TournamentsService {
 
     if (!match) {
       throw new NotFoundException('Match not found');
+    }
+
+    if (match.tournament.status !== 'IN_PROGRESS') {
+      throw new BadRequestException('Tournament has not started yet');
     }
 
     // If reporterId provided, validate they are a participant in this match
@@ -323,6 +375,7 @@ export class TournamentsService {
     }
 
     // Advance winner to next match
+    const isFinal = !match.nextMatchId;
     if (match.nextMatchId) {
       await this.advanceWinner(match);
     } else {
@@ -340,6 +393,21 @@ export class TournamentsService {
         match.tournamentId,
         'tournament',
       );
+    }
+
+    // Report match result to Discord
+    const winnerUser = winnerId === match.player1Id ? match.player1 : match.player2;
+    const loserUser = winnerId === match.player1Id ? match.player2 : match.player1;
+    if (winnerUser && loserUser) {
+      this.botzeiService.sendTournamentMatchResult({
+        tournamentName: match.tournament.name,
+        tournamentSlug: match.tournament.slug,
+        winnerUsername: winnerUser.username,
+        loserUsername: loserUser.username,
+        round: match.round,
+        matchNumber: match.matchNumber,
+        isFinal,
+      }).catch(err => this.logger.warn(`Failed to send match result to Discord: ${err}`));
     }
 
     return match;
@@ -433,11 +501,7 @@ export class TournamentsService {
       }
     }
 
-    // Send notifications for first round READY matches
-    const readyMatches = firstRoundMatches.filter(m => m.status === 'READY');
-    for (const match of readyMatches) {
-      await this.notifyMatchReady(match);
-    }
+    // Match-ready notifications are sent when the tournament is started (not when bracket is generated)
   }
 
   private async advanceWinner(match: TournamentMatch): Promise<void> {
@@ -485,6 +549,16 @@ export class TournamentsService {
       power *= 2;
     }
     return power;
+  }
+
+  async updateMatchScheduledTime(matchId: string, scheduledTime: string | null): Promise<TournamentMatch> {
+    const match = await this.matchRepository.findOne({ where: { id: matchId } });
+    if (!match) {
+      throw new NotFoundException('Match not found');
+    }
+
+    match.scheduledTime = scheduledTime ? new Date(scheduledTime) : null;
+    return this.matchRepository.save(match);
   }
 
   async updateMatchMaps(matchId: string, mapIds: string[], gameId: string): Promise<TournamentMatch> {
@@ -573,7 +647,7 @@ export class TournamentsService {
       .leftJoinAndSelect('tournament.platform', 'platform')
       .leftJoinAndSelect('match.player1', 'player1')
       .leftJoinAndSelect('match.player2', 'player2')
-      .where('tournament.status = :status', { status: 'IN_PROGRESS' })
+      .where('tournament.status IN (:...statuses)', { statuses: ['BRACKET_READY', 'IN_PROGRESS'] })
       .andWhere('(match.player1Id = :userId OR match.player2Id = :userId)', { userId })
       .andWhere('match.status IN (:...statuses)', { statuses: ['READY', 'IN_PROGRESS'] })
       .getMany();

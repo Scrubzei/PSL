@@ -1,4 +1,4 @@
-import { Controller, Get, Param, Query } from '@nestjs/common';
+import { Controller, Get, Post, Patch, Body, Param, Query, BadRequestException, ConflictException } from '@nestjs/common';
 import { UsersService } from './users.service';
 
 @Controller('users')
@@ -9,6 +9,36 @@ export class UsersController {
   async getRecentWins(@Query('limit') limit?: string) {
     const parsedLimit = limit ? parseInt(limit, 10) : 10;
     return this.usersService.getGlobalRecentWins(Math.min(parsedLimit, 50));
+  }
+
+  @Post()
+  async create(@Body() body: { discordId: string; username: string }) {
+    if (!body.discordId || !body.username) {
+      throw new BadRequestException('discordId and username are required');
+    }
+
+    const existing = await this.usersService.findByDiscordId(body.discordId);
+    if (existing) {
+      throw new ConflictException('User with this discordId already exists');
+    }
+
+    const user = await this.usersService.createFromDiscord(body.discordId);
+    await this.usersService.setUsername(user.id, body.username);
+    return this.usersService.findById(user.id);
+  }
+
+  @Patch(':id/pluto-id')
+  async setPlutoId(@Param('id') id: string, @Body() body: { plutoId: string }) {
+    if (!body.plutoId) {
+      throw new BadRequestException('plutoId is required');
+    }
+
+    const existing = await this.usersService.findByPlutoId(body.plutoId);
+    if (existing && existing.id !== id) {
+      throw new ConflictException('This Plutonium account is already linked to another user. Contact an admin if someone is using your account without permission.');
+    }
+
+    return this.usersService.setPlutoId(id, body.plutoId);
   }
 
   @Get()

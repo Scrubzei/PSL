@@ -67,6 +67,9 @@ export class TournamentMatch {
   @Column({ type: 'jsonb', nullable: true })
   gameMaps: { id: string; mapName: string }[];
 
+  @Column({ type: 'timestamp', nullable: true })
+  scheduledTime: Date;
+
   @CreateDateColumn()
   createdAt: Date;
 

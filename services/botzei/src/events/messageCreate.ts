@@ -1,4 +1,6 @@
 import { Events, Message } from 'discord.js';
+import { getQueue, updateMessageId } from '../pug/pug-queue.js';
+import { buildLobbyEmbed } from '../pug/pug-embeds.js';
 
 export const name = Events.MessageCreate;
 export const once = false;
@@ -6,6 +8,21 @@ export const once = false;
 export async function execute(message: Message) {
   // Ignore messages from bots
   if (message.author.bot) return;
+
+  // Repost PUG queue embed at bottom of channel if a message pushes it up
+  const queue = getQueue(message.channelId);
+  if (queue && message.id !== queue.messageId) {
+    try {
+      const channel = message.channel as any;
+      const oldMsg = await channel.messages.fetch(queue.messageId).catch(() => null);
+      if (oldMsg) await oldMsg.delete();
+      const lobbyData = buildLobbyEmbed(queue.players, queue.name);
+      const newMsg = await channel.send(lobbyData);
+      updateMessageId(message.channelId, newMsg.id);
+    } catch (err) {
+      console.error('[PUG] Error reposting queue embed:', err);
+    }
+  }
 
   // Chantex role: images/gifs get deleted and Botzei mocks them
   if (message.member && message.guild) {

@@ -11,7 +11,7 @@ import { Game } from '../games/game.entity';
 import { Platform } from '../platforms/platform.entity';
 import { User } from '../users/user.entity';
 
-export type TournamentStatus = 'REGISTRATION' | 'IN_PROGRESS' | 'COMPLETED' | 'CANCELLED';
+export type TournamentStatus = 'REGISTRATION' | 'BRACKET_READY' | 'IN_PROGRESS' | 'COMPLETED' | 'CANCELLED';
 export type TournamentFormat = 'SINGLE_ELIMINATION';
 
 @Entity('tournaments')

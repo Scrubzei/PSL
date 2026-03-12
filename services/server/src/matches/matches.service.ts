@@ -499,6 +499,30 @@ export class MatchesService {
     return this.matchesRepository.save(match);
   }
 
+  async createCompleted(data: {
+    challengerId: string;
+    challengeeId: string;
+    winnerId: string;
+    leaderboardId: string;
+    map: string;
+  }): Promise<Match> {
+    const match = this.matchesRepository.create({
+      challengerId: data.challengerId,
+      challengeeId: data.challengeeId,
+      winnerId: data.winnerId,
+      leaderboardId: data.leaderboardId,
+      type: 'XP',
+      status: 'COMPLETED',
+      bestOf: 1,
+      selectedMaps: [data.map],
+      challengerReportedWinnerId: data.winnerId,
+      challengeeReportedWinnerId: data.winnerId,
+    });
+
+    const saved = await this.matchesRepository.save(match);
+    return this.findOne(saved.id);
+  }
+
   async concedeDispute(id: string, userId: string): Promise<Match> {
     const match = await this.findOne(id);
 

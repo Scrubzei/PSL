@@ -14,7 +14,8 @@
     "docker:restart": "docker-compose restart",
     "db:seed": "docker-compose exec server npm run seed",
     "db:seed:tournaments": "docker-compose exec server npm run seed:tournaments --",
-    "start": "docker-compose up --build"
+    "start": "docker-compose up --build",
+    "bot:deploy-commands": "cd services/botzei && npm run deploy-commands"
   },
   "keywords": [
     "angular",

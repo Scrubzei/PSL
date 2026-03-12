@@ -100,6 +100,7 @@ export class TournamentsController {
         player2: m.player2 ? { id: m.player2.id, username: m.player2.username } : null,
         winner: m.winner ? { id: m.winner.id, username: m.winner.username } : null,
         gameMaps: m.gameMaps || [],
+        scheduledTime: m.scheduledTime || null,
       })),
     };
   }
@@ -112,6 +113,16 @@ export class TournamentsController {
     @Body() body: { mapIds: string[]; gameId: string },
   ) {
     return this.tournamentsService.updateMatchMaps(matchId, body.mapIds, body.gameId);
+  }
+
+  @Patch('matches/:matchId/scheduled-time')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('admin')
+  async updateMatchScheduledTime(
+    @Param('matchId') matchId: string,
+    @Body() body: { scheduledTime: string | null },
+  ) {
+    return this.tournamentsService.updateMatchScheduledTime(matchId, body.scheduledTime);
   }
 
   @Patch(':id/feature')
@@ -131,6 +142,17 @@ export class TournamentsController {
     const tournament = await this.tournamentsService.findOne(id);
     await this.tournamentsService.updateSeeds(tournament.id, body.participantIds);
     return { message: 'Seeds updated' };
+  }
+
+  @Post(':id/close-registration')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('admin')
+  async closeRegistration(
+    @Param('id') id: string,
+    @Body() body?: { byeUserIds?: string[] },
+  ) {
+    const tournament = await this.tournamentsService.findOne(id);
+    return this.tournamentsService.closeRegistration(tournament.id, body?.byeUserIds);
   }
 
   @Post(':id/start')
@@ -178,6 +200,7 @@ export class TournamentsController {
         player2: match.player2 ? { id: match.player2.id, username: match.player2.username } : null,
         winner: match.winner ? { id: match.winner.id, username: match.winner.username } : null,
         gameMaps: match.gameMaps || [],
+        scheduledTime: match.scheduledTime || null,
       },
     };
   }
@@ -196,6 +219,7 @@ export class TournamentsController {
         player1: match.player1 ? { id: match.player1.id, username: match.player1.username } : null,
         player2: match.player2 ? { id: match.player2.id, username: match.player2.username } : null,
         gameMaps: match.gameMaps || [],
+        scheduledTime: match.scheduledTime || null,
       },
       tournament: {
         id: tournament.id,

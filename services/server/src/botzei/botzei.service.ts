@@ -12,6 +12,16 @@ interface TournamentSignupDmPayload {
   roundDeadlines?: { name: string; deadline: string | null }[] | null;
 }
 
+interface TournamentMatchResultPayload {
+  tournamentName: string;
+  tournamentSlug: string;
+  winnerUsername: string;
+  loserUsername: string;
+  round: number;
+  matchNumber: number;
+  isFinal: boolean;
+}
+
 interface GenericDmPayload {
   discordId: string;
   message?: string;
@@ -68,6 +78,11 @@ export class BotzeiService {
     return this.makeRequest('/api/dm/tournament-signup', payload);
   }
 
+  async sendTournamentMatchResult(payload: TournamentMatchResultPayload): Promise<boolean> {
+    this.logger.log(`Sending tournament match result: ${payload.winnerUsername} beat ${payload.loserUsername} in ${payload.tournamentName}`);
+    return this.makeRequest('/api/tournament-match-result', payload);
+  }
+
   async sendDm(payload: GenericDmPayload): Promise<boolean> {
     if (!payload.discordId) {
       this.logger.debug('No discordId provided, skipping DM');
@@ -75,6 +90,28 @@ export class BotzeiService {
     }
 
     return this.makeRequest('/api/dm', payload);
+  }
+
+  async sendChannelMessage(payload: { channelId: string; message?: string; embed?: any }): Promise<boolean> {
+    if (!payload.channelId) {
+      this.logger.debug('No channelId provided, skipping channel message');
+      return false;
+    }
+
+    this.logger.log(`Sending channel message to ${payload.channelId}`);
+    return this.makeRequest('/api/channel-message', payload);
+  }
+
+  async sendPlutoGameResult(payload: {
+    winnerName: string;
+    loserName: string;
+    winnerScore: number;
+    loserScore: number;
+    mapName: string;
+    winnerRecord: string;
+  }): Promise<boolean> {
+    this.logger.log(`Sending pluto game result: ${payload.winnerName} beat ${payload.loserName}`);
+    return this.makeRequest('/api/pluto-game-result', payload);
   }
 
   async isHealthy(): Promise<boolean> {

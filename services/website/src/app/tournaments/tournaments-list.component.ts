@@ -138,7 +138,7 @@ import { AuthService } from '../auth/auth.service';
 
             <div class="tournaments-grid">
               @for (tournament of tournaments; track tournament.id) {
-                <div class="tournament-card" [routerLink]="['/tournaments', tournament.slug]" [class.is-active]="tournament.status === 'REGISTRATION' || tournament.status === 'IN_PROGRESS'">
+                <div class="tournament-card" [routerLink]="['/tournaments', tournament.slug]" [class.is-active]="tournament.status === 'REGISTRATION' || tournament.status === 'BRACKET_READY' || tournament.status === 'IN_PROGRESS'">
                   <!-- Card background -->
                   <div class="card-bg" [style.background-image]="'url(' + getGameImage(tournament) + ')'"></div>
                   <div class="card-overlay"></div>
@@ -554,6 +554,11 @@ import { AuthService } from '../auth/auth.service';
         }
       }
 
+      &.status-bracket_ready {
+        background: rgba(34, 211, 238, 0.2);
+        color: #22D3EE;
+      }
+
       &.status-in_progress {
         background: rgba(255, 152, 0, 0.2);
         color: #ffb74d;
@@ -748,6 +753,11 @@ import { AuthService } from '../auth/auth.service';
         color: #81c784;
       }
 
+      &.status-bracket_ready {
+        background: rgba(34, 211, 238, 0.2);
+        color: #22D3EE;
+      }
+
       &.status-in_progress {
         background: rgba(255, 152, 0, 0.2);
         color: #ffb74d;
@@ -925,6 +935,7 @@ export class TournamentsListComponent implements OnInit {
     'Bo2': '/assets/games/bo2.webp',
     'Mw2': '/assets/games/mw2.webp',
     'Mw3': '/assets/games/mw3.webp',
+    'MW 2019': '/assets/games/mw%202019.webp',
   };
 
   constructor(
@@ -941,7 +952,7 @@ export class TournamentsListComponent implements OnInit {
     if (featured) return featured;
     // Fallback: first active tournament
     return this.tournaments.find(
-      t => t.status === 'REGISTRATION' || t.status === 'IN_PROGRESS'
+      t => t.status === 'REGISTRATION' || t.status === 'BRACKET_READY' || t.status === 'IN_PROGRESS'
     ) || null;
   }
 
@@ -973,6 +984,7 @@ export class TournamentsListComponent implements OnInit {
   statusLabel(status: string): string {
     switch (status) {
       case 'REGISTRATION': return 'Registration Open';
+      case 'BRACKET_READY': return 'Bracket Posted';
       case 'IN_PROGRESS': return 'In Progress';
       case 'COMPLETED': return 'Completed';
       case 'CANCELLED': return 'Cancelled';
@@ -983,6 +995,7 @@ export class TournamentsListComponent implements OnInit {
   shortStatusLabel(status: string): string {
     switch (status) {
       case 'REGISTRATION': return 'Open';
+      case 'BRACKET_READY': return 'Bracket';
       case 'IN_PROGRESS': return 'Live';
       case 'COMPLETED': return 'Ended';
       case 'CANCELLED': return 'Cancelled';

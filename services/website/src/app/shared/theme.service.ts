@@ -1,6 +1,6 @@
 import { Injectable, signal } from '@angular/core';
 
-export type Platform = 'Plutonium' | 'IW4X' | 'Xbox' | 'PS3';
+export type Platform = 'Plutonium' | 'IW4X' | 'Xbox' | 'PS3' | 'Cross-Platform';
 
 const PLATFORM_KEY = 'selected_platform';
 
@@ -30,7 +30,7 @@ export class ThemeService {
     }
 
     const saved = localStorage.getItem(PLATFORM_KEY) as Platform | null;
-    if (saved && ['Plutonium', 'IW4X', 'Xbox', 'PS3'].includes(saved)) {
+    if (saved && ['Plutonium', 'IW4X', 'Xbox', 'PS3', 'Cross-Platform'].includes(saved)) {
       this.currentPlatform.set(saved);
     }
   }

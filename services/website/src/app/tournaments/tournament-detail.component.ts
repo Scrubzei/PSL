@@ -123,13 +123,23 @@ import { CdkDragDrop, CdkDrag, CdkDropList, moveItemInArray } from '@angular/cdk
                 </button>
               }
             }
-            @if (tournament.status === 'IN_PROGRESS' || tournament.status === 'COMPLETED') {
+            @if (tournament.status === 'BRACKET_READY' || tournament.status === 'IN_PROGRESS' || tournament.status === 'COMPLETED') {
               <button mat-raised-button class="action-btn bracket-btn" [routerLink]="['/tournaments', tournament.slug, 'bracket']">
                 <mat-icon>account_tree</mat-icon>
                 View Bracket
               </button>
             }
-            @if (isAdmin && tournament.status === 'REGISTRATION' && isTournamentFull() && seedsSaved) {
+            @if (isAdmin && tournament.status === 'REGISTRATION' && seedsSaved && (isTournamentFull() || numByes > 0)) {
+              <button class="start-btn" (click)="closeRegistration()" [disabled]="actionLoading">
+                @if (actionLoading) {
+                  <mat-spinner diameter="24"></mat-spinner>
+                } @else {
+                  <mat-icon>lock</mat-icon>
+                  <span>Close Registration</span>
+                }
+              </button>
+            }
+            @if (isAdmin && tournament.status === 'BRACKET_READY') {
               <button class="start-btn" (click)="startTournament()" [disabled]="actionLoading">
                 @if (actionLoading) {
                   <mat-spinner diameter="24"></mat-spinner>
@@ -141,85 +151,6 @@ import { CdkDragDrop, CdkDrag, CdkDropList, moveItemInArray } from '@angular/cdk
             }
           </div>
         </div>
-
-        <!-- My Current Match Card -->
-        @if (tournament.status === 'IN_PROGRESS' && tournament.isSignedUp) {
-          <div class="my-match-section">
-            @if (myMatchLoading) {
-              <div class="my-match-card loading">
-                <mat-spinner diameter="32"></mat-spinner>
-                <span>Loading your match...</span>
-              </div>
-            } @else if (myMatch) {
-              <div class="my-match-card" [class.ready]="myMatch.status === 'READY'">
-                <div class="my-match-header">
-                  <div class="my-match-badge">
-                    <mat-icon>sports_esports</mat-icon>
-                    <span>Your Current Match</span>
-                  </div>
-                  @if (myMatch.status === 'READY') {
-                    <div class="live-badge">
-                      <span class="live-dot"></span>
-                      READY TO PLAY
-                    </div>
-                  }
-                </div>
-
-                <div class="my-match-content">
-                  <div class="matchup">
-                    <div class="player you">
-                      <div class="player-avatar">
-                        <span>{{ authService.currentUser()?.username?.charAt(0)?.toUpperCase() }}</span>
-                      </div>
-                      <span class="player-name">{{ authService.currentUser()?.username }}</span>
-                      <span class="you-tag">You</span>
-                    </div>
-
-                    <div class="vs">VS</div>
-
-                    <div class="player opponent">
-                      @if (getOpponent()) {
-                        <div class="player-avatar">
-                          <span>{{ getOpponent()?.username?.charAt(0)?.toUpperCase() }}</span>
-                        </div>
-                        <span class="player-name">{{ getOpponent()?.username }}</span>
-                      } @else {
-                        <div class="player-avatar tbd">
-                          <mat-icon>help_outline</mat-icon>
-                        </div>
-                        <span class="player-name tbd">TBD</span>
-                      }
-                    </div>
-                  </div>
-
-                  @if (myMatch.gameMaps?.length) {
-                    <div class="maps-info">
-                      @for (map of myMatch.gameMaps; track map.id; let i = $index) {
-                        <div class="map-info">
-                          <mat-icon>map</mat-icon>
-                          <span class="map-label">Map {{ i + 1 }}:</span>
-                          <span class="map-name">{{ map.mapName }}</span>
-                        </div>
-                      }
-                    </div>
-                  }
-
-                  @if (myMatch.status === 'READY') {
-                    <button class="report-result-btn" (click)="openMyMatchReportDialog()">
-                      <mat-icon>sports_score</mat-icon>
-                      Report Result
-                    </button>
-                  }
-                </div>
-              </div>
-            } @else {
-              <div class="my-match-card eliminated">
-                <mat-icon>sentiment_dissatisfied</mat-icon>
-                <span>You have been eliminated from this tournament</span>
-              </div>
-            }
-          </div>
-        }
 
         <!-- Players Progress -->
         <div class="players-progress-bar">
@@ -375,6 +306,12 @@ import { CdkDragDrop, CdkDrag, CdkDropList, moveItemInArray } from '@angular/cdk
               } @else if (isAdmin && tournament.status === 'REGISTRATION') {
                 <!-- Admin drag-and-drop seeding -->
                 <p class="seed-hint">Drag to reorder seeds. #1 seed plays the last seed.</p>
+                @if (numByes > 0) {
+                  <p class="bye-info">
+                    <mat-icon>info_outline</mat-icon>
+                    <strong>{{ numByes }} byes to assign</strong> ({{ byeUserIds.size }} of {{ numByes }} assigned)
+                  </p>
+                }
                 <div class="participants-grid" cdkDropList (cdkDropListDropped)="onSeedDrop($event)">
                   @for (participant of seedsOrder; track participant.id; let i = $index) {
                     <div class="participant-card seed-draggable" cdkDrag [class.you]="isCurrentUser(participant.user.id)">
@@ -391,20 +328,34 @@ import { CdkDragDrop, CdkDrag, CdkDropList, moveItemInArray } from '@angular/cdk
                           }
                         </span>
                       </div>
+                      @if (numByes > 0) {
+                        <button class="bye-toggle"
+                          [class.active]="byeUserIds.has(participant.user.id)"
+                          [disabled]="!byeUserIds.has(participant.user.id) && byeUserIds.size >= numByes"
+                          (click)="toggleBye(participant.user.id)">
+                          BYE
+                        </button>
+                      }
                     </div>
                   }
                 </div>
-                <button class="save-seeds-btn" (click)="saveSeeds()" [disabled]="seedsSaving || seedsSaved">
-                  @if (seedsSaving) {
-                    <mat-spinner diameter="20"></mat-spinner>
-                  } @else if (seedsSaved) {
-                    <mat-icon>check</mat-icon>
-                    <span>Seeds Saved</span>
-                  } @else {
-                    <mat-icon>save</mat-icon>
-                    <span>Save Seeds</span>
-                  }
-                </button>
+                <div class="seed-actions">
+                  <button class="shuffle-seeds-btn" (click)="shuffleSeeds()">
+                    <mat-icon>shuffle</mat-icon>
+                    <span>Shuffle</span>
+                  </button>
+                  <button class="save-seeds-btn" (click)="saveSeeds()" [disabled]="seedsSaving || seedsSaved">
+                    @if (seedsSaving) {
+                      <mat-spinner diameter="20"></mat-spinner>
+                    } @else if (seedsSaved) {
+                      <mat-icon>check</mat-icon>
+                      <span>Seeds Saved</span>
+                    } @else {
+                      <mat-icon>save</mat-icon>
+                      <span>Save Seeds</span>
+                    }
+                  </button>
+                </div>
               } @else {
                 <div class="participants-grid">
                   @for (participant of tournament.participants; track participant.id; let i = $index) {
@@ -708,6 +659,12 @@ import { CdkDragDrop, CdkDrag, CdkDropList, moveItemInArray } from '@angular/cdk
         background: rgba(16, 185, 129, 0.15);
         color: #10B981;
         border: 1px solid rgba(16, 185, 129, 0.3);
+      }
+
+      &.status-bracket_ready {
+        background: rgba(34, 211, 238, 0.15);
+        color: #22D3EE;
+        border: 1px solid rgba(34, 211, 238, 0.3);
       }
 
       &.status-in_progress {
@@ -1374,6 +1331,62 @@ import { CdkDragDrop, CdkDrag, CdkDropList, moveItemInArray } from '@angular/cdk
       color: rgba(255, 255, 255, 0.4);
     }
 
+    .bye-info {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      margin: 0 0 10px;
+      padding: 8px 12px;
+      font-size: 12px;
+      color: rgba(255, 255, 255, 0.5);
+      background: rgba(255, 255, 255, 0.03);
+      border-radius: 8px;
+      border: 1px solid rgba(255, 255, 255, 0.06);
+
+      mat-icon {
+        font-size: 16px;
+        width: 16px;
+        height: 16px;
+        color: rgba(255, 255, 255, 0.35);
+      }
+
+      strong {
+        color: rgba(255, 255, 255, 0.7);
+      }
+    }
+
+    .bye-toggle {
+      margin-left: auto;
+      padding: 3px 10px;
+      border-radius: 6px;
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: 0.5px;
+      text-transform: uppercase;
+      cursor: pointer;
+      transition: all 0.15s ease;
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      background: transparent;
+      color: rgba(255, 255, 255, 0.35);
+      flex-shrink: 0;
+
+      &:hover:not(:disabled):not(.active) {
+        border-color: rgba(var(--theme-primary-rgb), 0.4);
+        color: rgba(255, 255, 255, 0.6);
+      }
+
+      &.active {
+        background: var(--theme-primary);
+        border-color: var(--theme-primary);
+        color: white;
+      }
+
+      &:disabled {
+        opacity: 0.25;
+        cursor: not-allowed;
+      }
+    }
+
     .seed-draggable {
       cursor: grab;
       transition: background 0.15s ease, box-shadow 0.15s ease;
@@ -1411,13 +1424,46 @@ import { CdkDragDrop, CdkDrag, CdkDropList, moveItemInArray } from '@angular/cdk
       transition: transform 200ms ease;
     }
 
+    .seed-actions {
+      display: flex;
+      gap: 8px;
+      margin-top: 12px;
+    }
+
+    .shuffle-seeds-btn {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      padding: 10px 16px;
+      background: rgba(255, 255, 255, 0.08);
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      border-radius: 8px;
+      color: rgba(255, 255, 255, 0.9);
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      white-space: nowrap;
+
+      &:hover {
+        background: rgba(255, 255, 255, 0.12);
+        border-color: rgba(255, 255, 255, 0.25);
+      }
+
+      mat-icon {
+        font-size: 18px;
+        width: 18px;
+        height: 18px;
+      }
+    }
+
     .save-seeds-btn {
       display: flex;
       align-items: center;
       justify-content: center;
       gap: 6px;
-      width: 100%;
-      margin-top: 12px;
+      flex: 1;
       padding: 10px 16px;
       background: var(--theme-primary);
       border: none;
@@ -1853,6 +1899,7 @@ export class TournamentDetailComponent implements OnInit, OnDestroy {
   seedsOrder: TournamentDetail['participants'] = [];
   seedsSaved = false;
   seedsSaving = false;
+  byeUserIds = new Set<string>();
   private countdownInterval?: ReturnType<typeof setInterval>;
 
   particles = Array.from({ length: 20 }, (_, i) => ({
@@ -1878,7 +1925,7 @@ export class TournamentDetailComponent implements OnInit, OnDestroy {
   getGameImage(): string {
     if (!this.tournament) return '';
     const gameName = this.tournament.game.name.toLowerCase();
-    return `/assets/games/${gameName}.webp`;
+    return `/assets/games/${encodeURIComponent(gameName)}.webp`;
   }
 
   private setThemeFromPlatform(): void {
@@ -1897,6 +1944,19 @@ export class TournamentDetailComponent implements OnInit, OnDestroy {
 
   get isAdmin(): boolean {
     return this.authService.currentUser()?.role === 'admin';
+  }
+
+  get numByes(): number {
+    if (!this.tournament) return 0;
+    const n = this.tournament.participants.length;
+    if (n <= 1) return 0;
+    return this.nextPowerOfTwo(n) - n;
+  }
+
+  private nextPowerOfTwo(n: number): number {
+    let p = 1;
+    while (p < n) p *= 2;
+    return p;
   }
 
   ngOnInit(): void {
@@ -1975,6 +2035,7 @@ export class TournamentDetailComponent implements OnInit, OnDestroy {
   statusIcon(status: string): string {
     switch (status) {
       case 'REGISTRATION': return 'how_to_reg';
+      case 'BRACKET_READY': return 'account_tree';
       case 'IN_PROGRESS': return 'play_circle';
       case 'COMPLETED': return 'emoji_events';
       case 'CANCELLED': return 'cancel';
@@ -1990,6 +2051,7 @@ export class TournamentDetailComponent implements OnInit, OnDestroy {
         this.loading = false;
         this.setThemeFromPlatform();
         // Initialize seed order for admin seeding UI
+        this.byeUserIds = new Set<string>();
         if (tournament.status === 'REGISTRATION' && tournament.participants.length > 0) {
           this.seedsOrder = [...tournament.participants];
           this.seedsSaved = tournament.participants.every(p => p.seed != null);
@@ -2172,8 +2234,25 @@ export class TournamentDetailComponent implements OnInit, OnDestroy {
     });
   }
 
+  toggleBye(userId: string): void {
+    if (this.byeUserIds.has(userId)) {
+      this.byeUserIds.delete(userId);
+    } else if (this.byeUserIds.size < this.numByes) {
+      this.byeUserIds.add(userId);
+    }
+    this.seedsSaved = false;
+  }
+
   onSeedDrop(event: CdkDragDrop<any[]>): void {
     moveItemInArray(this.seedsOrder, event.previousIndex, event.currentIndex);
+    this.seedsSaved = false;
+  }
+
+  shuffleSeeds(): void {
+    for (let i = this.seedsOrder.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [this.seedsOrder[i], this.seedsOrder[j]] = [this.seedsOrder[j], this.seedsOrder[i]];
+    }
     this.seedsSaved = false;
   }
 
@@ -2190,6 +2269,23 @@ export class TournamentDetailComponent implements OnInit, OnDestroy {
       error: (err) => {
         this.seedsSaving = false;
         this.snackBar.open(err.error?.message || 'Failed to save seeds', 'Close', { duration: 3000 });
+      }
+    });
+  }
+
+  closeRegistration(): void {
+    if (!this.tournament) return;
+    this.actionLoading = true;
+    const byeIds = this.byeUserIds.size > 0 ? Array.from(this.byeUserIds) : undefined;
+    this.tournamentsService.closeRegistration(this.tournament.id, byeIds).subscribe({
+      next: () => {
+        this.snackBar.open('Registration closed — bracket posted!', 'Close', { duration: 3000 });
+        this.loadTournament(this.tournament!.id);
+        this.actionLoading = false;
+      },
+      error: (err) => {
+        this.snackBar.open(err.error?.message || 'Failed to close registration', 'Close', { duration: 3000 });
+        this.actionLoading = false;
       }
     });
   }
@@ -2231,6 +2327,7 @@ export class TournamentDetailComponent implements OnInit, OnDestroy {
   statusLabel(status: string): string {
     switch (status) {
       case 'REGISTRATION': return 'Registration Open';
+      case 'BRACKET_READY': return 'Bracket Posted';
       case 'IN_PROGRESS': return 'In Progress';
       case 'COMPLETED': return 'Completed';
       case 'CANCELLED': return 'Cancelled';

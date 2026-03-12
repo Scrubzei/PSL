@@ -103,6 +103,19 @@ export class UsersService {
     return this.usersRepository.save(user);
   }
 
+  async findByPlutoId(plutoId: string): Promise<User | undefined> {
+    return this.usersRepository.findOne({ where: { plutoId } });
+  }
+
+  async setPlutoId(userId: string, plutoId: string): Promise<User> {
+    const user = await this.findById(userId);
+    if (!user) {
+      throw new Error('User not found');
+    }
+    user.plutoId = plutoId;
+    return this.usersRepository.save(user);
+  }
+
   async isUsernameAvailable(username: string): Promise<boolean> {
     const existingUser = await this.findByUsername(username);
     return !existingUser;

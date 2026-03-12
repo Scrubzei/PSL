@@ -181,4 +181,17 @@ export class LeaderboardsService {
     const entry = await this.getUserEntry(userId, leaderboardId);
     return !!entry;
   }
+
+  async awardXp(userId: string, leaderboardId: string, amount: number): Promise<LeaderboardEntry> {
+    let entry = await this.leaderboardEntriesRepository.findOne({
+      where: { userId, leaderboardId },
+    });
+
+    if (!entry) {
+      entry = await this.signup(userId, leaderboardId);
+    }
+
+    entry.xp += amount;
+    return this.leaderboardEntriesRepository.save(entry);
+  }
 }

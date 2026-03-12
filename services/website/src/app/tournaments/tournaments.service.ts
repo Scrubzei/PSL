@@ -12,7 +12,7 @@ export interface Tournament {
   platformId: string;
   format: 'SINGLE_ELIMINATION';
   maxParticipants: number;
-  status: 'REGISTRATION' | 'IN_PROGRESS' | 'COMPLETED' | 'CANCELLED';
+  status: 'REGISTRATION' | 'BRACKET_READY' | 'IN_PROGRESS' | 'COMPLETED' | 'CANCELLED';
   createdById: string;
   registrationDeadline: string | null;
   startDate: string | null;
@@ -56,6 +56,7 @@ export interface TournamentMatch {
   winner: { id: string; username: string } | null;
   gameMaps?: GameMap[];
   isBye?: boolean;
+  scheduledTime?: string | null;
 }
 
 export interface MyMatch {
@@ -68,6 +69,7 @@ export interface MyMatch {
   winner: { id: string; username: string } | null;
   gameMaps?: GameMap[];
   isBye?: boolean;
+  scheduledTime?: string | null;
 }
 
 export interface MyMatchResponse {
@@ -83,6 +85,7 @@ export interface ActiveTournamentMatch {
     player1: { id: string; username: string } | null;
     player2: { id: string; username: string } | null;
     gameMaps?: GameMap[];
+    scheduledTime?: string | null;
   };
   tournament: {
     id: string;
@@ -153,6 +156,12 @@ export class TournamentsService {
     return this.http.patch(`${this.API_URL}/${tournamentId}/seed`, { participantIds });
   }
 
+  closeRegistration(tournamentId: string, byeUserIds?: string[]): Observable<Tournament> {
+    return this.http.post<Tournament>(`${this.API_URL}/${tournamentId}/close-registration`, {
+      ...(byeUserIds?.length ? { byeUserIds } : {}),
+    });
+  }
+
   startTournament(tournamentId: string): Observable<Tournament> {
     return this.http.post<Tournament>(`${this.API_URL}/${tournamentId}/start`, {});
   }
@@ -169,6 +178,10 @@ export class TournamentsService {
 
   getActiveMatches(): Observable<ActiveTournamentMatch[]> {
     return this.http.get<ActiveTournamentMatch[]>(`${this.API_URL}/user/active-matches`);
+  }
+
+  updateMatchScheduledTime(matchId: string, scheduledTime: string | null): Observable<any> {
+    return this.http.patch(`${this.API_URL}/matches/${matchId}/scheduled-time`, { scheduledTime });
   }
 
   updateMatchMaps(matchId: string, mapIds: string[], gameId: string): Observable<any> {

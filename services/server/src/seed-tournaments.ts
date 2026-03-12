@@ -52,11 +52,10 @@ function parseArgs(): SeedOptions {
       case '--seats':
       case '-s':
         const seats = parseInt(nextArg, 10);
-        // Validate power of 2 for bracket tournaments
-        if (seats && [4, 8, 16, 32, 64].includes(seats)) {
+        if (seats && seats >= 2) {
           options.seats = seats;
         } else {
-          console.warn(`Invalid seat count: ${nextArg}. Must be 4, 8, 16, 32, or 64. Using default: 8`);
+          console.warn(`Invalid seat count: ${nextArg}. Must be at least 2. Using default: 8`);
         }
         i++;
         break;
@@ -108,7 +107,7 @@ Usage: npm run seed:tournaments -- [options]
 
 Options:
   -c, --count <n>      Number of tournaments to create (default: 1)
-  -s, --seats <n>      Participants per tournament: 4, 8, 16, 32, 64 (default: 8)
+  -s, --seats <n>      Participants per tournament, minimum 2 (default: 8)
   -g, --game <name>    Game name (default: Bo2)
   -p, --platform <name> Platform name (default: Plutonium)
   -f, --format <type>  Tournament format (default: SINGLE_ELIMINATION)

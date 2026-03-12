@@ -13,6 +13,7 @@ import { AuthService } from '../auth/auth.service';
 import { ThemeService, Platform } from '../shared/theme.service';
 import { ReportResultDialogComponent } from './report-result-dialog.component';
 import { MapPickerDialogComponent } from './map-picker-dialog.component';
+import { ScheduleTimeDialogComponent } from './schedule-time-dialog.component';
 
 interface RoundData {
   roundNumber: number;
@@ -106,7 +107,8 @@ interface RoundData {
           <div class="bracket-scroll">
             <div class="bracket">
               @for (round of rounds; track round.roundNumber; let roundIndex = $index; let isLast = $last) {
-                <div class="round" [class.finals]="round.roundNumber === 1">
+                <div class="round" [class.finals]="round.roundNumber === 1"
+                     [style.--round-progress]="rounds.length > 1 ? roundIndex / (rounds.length - 1) : 1">
                   <div class="round-header">
                     <span class="round-name">{{ round.roundName }}</span>
                     <span class="match-count">{{ round.matches.length }} {{ round.matches.length === 1 ? 'match' : 'matches' }}</span>
@@ -134,7 +136,7 @@ interface RoundData {
                             <div class="bye-badge">
                               <span>BYE</span>
                             </div>
-                          } @else if (match.status === 'READY') {
+                          } @else if (match.status === 'READY' && bracketData.tournament.status === 'IN_PROGRESS') {
                             <div class="live-indicator">
                               <span class="live-dot"></span>
                               <span>LIVE</span>
@@ -162,6 +164,23 @@ interface RoundData {
                             <button class="edit-maps-btn standalone" (click)="openMapPicker(match); $event.stopPropagation()">
                               <mat-icon>add</mat-icon>
                               <span>Set Maps</span>
+                            </button>
+                          }
+
+                          @if (match.scheduledTime && !match.isBye) {
+                            <div class="match-scheduled-time">
+                              <mat-icon>schedule</mat-icon>
+                              <span>{{ formatScheduledTime(match.scheduledTime) }}</span>
+                              @if (canReportResult) {
+                                <button class="edit-time-btn" (click)="editScheduledTime(match); $event.stopPropagation()">
+                                  <mat-icon>edit</mat-icon>
+                                </button>
+                              }
+                            </div>
+                          } @else if (!match.isBye && canReportResult) {
+                            <button class="edit-time-btn standalone" (click)="editScheduledTime(match); $event.stopPropagation()">
+                              <mat-icon>schedule</mat-icon>
+                              <span>Set Time</span>
                             </button>
                           }
 
@@ -211,7 +230,7 @@ interface RoundData {
                             </div>
                           </div>
 
-                          @if (!match.isBye && (canReportResult || isUserInMatch(match)) && match.status === 'READY') {
+                          @if (!match.isBye && (canReportResult || isUserInMatch(match)) && match.status === 'READY' && bracketData.tournament.status === 'IN_PROGRESS') {
                             <button class="report-btn" (click)="openReportDialog(match)">
                               <mat-icon>sports_score</mat-icon>
                               Report Winner
@@ -424,6 +443,12 @@ interface RoundData {
         border-radius: 12px;
         font-weight: 500;
 
+        &.status-bracket_ready {
+          background: rgba(34, 211, 238, 0.15);
+          color: var(--color-cyan);
+          border: 1px solid rgba(34, 211, 238, 0.3);
+        }
+
         &.status-in_progress {
           background: rgba(245, 158, 11, 0.15);
           color: var(--color-in-progress);
@@ -561,15 +586,8 @@ interface RoundData {
       flex-direction: column;
       min-width: 280px;
 
-      &.finals {
-        .round-header {
-          background: linear-gradient(135deg, rgba(var(--color-primary-rgb), 0.15), rgba(var(--color-primary-rgb), 0.05));
-          border-color: rgba(var(--color-primary-rgb), 0.4);
-
-          .round-name {
-            color: var(--color-platinum);
-          }
-        }
+      &.finals .round-header {
+        box-shadow: 0 0 20px rgba(var(--color-primary-rgb), 0.1);
       }
     }
 
@@ -579,14 +597,19 @@ interface RoundData {
       align-items: center;
       padding: 12px 20px;
       margin-bottom: 24px;
-      background: rgba(255, 255, 255, 0.03);
-      border: 1px solid rgba(255, 255, 255, 0.08);
+      background: linear-gradient(
+        135deg,
+        rgba(var(--color-primary-rgb), calc(0.03 + var(--round-progress) * 0.12)),
+        rgba(var(--color-primary-rgb), calc(0.01 + var(--round-progress) * 0.04))
+      );
+      border: 1px solid rgba(var(--color-primary-rgb), calc(0.08 + var(--round-progress) * 0.32));
       border-radius: 12px;
+      transition: all 0.3s ease;
 
       .round-name {
         font-size: 14px;
         font-weight: 700;
-        color: var(--color-silver);
+        color: color-mix(in srgb, var(--color-silver), var(--color-platinum) calc(var(--round-progress) * 100%));
         text-transform: uppercase;
         letter-spacing: 1.5px;
       }
@@ -803,6 +826,62 @@ interface RoundData {
     .edit-maps-btn {
       position: absolute;
       top: 4px;
+      right: 4px;
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      padding: 2px 6px;
+      background: rgba(var(--color-primary-rgb), 0.15);
+      border: 1px solid rgba(var(--color-primary-rgb), 0.25);
+      border-radius: 4px;
+      color: var(--color-primary-bright, var(--color-primary));
+      cursor: pointer;
+      font-size: 10px;
+      transition: all 0.2s;
+
+      mat-icon {
+        font-size: 14px;
+        width: 14px;
+        height: 14px;
+      }
+
+      &:hover {
+        background: rgba(var(--color-primary-rgb), 0.25);
+      }
+
+      &.standalone {
+        position: relative;
+        top: auto;
+        right: auto;
+        margin-bottom: 10px;
+        padding: 4px 10px;
+        width: fit-content;
+      }
+    }
+
+    .match-scheduled-time {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      margin-bottom: 10px;
+      padding: 4px 8px;
+      background: rgba(255, 255, 255, 0.03);
+      border-radius: 6px;
+      font-size: 11px;
+      color: var(--color-silver);
+      position: relative;
+
+      > mat-icon {
+        font-size: 12px;
+        width: 12px;
+        height: 12px;
+        color: var(--color-primary);
+      }
+    }
+
+    .edit-time-btn {
+      position: absolute;
+      top: 2px;
       right: 4px;
       display: flex;
       align-items: center;
@@ -1058,7 +1137,7 @@ export class TournamentBracketComponent implements OnInit, OnDestroy {
   getGameImage(): string {
     if (!this.bracketData) return '';
     const gameName = this.bracketData.tournament.game.name.toLowerCase();
-    return `/assets/games/${gameName}.webp`;
+    return `/assets/games/${encodeURIComponent(gameName)}.webp`;
   }
 
   private setThemeFromPlatform(): void {
@@ -1077,6 +1156,7 @@ export class TournamentBracketComponent implements OnInit, OnDestroy {
 
   getStatusIcon(): string {
     switch (this.bracketData?.tournament.status) {
+      case 'BRACKET_READY': return 'account_tree';
       case 'IN_PROGRESS': return 'play_circle';
       case 'COMPLETED': return 'emoji_events';
       default: return 'info';
@@ -1085,6 +1165,7 @@ export class TournamentBracketComponent implements OnInit, OnDestroy {
 
   getStatusLabel(): string {
     switch (this.bracketData?.tournament.status) {
+      case 'BRACKET_READY': return 'Bracket Posted';
       case 'IN_PROGRESS': return 'In Progress';
       case 'COMPLETED': return 'Completed';
       default: return this.bracketData?.tournament.status || '';
@@ -1161,6 +1242,30 @@ export class TournamentBracketComponent implements OnInit, OnDestroy {
 
     dialogRef.afterClosed().subscribe(saved => {
       if (saved) {
+        this.loadBracket(this.bracketData!.tournament.id);
+      }
+    });
+  }
+
+  formatScheduledTime(time: string): string {
+    const d = new Date(time);
+    const date = d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', timeZone: 'America/Chicago' });
+    const clock = d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', timeZone: 'America/Chicago' });
+    return `${date}, ${clock} CT`;
+  }
+
+  editScheduledTime(match: TournamentMatch): void {
+    const dialogRef = this.dialog.open(ScheduleTimeDialogComponent, {
+      width: '400px',
+      data: {
+        matchId: match.id,
+        currentTime: match.scheduledTime || null,
+      }
+    });
+
+    dialogRef.afterClosed().subscribe(saved => {
+      if (saved) {
+        this.snackBar.open('Scheduled time updated', 'Close', { duration: 3000 });
         this.loadBracket(this.bracketData!.tournament.id);
       }
     });

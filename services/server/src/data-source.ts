@@ -33,6 +33,10 @@ import { AddTournamentSponsors1739600000000 } from './migrations/1739600000000-A
 import { RemoveEmailColumn1739700000000 } from './migrations/1739700000000-RemoveEmailColumn';
 import { AddTournamentMatchBye1739800000000 } from './migrations/1739800000000-AddTournamentMatchBye';
 import { AddTournamentMatchGameMaps1739900000000 } from './migrations/1739900000000-AddTournamentMatchGameMaps';
+import { AddTournamentMatchScheduledTime1740000000000 } from './migrations/1740000000000-AddTournamentMatchScheduledTime';
+import { AddPlutoId1740100000000 } from './migrations/1740100000000-AddPlutoId';
+import { AddCrossPlatform1740200000000 } from './migrations/1740200000000-AddCrossPlatform';
+import { AddMW20191740300000000 } from './migrations/1740300000000-AddMW2019';
 
 export const AppDataSource = new DataSource({
   type: 'postgres',
@@ -65,6 +69,10 @@ export const AppDataSource = new DataSource({
     RemoveEmailColumn1739700000000,
     AddTournamentMatchBye1739800000000,
     AddTournamentMatchGameMaps1739900000000,
+    AddTournamentMatchScheduledTime1740000000000,
+    AddPlutoId1740100000000,
+    AddCrossPlatform1740200000000,
+    AddMW20191740300000000,
   ],
   synchronize: false,
 });

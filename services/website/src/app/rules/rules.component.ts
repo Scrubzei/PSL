@@ -98,14 +98,88 @@ import { MatIconModule } from '@angular/material/icon';
 
         <!-- MW2 Rules -->
         @if (activeGame === 'mw2') {
-          <div class="coming-soon">
-            <mat-icon>construction</mat-icon>
-            <h2>Rules are being built</h2>
-            <p>The full Modern Warfare 2 ruleset will be released March 1st.</p>
-          </div>
+          <section>
+            <h2>Class Setup</h2>
+            <div class="settings-grid">
+              <div class="setting"><span class="setting-label">Perk 1</span><span class="setting-value">Sleight of Hand / Sleight of Hand Pro</span></div>
+              <div class="setting"><span class="setting-label">Perk 2</span><span class="setting-value">Stopping Power / Stopping Power Pro</span></div>
+              <div class="setting"><span class="setting-label">Perk 3</span><span class="setting-value">Ninja / Ninja Pro</span></div>
+              <div class="setting"><span class="setting-label">Attachment</span><span class="setting-value">FMJ</span></div>
+              <div class="setting"><span class="setting-label">Deathstreak</span><span class="setting-value">Copycat</span></div>
+            </div>
+          </section>
+
+          <section>
+            <h2>Free For All Settings</h2>
+          </section>
+
+          <section>
+            <h2>Game Rules</h2>
+            <div class="settings-grid">
+              <div class="setting"><span class="setting-label">Time Limit</span><span class="setting-value">Unlimited</span></div>
+              <div class="setting"><span class="setting-label">Score Limit</span><span class="setting-value">1000 Points (20 Kills)</span></div>
+              <div class="setting"><span class="setting-label">Hardcore</span><span class="setting-value">Off</span></div>
+            </div>
+          </section>
+
+          <section>
+            <h2>Player Options</h2>
+            <div class="settings-grid">
+              <div class="setting"><span class="setting-label">Number of Lives</span><span class="setting-value">Unlimited</span></div>
+              <div class="setting"><span class="setting-label">Respawn Delay</span><span class="setting-value">None</span></div>
+              <div class="setting"><span class="setting-label">Max Health</span><span class="setting-value">Minuscule</span></div>
+              <div class="setting"><span class="setting-label">Health Regeneration</span><span class="setting-value">Normal</span></div>
+              <div class="setting"><span class="setting-label">Killcam</span><span class="setting-value">Disabled</span></div>
+            </div>
+          </section>
+
+          <section>
+            <h2>Team Options</h2>
+            <div class="settings-grid">
+              <div class="setting"><span class="setting-label">Spectating</span><span class="setting-value">Player Only</span></div>
+              <div class="setting"><span class="setting-label">Wave Spawn Delay</span><span class="setting-value">None</span></div>
+              <div class="setting"><span class="setting-label">Force Respawn</span><span class="setting-value">Enabled</span></div>
+              <div class="setting"><span class="setting-label">Radar Always On</span><span class="setting-value">Yes</span></div>
+            </div>
+          </section>
+
+          <section>
+            <h2>Gameplay Options</h2>
+            <div class="settings-grid">
+              <div class="setting"><span class="setting-label">Headshot Only</span><span class="setting-value">Disabled</span></div>
+              <div class="setting"><span class="setting-label">Perks</span><span class="setting-value">Enabled</span></div>
+              <div class="setting"><span class="setting-label">Killstreak Rewards</span><span class="setting-value">Disabled</span></div>
+              <div class="setting"><span class="setting-label">3rd Person</span><span class="setting-value">Disabled</span></div>
+            </div>
+          </section>
+
+          <section>
+            <h2>Warnings</h2>
+            <p class="section-desc">The following will result in a warning. Two warnings will result in a disqualification.</p>
+            <ul>
+              <li>Incorrect rules and setup</li>
+              <li>Illegal class setup</li>
+              <li>Spawning out and spawning back in / killing yourself with ammo</li>
+              <li>Using or throwing equipment that corrupts the game (e.g. throwing a knife into a spawn to prevent a player from spawning there)</li>
+            </ul>
+          </section>
+
+          <section>
+            <h2>Disqualifications</h2>
+            <p class="section-desc">The following will result in a disqualification:</p>
+            <ul>
+              <li>Killing with an illegal setup, rules, or class</li>
+              <li>Killing a player not participating in the match</li>
+              <li>Point glitching — can result in DQ or a free kill for the victim player depending on their call</li>
+              <li>Throwing knives</li>
+              <li>Hardscoping, hardscope jumpshots, relapse shots</li>
+              <li>Killing a player with explosive objects on the map (barrels, cars, tanks) is legal, but only if the explosion was caused by a sniper</li>
+              <li>Any form of cheating that gives you an unfair advantage — hacking/mods, IP flooding/DDoS, manipulating in-game mechanics/glitching, counting bullets, or assistance from a non-competing player</li>
+            </ul>
+          </section>
         }
 
-        @if (activeGame === 'bo2') {
+        @if (activeGame === 'bo2' || activeGame === 'mw2') {
           <p class="disclaimer">A ref may request a PC check or screen share at any time. Failure to comply will result in a disqualification.</p>
           <p class="disclaimer">Rules are subject to change. Not all situations are covered here.</p>
         }

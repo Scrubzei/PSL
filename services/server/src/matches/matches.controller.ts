@@ -160,4 +160,39 @@ export class MatchesController {
     }
     return this.matchesService.decline(id, user.id);
   }
+
+  @Post('bot/complete-match')
+  @UseGuards(ApiKeyGuard)
+  async botCompleteMatch(@Body() body: {
+    challengerDiscordId: string;
+    challengeeDiscordId: string;
+    winnerDiscordId: string;
+    leaderboardId: string;
+    map: string;
+  }) {
+    const challenger = await this.usersService.findByDiscordId(body.challengerDiscordId);
+    if (!challenger) throw new BadRequestException('Challenger does not have an account');
+
+    const challengee = await this.usersService.findByDiscordId(body.challengeeDiscordId);
+    if (!challengee) throw new BadRequestException('Challengee does not have an account');
+
+    const winner = await this.usersService.findByDiscordId(body.winnerDiscordId);
+    if (!winner) throw new BadRequestException('Winner does not have an account');
+
+    // Create match already completed
+    const match = await this.matchesService.createCompleted({
+      challengerId: challenger.id,
+      challengeeId: challengee.id,
+      winnerId: winner.id,
+      leaderboardId: body.leaderboardId,
+      map: body.map,
+    });
+
+    // Award XP: winner gets 100, loser gets 25
+    const loserId = winner.id === challenger.id ? challengee.id : challenger.id;
+    await this.leaderboardsService.awardXp(winner.id, body.leaderboardId, 100);
+    await this.leaderboardsService.awardXp(loserId, body.leaderboardId, 25);
+
+    return match;
+  }
 }
