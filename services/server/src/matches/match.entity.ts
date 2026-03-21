@@ -3,7 +3,7 @@ import { User } from '../users/user.entity';
 import { Leaderboard } from '../leaderboards/leaderboard.entity';
 
 export type MatchType = 'XP' | 'RANKED';
-export type MatchStatus = 'PENDING' | 'ACCEPTED' | 'DECLINED' | 'COMPLETED' | 'CANCELLED' | 'DISPUTED';
+export type MatchStatus = 'SEARCHING' | 'PENDING' | 'ACCEPTED' | 'DECLINED' | 'COMPLETED' | 'CANCELLED' | 'DISPUTED';
 
 @Entity('matches')
 export class Match {
@@ -13,7 +13,7 @@ export class Match {
   @Column()
   challengerId: string;
 
-  @Column()
+  @Column({ nullable: true })
   challengeeId: string;
 
   @Column({ nullable: true })

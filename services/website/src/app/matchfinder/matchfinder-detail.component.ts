@@ -1,6 +1,11 @@
 import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { ActivatedRoute, RouterModule } from '@angular/router';
+import { ActivatedRoute, Router, RouterModule } from '@angular/router';
+import { MatDialog } from '@angular/material/dialog';
+import { AuthService } from '../auth/auth.service';
+import { AuthModalComponent } from '../auth/auth-modal/auth-modal.component';
+import { MatchfinderService, MatchfinderListing } from './matchfinder.service';
+import { ChallengesService, Match } from '../challenges/challenges.service';
 
 @Component({
   selector: 'app-matchfinder-detail',
@@ -26,10 +31,24 @@ import { ActivatedRoute, RouterModule } from '@angular/router';
           <button
             class="tab"
             [class.active]="activeTab === 'xp'"
-            (click)="activeTab = 'xp'">
+            (click)="switchTab('xp')">
             <span class="tab-title">XP Matches</span>
             <span class="tab-desc">Earn XP with every win</span>
           </button>
+          @if (isLoggedIn) {
+            <button
+              class="tab"
+              [class.active]="activeTab === 'matches'"
+              (click)="switchTab('matches')">
+              <span class="tab-title">
+                My Matches
+                @if (myMatches.length > 0) {
+                  <span class="tab-count">{{ myMatches.length }}</span>
+                }
+              </span>
+              <span class="tab-desc">Your active matches</span>
+            </button>
+          }
           <button
             class="tab tab-locked"
             (mouseenter)="showCashTooltip = true"
@@ -59,9 +78,156 @@ import { ActivatedRoute, RouterModule } from '@angular/router';
             <i class="fa-solid fa-chart-simple"></i>
             Leaderboard
           </a>
+          <button class="create-match-btn" (click)="createMatch()">
+            <i class="fa-solid fa-plus"></i>
+            Create Match
+          </button>
         </div>
 
-        <p class="empty-state">No players are currently looking for a match.</p>
+        <!-- XP Matchfinder Listings -->
+        @if (activeTab === 'xp') {
+          @if (listings.length === 0) {
+            <div class="empty-state">
+              <i class="fa-solid fa-crosshairs empty-icon"></i>
+              <p>No players are currently looking for a match.</p>
+              <span class="empty-hint">Be the first — create a match above.</span>
+            </div>
+          }
+
+          @if (listings.length > 0) {
+            <div class="listings">
+              @for (listing of listings; track listing.id) {
+                <div class="listing-card" [class.own]="listing.challengerId === currentUserId">
+                  <div class="map-strip">
+                    @for (map of listing.selectedMaps; track $index) {
+                      <div class="map-thumb" [style.background-image]="'url(' + getMapImage(map) + ')'">
+                        <div class="map-overlay"></div>
+                        <span class="map-name">{{ map }}</span>
+                        @if (listing.bestOf > 1) {
+                          <span class="map-game-num">G{{ $index + 1 }}</span>
+                        }
+                      </div>
+                    }
+                  </div>
+                  <div class="listing-body">
+                    <div class="listing-left">
+                      <div class="listing-player">
+                        <span class="player-name">{{ listing.challenger.username }}</span>
+                        @if (listing.challengerId === currentUserId) {
+                          <span class="you-badge">You</span>
+                        }
+                      </div>
+                      <div class="listing-meta">
+                        <span class="meta-tag bo-tag">Bo{{ listing.bestOf }}</span>
+                        <span class="meta-tag xp-tag">
+                          <i class="fa-solid fa-bolt"></i>
+                          XP
+                        </span>
+                        <span class="meta-time">{{ getTimeAgo(listing.createdAt) }}</span>
+                      </div>
+                    </div>
+                    <div class="listing-actions">
+                      @if (listing.challengerId === currentUserId) {
+                        <button class="cancel-btn" (click)="cancelListing(listing.id)">
+                          <i class="fa-solid fa-xmark"></i>
+                          Cancel
+                        </button>
+                      } @else {
+                        <button class="accept-btn" (click)="acceptListing(listing.id)">
+                          <i class="fa-solid fa-handshake"></i>
+                          Accept
+                        </button>
+                      }
+                    </div>
+                  </div>
+                </div>
+              }
+            </div>
+          }
+        }
+
+        <!-- My Matches -->
+        @if (activeTab === 'matches') {
+          @if (myMatchesLoading) {
+            <div class="empty-state">
+              <p>Loading matches...</p>
+            </div>
+          }
+
+          @if (!myMatchesLoading && myMatches.length === 0) {
+            <div class="empty-state">
+              <i class="fa-solid fa-inbox empty-icon"></i>
+              <p>No active matches for this game.</p>
+              <span class="empty-hint">Find an opponent in the XP Matches tab or create a match.</span>
+            </div>
+          }
+
+          @if (!myMatchesLoading && myMatches.length > 0) {
+            <div class="listings">
+              @for (match of myMatches; track match.id) {
+                <div class="listing-card match-card" (click)="openMatch(match.id)">
+                  <div class="map-strip">
+                    @for (map of match.selectedMaps; track $index) {
+                      <div class="map-thumb" [style.background-image]="'url(' + getMapImage(map) + ')'">
+                        <div class="map-overlay"></div>
+                        <span class="map-name">{{ map }}</span>
+                        @if (match.bestOf > 1) {
+                          <span class="map-game-num">G{{ $index + 1 }}</span>
+                        }
+                      </div>
+                    }
+                  </div>
+                  <div class="listing-body">
+                    <div class="listing-left">
+                      <div class="listing-player">
+                        <span class="player-name">vs {{ getOpponentName(match) }}</span>
+                      </div>
+                      <div class="listing-meta">
+                        <span class="meta-tag bo-tag">Bo{{ match.bestOf }}</span>
+                        <span class="meta-tag xp-tag">
+                          <i class="fa-solid fa-bolt"></i>
+                          {{ match.type }}
+                        </span>
+                        <span class="meta-tag status-tag" [ngClass]="'status-' + match.status.toLowerCase()">
+                          {{ getStatusLabel(match) }}
+                        </span>
+                        <span class="meta-time">{{ getTimeAgo(match.updatedAt) }}</span>
+                      </div>
+                    </div>
+                    <div class="listing-actions">
+                      @if (match.status === 'PENDING' && match.challengeeId === currentUserId) {
+                        <span class="action-hint pending-hint">
+                          <i class="fa-solid fa-clock"></i>
+                          Respond
+                        </span>
+                      } @else if (match.status === 'ACCEPTED') {
+                        <span class="action-hint report-hint">
+                          <i class="fa-solid fa-flag"></i>
+                          Report Score
+                        </span>
+                      } @else if (match.status === 'DISPUTED') {
+                        <span class="action-hint dispute-hint">
+                          <i class="fa-solid fa-triangle-exclamation"></i>
+                          Disputed
+                        </span>
+                      } @else if (match.status === 'COMPLETED') {
+                        <span class="action-hint" [class.won]="match.winnerId === currentUserId" [class.lost]="match.winnerId !== currentUserId">
+                          @if (match.winnerId === currentUserId) {
+                            <i class="fa-solid fa-trophy"></i> Won
+                          } @else {
+                            <i class="fa-solid fa-minus"></i> Lost
+                          }
+                        </span>
+                      } @else {
+                        <i class="fa-solid fa-chevron-right match-arrow"></i>
+                      }
+                    </div>
+                  </div>
+                </div>
+              }
+            </div>
+          }
+        }
       </div>
     </div>
   `,
@@ -249,6 +415,7 @@ import { ActivatedRoute, RouterModule } from '@angular/router';
 
     .quick-links {
       display: flex;
+      align-items: center;
       justify-content: flex-end;
       gap: 20px;
       margin-bottom: 32px;
@@ -273,12 +440,366 @@ import { ActivatedRoute, RouterModule } from '@angular/router';
       }
     }
 
+    .create-match-btn {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      background: #2563EB;
+      border: none;
+      border-radius: 8px;
+      color: white;
+      font-size: 13px;
+      font-weight: 600;
+      font-family: inherit;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      padding: 10px 20px;
+
+      i {
+        font-size: 13px;
+      }
+
+      &:hover {
+        background: #1d4ed8;
+        box-shadow: 0 4px 16px rgba(37, 99, 235, 0.4);
+      }
+    }
+
     .empty-state {
-      margin: 0;
-      font-size: 15px;
-      color: rgba(255, 255, 255, 0.25);
       text-align: center;
-      padding: 60px 0;
+      padding: 80px 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 12px;
+
+      .empty-icon {
+        font-size: 40px;
+        color: rgba(255, 255, 255, 0.08);
+      }
+
+      p {
+        margin: 0;
+        font-size: 15px;
+        color: rgba(255, 255, 255, 0.3);
+      }
+
+      .empty-hint {
+        font-size: 13px;
+        color: rgba(255, 255, 255, 0.15);
+      }
+    }
+
+    .listings {
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+
+    .listing-card {
+      background: rgba(255, 255, 255, 0.02);
+      border: 1px solid rgba(255, 255, 255, 0.06);
+      border-radius: 14px;
+      overflow: hidden;
+      transition: all 0.25s ease;
+
+      &:hover {
+        border-color: rgba(255, 255, 255, 0.12);
+        box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+        transform: translateY(-2px);
+      }
+
+      &.own {
+        border-color: rgba(37, 99, 235, 0.2);
+        background: rgba(37, 99, 235, 0.03);
+      }
+    }
+
+    /* Map thumbnails */
+    .map-strip {
+      display: flex;
+      height: 140px;
+      gap: 2px;
+      padding: 10px 10px 0;
+    }
+
+    .map-thumb {
+      flex: 1;
+      position: relative;
+      background-size: cover;
+      background-position: center;
+      overflow: hidden;
+      border-radius: 8px;
+      min-width: 0;
+    }
+
+    .map-overlay {
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(
+        180deg,
+        transparent 30%,
+        rgba(0, 0, 0, 0.7) 100%
+      );
+    }
+
+    .map-name {
+      position: absolute;
+      bottom: 8px;
+      left: 10px;
+      font-size: 11px;
+      font-weight: 700;
+      color: rgba(255, 255, 255, 0.9);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      text-shadow: 0 1px 6px rgba(0, 0, 0, 0.9);
+    }
+
+    .map-game-num {
+      position: absolute;
+      top: 8px;
+      right: 8px;
+      font-size: 10px;
+      font-weight: 700;
+      color: rgba(255, 255, 255, 0.6);
+      background: rgba(0, 0, 0, 0.45);
+      backdrop-filter: blur(4px);
+      padding: 2px 7px;
+      border-radius: 4px;
+      letter-spacing: 0.5px;
+    }
+
+    /* Listing body */
+    .listing-body {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 14px 18px;
+    }
+
+    .listing-left {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .listing-player {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .player-name {
+      font-size: 15px;
+      font-weight: 700;
+      color: white;
+    }
+
+    .you-badge {
+      font-size: 10px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      color: #60a5fa;
+      background: rgba(37, 99, 235, 0.15);
+      border: 1px solid rgba(37, 99, 235, 0.25);
+      padding: 2px 8px;
+      border-radius: 20px;
+    }
+
+    .listing-meta {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .meta-tag {
+      font-size: 11px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      padding: 3px 8px;
+      border-radius: 6px;
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+
+    .bo-tag {
+      color: rgba(255, 255, 255, 0.7);
+      background: rgba(255, 255, 255, 0.08);
+    }
+
+    .xp-tag {
+      color: #fbbf24;
+      background: rgba(251, 191, 36, 0.1);
+
+      i {
+        font-size: 10px;
+      }
+    }
+
+    .meta-time {
+      font-size: 12px;
+      color: rgba(255, 255, 255, 0.2);
+    }
+
+    .listing-actions {
+      flex-shrink: 0;
+    }
+
+    .accept-btn {
+      padding: 10px 24px;
+      background: #2563EB;
+      border: none;
+      border-radius: 10px;
+      color: white;
+      font-size: 13px;
+      font-weight: 700;
+      font-family: inherit;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+
+      i {
+        font-size: 12px;
+      }
+
+      &:hover {
+        background: #1d4ed8;
+        box-shadow: 0 4px 16px rgba(37, 99, 235, 0.4);
+        transform: translateY(-1px);
+      }
+
+      &:active {
+        transform: translateY(0);
+      }
+    }
+
+    .cancel-btn {
+      padding: 10px 20px;
+      background: rgba(255, 255, 255, 0.04);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: 10px;
+      color: rgba(255, 255, 255, 0.4);
+      font-size: 13px;
+      font-weight: 600;
+      font-family: inherit;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+
+      i {
+        font-size: 11px;
+      }
+
+      &:hover {
+        background: rgba(239, 68, 68, 0.1);
+        border-color: rgba(239, 68, 68, 0.25);
+        color: #f87171;
+      }
+    }
+
+    /* Tab count badge */
+    .tab-count {
+      font-size: 11px;
+      font-weight: 700;
+      background: #2563EB;
+      color: white;
+      padding: 1px 7px;
+      border-radius: 10px;
+      letter-spacing: 0;
+      text-transform: none;
+    }
+
+    /* My Matches cards */
+    .match-card {
+      cursor: pointer;
+    }
+
+    .status-tag {
+      font-size: 10px;
+      padding: 3px 8px;
+      border-radius: 6px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    .status-pending {
+      color: #fbbf24;
+      background: rgba(251, 191, 36, 0.1);
+    }
+
+    .status-accepted {
+      color: #34d399;
+      background: rgba(52, 211, 153, 0.1);
+    }
+
+    .status-disputed {
+      color: #f87171;
+      background: rgba(248, 113, 113, 0.1);
+    }
+
+    .status-completed {
+      color: rgba(255, 255, 255, 0.4);
+      background: rgba(255, 255, 255, 0.05);
+    }
+
+    .status-declined, .status-cancelled {
+      color: rgba(255, 255, 255, 0.25);
+      background: rgba(255, 255, 255, 0.03);
+    }
+
+    .action-hint {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 13px;
+      font-weight: 600;
+      padding: 8px 16px;
+      border-radius: 10px;
+
+      i {
+        font-size: 12px;
+      }
+    }
+
+    .pending-hint {
+      color: #fbbf24;
+      background: rgba(251, 191, 36, 0.1);
+      border: 1px solid rgba(251, 191, 36, 0.2);
+    }
+
+    .report-hint {
+      color: #34d399;
+      background: rgba(52, 211, 153, 0.1);
+      border: 1px solid rgba(52, 211, 153, 0.2);
+    }
+
+    .dispute-hint {
+      color: #f87171;
+      background: rgba(248, 113, 113, 0.1);
+      border: 1px solid rgba(248, 113, 113, 0.2);
+    }
+
+    .action-hint.won {
+      color: #fbbf24;
+      background: rgba(251, 191, 36, 0.08);
+    }
+
+    .action-hint.lost {
+      color: rgba(255, 255, 255, 0.3);
+      background: rgba(255, 255, 255, 0.03);
+    }
+
+    .match-arrow {
+      color: rgba(255, 255, 255, 0.15);
+      font-size: 14px;
     }
 
     /* Responsive */
@@ -302,14 +823,67 @@ import { ActivatedRoute, RouterModule } from '@angular/router';
           font-size: 11px;
         }
       }
+
+      .map-strip {
+        height: 100px;
+        padding: 8px 8px 0;
+      }
+
+      .map-thumb {
+        border-radius: 6px;
+      }
+
+      .map-name {
+        font-size: 10px;
+        bottom: 6px;
+        left: 8px;
+      }
+
+      .map-game-num {
+        font-size: 9px;
+        top: 6px;
+        right: 6px;
+        padding: 1px 5px;
+      }
+
+      .listing-body {
+        padding: 12px 14px;
+        flex-direction: column;
+        align-items: stretch;
+        gap: 12px;
+      }
+
+      .listing-actions {
+        display: flex;
+
+        .accept-btn, .cancel-btn {
+          flex: 1;
+          justify-content: center;
+        }
+      }
+
+      .player-name {
+        font-size: 14px;
+      }
+
+      .quick-links {
+        flex-wrap: wrap;
+        gap: 12px;
+      }
     }
   `]
 })
 export class MatchfinderDetailComponent implements OnInit {
   game = '';
   platform = '';
-  activeTab: 'xp' | 'cash' = 'xp';
+  activeTab: 'xp' | 'matches' | 'cash' = 'xp';
   showCashTooltip = false;
+  listings: MatchfinderListing[] = [];
+  myMatches: Match[] = [];
+  myMatchesLoading = false;
+  myMatchesLoaded = false;
+  currentUserId = '';
+  isLoggedIn = false;
 
   private gameNames: Record<string, string> = {
     'mw2': 'Modern Warfare 2',
@@ -325,11 +899,89 @@ export class MatchfinderDetailComponent implements OnInit {
     'cross-platform': 'fa-solid fa-globe'
   };
 
-  constructor(private route: ActivatedRoute) {}
+  constructor(
+    private route: ActivatedRoute,
+    private router: Router,
+    private dialog: MatDialog,
+    private authService: AuthService,
+    private matchfinderService: MatchfinderService,
+    private challengesService: ChallengesService,
+  ) {}
 
   ngOnInit(): void {
     this.game = this.route.snapshot.paramMap.get('game') || '';
     this.platform = this.route.snapshot.paramMap.get('platform') || '';
+    const user = this.authService.currentUser();
+    if (user) {
+      this.currentUserId = user.id;
+      this.isLoggedIn = true;
+    }
+    this.loadListings();
+    if (this.isLoggedIn) {
+      this.loadMyMatches();
+    }
+  }
+
+  loadListings(): void {
+    this.matchfinderService.getListings(this.game, this.platform).subscribe({
+      next: (listings) => this.listings = listings,
+      error: (err) => console.error('Failed to load listings:', err),
+    });
+  }
+
+  loadMyMatches(): void {
+    this.myMatchesLoading = true;
+    this.challengesService.getMyChallenges().subscribe({
+      next: (matches) => {
+        const routeGame = this.game.toLowerCase();
+        const routePlatform = this.platform.toLowerCase();
+        this.myMatches = matches.filter(m => {
+          const matchGame = m.leaderboard?.game?.name?.toLowerCase() || '';
+          const matchPlatform = m.leaderboard?.platform?.name?.toLowerCase() || '';
+          return matchGame === routeGame && matchPlatform === routePlatform
+            && m.status !== 'SEARCHING' && m.status !== 'CANCELLED' && m.status !== 'DECLINED';
+        });
+        this.myMatchesLoading = false;
+        this.myMatchesLoaded = true;
+      },
+      error: () => {
+        this.myMatchesLoading = false;
+        this.myMatchesLoaded = true;
+      },
+    });
+  }
+
+  switchTab(tab: 'xp' | 'matches' | 'cash'): void {
+    this.activeTab = tab;
+  }
+
+  acceptListing(id: string): void {
+    if (!this.authService.isAuthenticated()) {
+      this.authService.storePendingAction({
+        type: 'CREATE_MATCH',
+        payload: {},
+        returnUrl: this.router.url
+      });
+      this.dialog.open(AuthModalComponent, {
+        width: '400px',
+        data: { message: 'Sign in to accept this match' }
+      });
+      return;
+    }
+    this.matchfinderService.acceptListing(id).subscribe({
+      next: () => {
+        this.loadListings();
+        this.loadMyMatches();
+      },
+      error: (err) => alert(err.error?.message || 'Failed to accept listing'),
+    });
+  }
+
+  cancelListing(id: string): void {
+    this.matchfinderService.cancelListing(id).subscribe({
+      next: () => this.loadListings(),
+      error: (err) => alert(err.error?.message || 'Failed to cancel listing'),
+    });
   }
 
   get gameName(): string {
@@ -343,5 +995,62 @@ export class MatchfinderDetailComponent implements OnInit {
 
   get platformIcon(): string {
     return this.platformIcons[this.platform] || 'fa-solid fa-globe';
+  }
+
+  getOpponentName(match: Match): string {
+    if (match.challengerId === this.currentUserId) {
+      return match.challengee?.username || 'TBD';
+    }
+    return match.challenger?.username || 'Unknown';
+  }
+
+  getStatusLabel(match: Match): string {
+    const labels: Record<string, string> = {
+      'PENDING': match.challengeeId === this.currentUserId ? 'Action Needed' : 'Pending',
+      'ACCEPTED': 'In Progress',
+      'DISPUTED': 'Disputed',
+      'COMPLETED': 'Completed',
+      'DECLINED': 'Declined',
+      'CANCELLED': 'Cancelled',
+    };
+    return labels[match.status] || match.status;
+  }
+
+  openMatch(matchId: string): void {
+    this.router.navigate(['/challenges', matchId]);
+  }
+
+  getMapImage(mapName: string): string {
+    const slug = mapName.toLowerCase().replace(/\s+/g, '-').replace(/'/g, '');
+    return `assets/maps/${slug}.webp`;
+  }
+
+  getTimeAgo(dateStr: string): string {
+    const now = new Date();
+    const date = new Date(dateStr);
+    const diffMs = now.getTime() - date.getTime();
+    const diffMin = Math.floor(diffMs / 60000);
+
+    if (diffMin < 1) return 'just now';
+    if (diffMin < 60) return `${diffMin}m ago`;
+    const diffHr = Math.floor(diffMin / 60);
+    if (diffHr < 24) return `${diffHr}h ago`;
+    return `${Math.floor(diffHr / 24)}d ago`;
+  }
+
+  createMatch(): void {
+    if (!this.authService.isAuthenticated()) {
+      this.authService.storePendingAction({
+        type: 'CREATE_MATCH',
+        payload: {},
+        returnUrl: this.router.url
+      });
+      this.dialog.open(AuthModalComponent, {
+        width: '400px',
+        data: { message: 'Sign in to create a match' }
+      });
+      return;
+    }
+    this.router.navigate(['/matchfinder', this.game, this.platform, 'create']);
   }
 }

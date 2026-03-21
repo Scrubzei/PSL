@@ -321,23 +321,32 @@ app.post('/api/pluto-game-result', authMiddleware, async (req: express.Request, 
       return res.status(400).json({ error: 'winnerName, loserName, winnerScore, loserScore, and mapName are required' });
     }
 
-    const channelId = '1465077201954410557';
+    const isNuke = loserScore === 0 && winnerScore >= 50;
+    const channelId = isNuke ? '1465077201954410557' : '1481570502521917562';
     const channel = await client.channels.fetch(channelId);
     if (!channel || !channel.isTextBased() || !('send' in channel)) {
       return res.status(404).json({ error: 'Channel not found' });
     }
-
-    const isNuke = loserScore === 0 && winnerScore >= 50;
     const plutoLogoAttachment = new AttachmentBuilder(join(__dirname, 'assets', 'plutonium.png'), { name: 'plutonium.png' });
     const files: AttachmentBuilder[] = [plutoLogoAttachment];
 
     let description: string;
+    const [w, l] = winnerRecord.split('-').map(Number);
+    let seriesText: string;
+    if (w > l) {
+      seriesText = `Series: **${winnerName}** leads ${winnerRecord}`;
+    } else if (l > w) {
+      seriesText = `Series: **${loserName}** leads ${l}-${w}`;
+    } else {
+      seriesText = `Series: Tied ${winnerRecord}`;
+    }
+
     if (isNuke) {
       const nukeAttachment = new AttachmentBuilder(join(__dirname, 'assets', 'nuke.gif'), { name: 'nuke.gif' });
       files.push(nukeAttachment);
-      description = `**${winnerName} dropped a 50-0 on ${loserName}!**\nSeries: **${winnerName}** leads ${winnerRecord}\n[Join Server](https://discord.com/channels/${process.env.DISCORD_GUILD_ID}/1481499199173300284)`;
+      description = `**${winnerName} dropped a 50-0 on ${loserName}!** \`FF\`\n${seriesText}\n[Join Server](https://discord.com/channels/${process.env.DISCORD_GUILD_ID}/1481499199173300284)`;
     } else {
-      description = `**${winnerName}** beat **${loserName}** on ${mapName} (${winnerScore}-${loserScore})\nSeries: **${winnerName}** leads ${winnerRecord}\n[Join Server](https://discord.com/channels/${process.env.DISCORD_GUILD_ID}/1481499199173300284)`;
+      description = `**${winnerName}** beat **${loserName}** on ${mapName} (${winnerScore}-${loserScore}) \`FF\`\n${seriesText}\n[Join Server](https://discord.com/channels/${process.env.DISCORD_GUILD_ID}/1481499199173300284)`;
     }
 
     await channel.send({
@@ -355,6 +364,72 @@ app.post('/api/pluto-game-result', authMiddleware, async (req: express.Request, 
   } catch (error: any) {
     console.error('Error posting pluto game result:', error);
     res.status(500).json({ error: error.message || 'Failed to post game result' });
+  }
+});
+
+// Matchfinder listing — posts to Discord with accept/cancel buttons
+const MATCHFINDER_CHANNEL_ID = '1481711178559524895';
+
+const PLATFORM_COLORS: Record<string, number> = {
+  plutonium: 0xBF2120,
+  iw4x: 0x7C3AED,
+  xbox: 0x107C10,
+  ps3: 0x003791,
+  playstation: 0x003791,
+};
+
+app.post('/api/matchfinder-listing', authMiddleware, async (req: express.Request, res: express.Response) => {
+  try {
+    const { matchId, username, game, platform, bestOf, selectedMaps } = req.body;
+
+    if (!matchId || !username || !game || !platform) {
+      return res.status(400).json({ error: 'matchId, username, game, and platform are required' });
+    }
+
+    const channel = await client.channels.fetch(MATCHFINDER_CHANNEL_ID);
+    if (!channel || !channel.isTextBased() || !('send' in channel)) {
+      return res.status(404).json({ error: 'Matchfinder channel not found' });
+    }
+
+    const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:4200';
+    const gameSlug = game.toLowerCase();
+    const platformSlug = platform.toLowerCase();
+    const color = PLATFORM_COLORS[platformSlug] || 0x2563EB;
+
+    const mapsDisplay = (selectedMaps || []).join('  ·  ');
+
+    const { createCanvas } = await import('canvas');
+    const spacer = createCanvas(400, 1);
+    const spacerAttachment = new AttachmentBuilder(spacer.toBuffer('image/png'), { name: 'spacer.png' });
+
+    const embed = {
+      title: `${username} is looking for a match`,
+      description: [
+        `**Game:** ${game}`,
+        `**Platform:** ${platform}`,
+        `**Best of:** ${bestOf}`,
+        `**Maps:** ${mapsDisplay}`,
+      ].join('\n'),
+      color,
+      image: { url: 'attachment://spacer.png' },
+      footer: { text: 'Matchfinder' },
+      timestamp: new Date().toISOString(),
+    };
+
+    const { ActionRowBuilder, ButtonBuilder, ButtonStyle } = await import('discord.js');
+
+    const row = new ActionRowBuilder<any>().addComponents(
+      new ButtonBuilder()
+        .setLabel('View on Website')
+        .setStyle(ButtonStyle.Link)
+        .setURL(`${frontendUrl}/matchfinder/${gameSlug}/${platformSlug}`),
+    );
+
+    await channel.send({ embeds: [embed], components: [row], files: [spacerAttachment] });
+    res.json({ success: true });
+  } catch (error: any) {
+    console.error('Error posting matchfinder listing:', error);
+    res.status(500).json({ error: error.message || 'Failed to post matchfinder listing' });
   }
 });
 

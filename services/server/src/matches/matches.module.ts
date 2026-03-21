@@ -6,6 +6,7 @@ import { MatchesController } from './matches.controller';
 import { NotificationsModule } from '../notifications/notifications.module';
 import { LeaderboardsModule } from '../leaderboards/leaderboards.module';
 import { UsersModule } from '../users/users.module';
+import { BotzeiModule } from '../botzei/botzei.module';
 
 @Module({
   imports: [
@@ -13,6 +14,7 @@ import { UsersModule } from '../users/users.module';
     NotificationsModule,
     LeaderboardsModule,
     UsersModule,
+    BotzeiModule,
   ],
   providers: [MatchesService],
   controllers: [MatchesController],

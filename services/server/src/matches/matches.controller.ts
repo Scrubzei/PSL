@@ -17,6 +17,41 @@ export class MatchesController {
     private readonly leaderboardsService: LeaderboardsService,
   ) {}
 
+  // Matchfinder endpoints
+  @Get('matchfinder')
+  async getMatchfinderListings(
+    @Query('game') game: string,
+    @Query('platform') platform: string,
+  ) {
+    return this.matchesService.findMatchfinderListings(game, platform);
+  }
+
+  @Post('matchfinder')
+  @UseGuards(JwtAuthGuard)
+  async createMatchfinderListing(
+    @Request() req,
+    @Body() body: { game: string; platform: string; bestOf: number; selectedMaps: string[] },
+  ) {
+    const leaderboard = await this.leaderboardsService.findByGameAndPlatform(body.game, body.platform);
+    return this.matchesService.createMatchfinderListing(req.user.userId, {
+      leaderboardId: leaderboard.id,
+      bestOf: body.bestOf,
+      selectedMaps: body.selectedMaps,
+    });
+  }
+
+  @Patch('matchfinder/:id/accept')
+  @UseGuards(JwtAuthGuard)
+  async acceptMatchfinderListing(@Param('id') id: string, @Request() req) {
+    return this.matchesService.acceptMatchfinderListing(id, req.user.userId);
+  }
+
+  @Patch('matchfinder/:id/cancel')
+  @UseGuards(JwtAuthGuard)
+  async cancelMatchfinderListing(@Param('id') id: string, @Request() req) {
+    return this.matchesService.cancelMatchfinderListing(id, req.user.userId);
+  }
+
   // Public endpoint - no auth required
   @Get('share/:token')
   async findByShareToken(@Param('token') token: string) {
@@ -113,6 +148,26 @@ export class MatchesController {
   }
 
   // Bot-authenticated endpoints (API key instead of JWT)
+
+  @Patch('bot/matchfinder/:id/accept')
+  @UseGuards(ApiKeyGuard)
+  async botAcceptMatchfinderListing(@Param('id') id: string, @Body('discordId') discordId: string) {
+    const user = await this.usersService.findByDiscordId(discordId);
+    if (!user) {
+      throw new BadRequestException('You need an account to accept. Sign up at the website first.');
+    }
+    return this.matchesService.acceptMatchfinderListing(id, user.id);
+  }
+
+  @Patch('bot/matchfinder/:id/cancel')
+  @UseGuards(ApiKeyGuard)
+  async botCancelMatchfinderListing(@Param('id') id: string, @Body('discordId') discordId: string) {
+    const user = await this.usersService.findByDiscordId(discordId);
+    if (!user) {
+      throw new BadRequestException('User does not have an account');
+    }
+    return this.matchesService.cancelMatchfinderListing(id, user.id);
+  }
 
   @Post('bot/create')
   @UseGuards(ApiKeyGuard)

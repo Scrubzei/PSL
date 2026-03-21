@@ -6,6 +6,7 @@ import { Match, MatchStatus } from './match.entity';
 import { CreateMatchDto } from './dto/create-match.dto';
 import { NotificationsService } from '../notifications/notifications.service';
 import { LeaderboardsService } from '../leaderboards/leaderboards.service';
+import { BotzeiService } from '../botzei/botzei.service';
 
 @Injectable()
 export class MatchesService {
@@ -14,7 +15,138 @@ export class MatchesService {
     private matchesRepository: Repository<Match>,
     private notificationsService: NotificationsService,
     private leaderboardsService: LeaderboardsService,
+    private botzeiService: BotzeiService,
   ) {}
+
+  async createMatchfinderListing(userId: string, data: {
+    leaderboardId: string;
+    bestOf: number;
+    selectedMaps: string[];
+  }): Promise<Match> {
+    if (data.selectedMaps.length !== data.bestOf) {
+      throw new BadRequestException(`You must select exactly ${data.bestOf} maps`);
+    }
+
+    // Check for existing searching match by this user on same leaderboard
+    const existing = await this.matchesRepository
+      .createQueryBuilder('match')
+      .where('match.challengerId = :userId', { userId })
+      .andWhere('match.leaderboardId = :leaderboardId', { leaderboardId: data.leaderboardId })
+      .andWhere('match.status = :status', { status: 'SEARCHING' })
+      .getOne();
+
+    if (existing) {
+      throw new BadRequestException('You already have an open matchfinder listing for this game');
+    }
+
+    // Auto sign up for leaderboard
+    try {
+      await this.leaderboardsService.signup(userId, data.leaderboardId);
+    } catch (error) {
+      if (!error.message?.includes('already signed up')) {
+        console.error('Failed to sign up for leaderboard:', error.message);
+      }
+    }
+
+    const match = this.matchesRepository.create({
+      challengerId: userId,
+      leaderboardId: data.leaderboardId,
+      type: 'XP',
+      status: 'SEARCHING',
+      bestOf: data.bestOf,
+      selectedMaps: data.selectedMaps,
+    });
+
+    const saved = await this.matchesRepository.save(match);
+    const fullMatch = await this.findOne(saved.id);
+
+    // Post to Discord
+    try {
+      this.botzeiService.sendMatchfinderListing({
+        matchId: fullMatch.id,
+        username: fullMatch.challenger.username,
+        game: fullMatch.leaderboard.game.name,
+        platform: fullMatch.leaderboard.platform.name,
+        bestOf: fullMatch.bestOf,
+        selectedMaps: fullMatch.selectedMaps,
+      });
+    } catch (error) {
+      console.error('Failed to post matchfinder listing to Discord:', error);
+    }
+
+    return fullMatch;
+  }
+
+  async findMatchfinderListings(game: string, platform: string): Promise<Match[]> {
+    return this.matchesRepository
+      .createQueryBuilder('match')
+      .leftJoinAndSelect('match.challenger', 'challenger')
+      .leftJoinAndSelect('match.leaderboard', 'leaderboard')
+      .leftJoinAndSelect('leaderboard.game', 'game')
+      .leftJoinAndSelect('leaderboard.platform', 'platform')
+      .where('match.status = :status', { status: 'SEARCHING' })
+      .andWhere('LOWER(game.name) = LOWER(:game)', { game })
+      .andWhere('LOWER(platform.name) = LOWER(:platform)', { platform })
+      .orderBy('match.createdAt', 'DESC')
+      .getMany();
+  }
+
+  async acceptMatchfinderListing(matchId: string, userId: string): Promise<Match> {
+    const match = await this.findOne(matchId);
+
+    if (match.status !== 'SEARCHING') {
+      throw new BadRequestException('This listing is no longer available');
+    }
+
+    if (match.challengerId === userId) {
+      throw new BadRequestException('You cannot accept your own listing');
+    }
+
+    // Auto sign up acceptor for leaderboard
+    try {
+      await this.leaderboardsService.signup(userId, match.leaderboardId);
+    } catch (error) {
+      if (!error.message?.includes('already signed up')) {
+        console.error('Failed to sign up for leaderboard:', error.message);
+      }
+    }
+
+    match.challengeeId = userId;
+    match.status = 'ACCEPTED';
+    const saved = await this.matchesRepository.save(match);
+
+    // Notify the creator
+    try {
+      const updated = await this.findOne(saved.id);
+      await this.notificationsService.create(
+        match.challengerId,
+        'CHALLENGE_ACCEPTED',
+        'Match Found',
+        `${updated.challengee.username} accepted your matchfinder listing!`,
+        match.id,
+        'MATCH',
+      );
+    } catch (error) {
+      console.error('Failed to create matchfinder notification:', error.message);
+    }
+
+    return this.findOne(saved.id);
+  }
+
+  async cancelMatchfinderListing(matchId: string, userId: string): Promise<Match> {
+    const match = await this.findOne(matchId);
+
+    if (match.challengerId !== userId) {
+      throw new ForbiddenException('Only the creator can cancel this listing');
+    }
+
+    if (match.status !== 'SEARCHING') {
+      throw new BadRequestException('This listing is no longer searchable');
+    }
+
+    match.status = 'CANCELLED';
+    return this.matchesRepository.save(match);
+  }
 
   async create(challengerId: string, createMatchDto: CreateMatchDto): Promise<Match> {
     if (challengerId === createMatchDto.challengeeId) {

@@ -37,6 +37,9 @@ import { environment } from '../../environments/environment';
           <a routerLink="/matchfinder" routerLinkActive="active">Matchfinder</a>
         }
         <a routerLink="/tournaments" routerLinkActive="active">Tournaments</a>
+        @if (authService.currentUser()) {
+          <a routerLink="/challenges" routerLinkActive="active">My Matches</a>
+        }
         <a routerLink="/rules" routerLinkActive="active">Rules</a>
       </nav>
 
@@ -134,6 +137,12 @@ import { environment } from '../../environments/environment';
           <mat-icon>emoji_events</mat-icon>
           Tournaments
         </a>
+        @if (authService.currentUser()) {
+          <a routerLink="/challenges" routerLinkActive="active" (click)="closeMobileMenu()">
+            <mat-icon>sports_esports</mat-icon>
+            My Matches
+          </a>
+        }
         <a routerLink="/rules" routerLinkActive="active" (click)="closeMobileMenu()">
           <mat-icon>gavel</mat-icon>
           Rules

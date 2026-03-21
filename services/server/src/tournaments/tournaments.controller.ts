@@ -61,6 +61,7 @@ export class TournamentsController {
         user: {
           id: p.user.id,
           username: p.user.username,
+          discordId: p.user.discordId,
         },
       })),
     };

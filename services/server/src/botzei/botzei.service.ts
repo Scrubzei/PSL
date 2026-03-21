@@ -114,6 +114,18 @@ export class BotzeiService {
     return this.makeRequest('/api/pluto-game-result', payload);
   }
 
+  async sendMatchfinderListing(payload: {
+    matchId: string;
+    username: string;
+    game: string;
+    platform: string;
+    bestOf: number;
+    selectedMaps: string[];
+  }): Promise<boolean> {
+    this.logger.log(`Sending matchfinder listing for ${payload.username} (${payload.game} ${payload.platform})`);
+    return this.makeRequest('/api/matchfinder-listing', payload);
+  }
+
   async isHealthy(): Promise<boolean> {
     try {
       const response = await fetch(`${this.botzeiUrl}/health`);

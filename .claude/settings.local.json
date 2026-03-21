@@ -25,7 +25,8 @@
       "Bash(gh release view:*)",
       "Bash(xargs:*)",
       "WebFetch(domain:forum.plutonium.pw)",
-      "Bash(npx tsc:*)"
+      "Bash(npx tsc:*)",
+      "Bash(cp:*)"
     ],
     "deny": [],
     "ask": []

@@ -22,7 +22,7 @@ export interface AuthResponse {
 }
 
 export interface PendingAuthAction {
-  type: 'LEADERBOARD_SIGNUP' | 'CHALLENGE_USER' | 'TOURNAMENT_SIGNUP';
+  type: 'LEADERBOARD_SIGNUP' | 'CHALLENGE_USER' | 'TOURNAMENT_SIGNUP' | 'CREATE_MATCH';
   payload: {
     leaderboardId?: string;
     tournamentId?: string;

@@ -10,7 +10,9 @@ import { handleMatchTournamentSelect, handleMatchSelect } from '../commands/matc
 import { handleQueueJoinButton, handleQueueJoinModal, handleQueuePlutoModal, handleQueueLeaveButton, handleQueueAcceptButton, handleQueueDeclineButton } from '../commands/setup-queue.js';
 import { handlePugJoin, handlePugLeave, handlePugReady, handlePugMapPick, handlePugReport, handlePugConfirm, handlePugDispute, handlePugRematch } from '../commands/pug.js';
 import { handleSidebetSetupSelect } from '../commands/sidebet-setup.js';
+import { handleSelect as handleTourneyRoleSelect } from '../commands/tourney-role.js';
 import { handleSidebetCreateButton, handleSidebetMatchSelect, handleSidebetPlayerPick, handleSidebetAmountModal, handleSidebetAccept, handleSidebetLock, handleSidebetCancel } from '../commands/sidebet.js';
+import { handleMatchfinderAccept, handleMatchfinderCancel } from '../commands/matchfinder.js';
 
 export const name = Events.InteractionCreate;
 export const once = false;
@@ -157,6 +159,16 @@ export async function execute(interaction: Interaction) {
       return;
     }
 
+    // Tourney role selection
+    if (interaction.customId === 'tourney_role_select') {
+      try {
+        await handleTourneyRoleSelect(interaction);
+      } catch (error) {
+        console.error('Error handling tourney role select:', error);
+      }
+      return;
+    }
+
     // PUG map pick
     if (interaction.customId.startsWith('pug_map_')) {
       try {
@@ -211,6 +223,25 @@ export async function execute(interaction: Interaction) {
         await handleChallengeResponse(interaction);
       } catch (error) {
         console.error('Error handling challenge response:', error);
+      }
+      return;
+    }
+
+    // Matchfinder accept/cancel buttons
+    if (interaction.customId.startsWith('mf_accept_')) {
+      try {
+        await handleMatchfinderAccept(interaction);
+      } catch (error) {
+        console.error('Error handling matchfinder accept:', error);
+      }
+      return;
+    }
+
+    if (interaction.customId.startsWith('mf_cancel_')) {
+      try {
+        await handleMatchfinderCancel(interaction);
+      } catch (error) {
+        console.error('Error handling matchfinder cancel:', error);
       }
       return;
     }

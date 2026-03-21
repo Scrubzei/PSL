@@ -25,6 +25,12 @@ import { MatIconModule } from '@angular/material/icon';
             (click)="setGame('mw2')">
             Modern Warfare 2
           </button>
+          <button
+            class="game-tab"
+            [class.active]="activeGame === 'mw2019'"
+            (click)="setGame('mw2019')">
+            MW 2019
+          </button>
         </div>
 
         <!-- BO2 Rules -->
@@ -172,15 +178,86 @@ import { MatIconModule } from '@angular/material/icon';
               <li>Killing a player not participating in the match</li>
               <li>Point glitching — can result in DQ or a free kill for the victim player depending on their call</li>
               <li>Throwing knives</li>
-              <li>Hardscoping, hardscope jumpshots, relapse shots</li>
+              <li>Hardscoping, relapse shots (exception: jump shots over nearby objects obstructing your view are allowed — you may scope in before jumping, but it cannot be a hardscope)</li>
               <li>Killing a player with explosive objects on the map (barrels, cars, tanks) is legal, but only if the explosion was caused by a sniper</li>
               <li>Any form of cheating that gives you an unfair advantage — hacking/mods, IP flooding/DDoS, manipulating in-game mechanics/glitching, counting bullets, or assistance from a non-competing player</li>
             </ul>
           </section>
         }
 
-        @if (activeGame === 'bo2' || activeGame === 'mw2') {
+        <!-- MW 2019 Rules -->
+        @if (activeGame === 'mw2019') {
+          <section>
+            <h2>Class Setup</h2>
+            <div class="settings-grid">
+              <div class="setting"><span class="setting-label">Weapon</span><span class="setting-value">Kar98k</span></div>
+              <div class="setting"><span class="setting-label">Muzzle</span><span class="setting-value">None</span></div>
+              <div class="setting"><span class="setting-label">Barrel</span><span class="setting-value">None</span></div>
+              <div class="setting"><span class="setting-label">Laser</span><span class="setting-value">Tac Laser</span></div>
+              <div class="setting"><span class="setting-label">Optic</span><span class="setting-value">Sniper Scope</span></div>
+              <div class="setting"><span class="setting-label">Stock</span><span class="setting-value">FTAC Sport Comb</span></div>
+              <div class="setting"><span class="setting-label">Underbarrel</span><span class="setting-value">None</span></div>
+              <div class="setting"><span class="setting-label">Rear Grip</span><span class="setting-value">Stippled Grip Tape</span></div>
+              <div class="setting"><span class="setting-label">Perk</span><span class="setting-value">FMJ or Sleight of Hand</span></div>
+              <div class="setting"><span class="setting-label">Perk 1</span><span class="setting-value">Double Time</span></div>
+              <div class="setting"><span class="setting-label">Perk 2</span><span class="setting-value">Restock</span></div>
+              <div class="setting"><span class="setting-label">Perk 3</span><span class="setting-value">Amped</span></div>
+            </div>
+          </section>
+
+          <section>
+            <h2>Free For All Rules</h2>
+
+            <h3>Game</h3>
+            <div class="settings-grid">
+              <div class="setting changed"><span class="setting-label">Time Limit</span><span class="setting-value">Unlimited</span></div>
+              <div class="setting changed"><span class="setting-label">Score Limit</span><span class="setting-value">20 Points</span></div>
+              <div class="setting"><span class="setting-label">Match Start Time</span><span class="setting-value">15 Seconds</span></div>
+              <div class="setting"><span class="setting-label">Skip Infil</span><span class="setting-value">Disabled</span></div>
+              <div class="setting"><span class="setting-label">Input Swap Allowed</span><span class="setting-value">Enabled</span></div>
+              <div class="setting"><span class="setting-label">CDL Tuning</span><span class="setting-value">Disabled</span></div>
+              <div class="setting"><span class="setting-label">CODcaster</span><span class="setting-value">Disabled</span></div>
+            </div>
+
+            <h3>Advanced</h3>
+            <div class="settings-grid">
+            </div>
+
+            <h3>Player</h3>
+            <div class="settings-grid">
+              <div class="setting"><span class="setting-label">Number of Lives</span><span class="setting-value">Unlimited</span></div>
+              <div class="setting changed"><span class="setting-label">Max Health</span><span class="setting-value">1</span></div>
+              <div class="setting"><span class="setting-label">Health Regeneration</span><span class="setting-value">Normal</span></div>
+              <div class="setting"><span class="setting-label">Tactical Sprint</span><span class="setting-value">Enabled</span></div>
+              <div class="setting"><span class="setting-label">Weapon Mounting</span><span class="setting-value">Enabled</span></div>
+            </div>
+
+            <h3>Team</h3>
+            <div class="settings-grid">
+              <div class="setting"><span class="setting-label">Spectating</span><span class="setting-value">Team Only</span></div>
+              <div class="setting"><span class="setting-label">3rd Person Spectating</span><span class="setting-value">Enabled</span></div>
+              <div class="setting changed"><span class="setting-label">Killcam</span><span class="setting-value">Disabled</span></div>
+              <div class="setting"><span class="setting-label">Final Killcam</span><span class="setting-value">PotG</span></div>
+              <div class="setting"><span class="setting-label">Enable Minimap</span><span class="setting-value">Yes</span></div>
+              <div class="setting changed"><span class="setting-label">Radar Always On</span><span class="setting-value">Constant</span></div>
+              <div class="setting"><span class="setting-label">Weapon Pings on Minimap</span><span class="setting-value">Only When UAV Active</span></div>
+              <div class="setting"><span class="setting-label">Weapon Pings on Compass</span><span class="setting-value">Enabled</span></div>
+              <div class="setting changed"><span class="setting-label">Enemy on Compass</span><span class="setting-value">Disabled</span></div>
+              <div class="setting changed"><span class="setting-label">Respawn Delay</span><span class="setting-value">0.5 Seconds</span></div>
+              <div class="setting"><span class="setting-label">Wave Spawn Delay</span><span class="setting-value">None</span></div>
+              <div class="setting"><span class="setting-label">Suicide Spawn Delay</span><span class="setting-value">None</span></div>
+            </div>
+
+          </section>
+        }
+
+        @if (activeGame === 'bo2') {
           <p class="disclaimer">A ref may request a PC check or screen share at any time. Failure to comply will result in a disqualification.</p>
+        }
+        @if (activeGame === 'mw2') {
+          <p class="disclaimer">A ref may request to inspect your Xbox at any time. Failure to comply will result in a disqualification.</p>
+        }
+        @if (activeGame === 'bo2' || activeGame === 'mw2' || activeGame === 'mw2019') {
           <p class="disclaimer">Rules are subject to change. Not all situations are covered here.</p>
         }
       </div>
@@ -218,6 +295,15 @@ import { MatIconModule } from '@angular/material/icon';
       margin: 0 0 16px;
       padding-bottom: 8px;
       border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+    }
+
+    h3 {
+      font-size: 14px;
+      font-weight: 600;
+      color: rgba(255, 255, 255, 0.5);
+      margin: 20px 0 10px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
     }
 
     ul {
@@ -270,6 +356,15 @@ import { MatIconModule } from '@angular/material/icon';
 
       &:hover {
         background: rgba(255, 255, 255, 0.04);
+      }
+
+      &.changed {
+        background: rgba(37, 99, 235, 0.08);
+        border-left: 3px solid #2563EB;
+
+        .setting-value {
+          color: #60a5fa;
+        }
       }
     }
 
@@ -384,7 +479,7 @@ import { MatIconModule } from '@angular/material/icon';
   `]
 })
 export class RulesComponent implements OnInit {
-  activeGame: 'bo2' | 'mw2' = 'bo2';
+  activeGame: 'bo2' | 'mw2' | 'mw2019' = 'bo2';
 
   constructor(
     private route: ActivatedRoute,
@@ -394,13 +489,13 @@ export class RulesComponent implements OnInit {
   ngOnInit(): void {
     this.route.queryParams.subscribe(params => {
       const game = params['game'];
-      if (game === 'bo2' || game === 'mw2') {
+      if (game === 'bo2' || game === 'mw2' || game === 'mw2019') {
         this.activeGame = game;
       }
     });
   }
 
-  setGame(game: 'bo2' | 'mw2'): void {
+  setGame(game: 'bo2' | 'mw2' | 'mw2019'): void {
     this.activeGame = game;
     this.router.navigate([], {
       relativeTo: this.route,

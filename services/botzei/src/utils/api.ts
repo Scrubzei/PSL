@@ -75,4 +75,18 @@ export const api = {
       body: JSON.stringify({ discordId }),
       authenticated: true,
     }),
+
+  acceptMatchfinderListing: (matchId: string, discordId: string) =>
+    apiFetch<any>(`/matches/bot/matchfinder/${matchId}/accept`, {
+      method: 'PATCH',
+      body: JSON.stringify({ discordId }),
+      authenticated: true,
+    }),
+
+  cancelMatchfinderListing: (matchId: string, discordId: string) =>
+    apiFetch<any>(`/matches/bot/matchfinder/${matchId}/cancel`, {
+      method: 'PATCH',
+      body: JSON.stringify({ discordId }),
+      authenticated: true,
+    }),
 };
