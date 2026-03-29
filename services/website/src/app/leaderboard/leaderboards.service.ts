@@ -16,6 +16,7 @@ export interface LeaderboardEntry {
   rank: number;
   userId: string;
   username: string;
+  emblem: string | null;
   xp: number;
   rankScore: number;
   wins: number;
@@ -58,5 +59,13 @@ export class LeaderboardsService {
 
   getMyEntry(leaderboardId: string): Observable<MyEntryResponse> {
     return this.http.get<MyEntryResponse>(`${this.API_URL}/${leaderboardId}/my-entry`);
+  }
+
+  updateRanks(leaderboardId: string, ranks: { userId: string; rank: number }[]): Observable<any> {
+    return this.http.put(`${this.API_URL}/${leaderboardId}/ranks`, { ranks });
+  }
+
+  addPlayer(leaderboardId: string, username: string): Observable<LeaderboardEntry> {
+    return this.http.post<LeaderboardEntry>(`${this.API_URL}/${leaderboardId}/add-player`, { username });
   }
 }

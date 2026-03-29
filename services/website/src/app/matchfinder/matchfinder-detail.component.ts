@@ -4,8 +4,9 @@ import { ActivatedRoute, Router, RouterModule } from '@angular/router';
 import { MatDialog } from '@angular/material/dialog';
 import { AuthService } from '../auth/auth.service';
 import { AuthModalComponent } from '../auth/auth-modal/auth-modal.component';
-import { MatchfinderService, MatchfinderListing } from './matchfinder.service';
+import { MatchfinderService } from './matchfinder.service';
 import { ChallengesService, Match } from '../challenges/challenges.service';
+import { environment } from '../../environments/environment';
 
 @Component({
   selector: 'app-matchfinder-detail',
@@ -28,13 +29,6 @@ import { ChallengesService, Match } from '../challenges/challenges.service';
       <!-- Tabs -->
       <div class="tabs-bar">
         <div class="tabs-inner">
-          <button
-            class="tab"
-            [class.active]="activeTab === 'xp'"
-            (click)="switchTab('xp')">
-            <span class="tab-title">XP Matches</span>
-            <span class="tab-desc">Earn XP with every win</span>
-          </button>
           @if (isLoggedIn) {
             <button
               class="tab"
@@ -78,73 +72,7 @@ import { ChallengesService, Match } from '../challenges/challenges.service';
             <i class="fa-solid fa-chart-simple"></i>
             Leaderboard
           </a>
-          <button class="create-match-btn" (click)="createMatch()">
-            <i class="fa-solid fa-plus"></i>
-            Create Match
-          </button>
         </div>
-
-        <!-- XP Matchfinder Listings -->
-        @if (activeTab === 'xp') {
-          @if (listings.length === 0) {
-            <div class="empty-state">
-              <i class="fa-solid fa-crosshairs empty-icon"></i>
-              <p>No players are currently looking for a match.</p>
-              <span class="empty-hint">Be the first — create a match above.</span>
-            </div>
-          }
-
-          @if (listings.length > 0) {
-            <div class="listings">
-              @for (listing of listings; track listing.id) {
-                <div class="listing-card" [class.own]="listing.challengerId === currentUserId">
-                  <div class="map-strip">
-                    @for (map of listing.selectedMaps; track $index) {
-                      <div class="map-thumb" [style.background-image]="'url(' + getMapImage(map) + ')'">
-                        <div class="map-overlay"></div>
-                        <span class="map-name">{{ map }}</span>
-                        @if (listing.bestOf > 1) {
-                          <span class="map-game-num">G{{ $index + 1 }}</span>
-                        }
-                      </div>
-                    }
-                  </div>
-                  <div class="listing-body">
-                    <div class="listing-left">
-                      <div class="listing-player">
-                        <span class="player-name">{{ listing.challenger.username }}</span>
-                        @if (listing.challengerId === currentUserId) {
-                          <span class="you-badge">You</span>
-                        }
-                      </div>
-                      <div class="listing-meta">
-                        <span class="meta-tag bo-tag">Bo{{ listing.bestOf }}</span>
-                        <span class="meta-tag xp-tag">
-                          <i class="fa-solid fa-bolt"></i>
-                          XP
-                        </span>
-                        <span class="meta-time">{{ getTimeAgo(listing.createdAt) }}</span>
-                      </div>
-                    </div>
-                    <div class="listing-actions">
-                      @if (listing.challengerId === currentUserId) {
-                        <button class="cancel-btn" (click)="cancelListing(listing.id)">
-                          <i class="fa-solid fa-xmark"></i>
-                          Cancel
-                        </button>
-                      } @else {
-                        <button class="accept-btn" (click)="acceptListing(listing.id)">
-                          <i class="fa-solid fa-handshake"></i>
-                          Accept
-                        </button>
-                      }
-                    </div>
-                  </div>
-                </div>
-              }
-            </div>
-          }
-        }
 
         <!-- My Matches -->
         @if (activeTab === 'matches') {
@@ -158,7 +86,7 @@ import { ChallengesService, Match } from '../challenges/challenges.service';
             <div class="empty-state">
               <i class="fa-solid fa-inbox empty-icon"></i>
               <p>No active matches for this game.</p>
-              <span class="empty-hint">Find an opponent in the XP Matches tab or create a match.</span>
+              <span class="empty-hint">No ranked matches in progress.</span>
             </div>
           }
 
@@ -440,31 +368,6 @@ import { ChallengesService, Match } from '../challenges/challenges.service';
       }
     }
 
-    .create-match-btn {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      background: #2563EB;
-      border: none;
-      border-radius: 8px;
-      color: white;
-      font-size: 13px;
-      font-weight: 600;
-      font-family: inherit;
-      cursor: pointer;
-      transition: all 0.2s ease;
-      padding: 10px 20px;
-
-      i {
-        font-size: 13px;
-      }
-
-      &:hover {
-        background: #1d4ed8;
-        box-shadow: 0 4px 16px rgba(37, 99, 235, 0.4);
-      }
-    }
-
     .empty-state {
       text-align: center;
       padding: 80px 0;
@@ -595,18 +498,6 @@ import { ChallengesService, Match } from '../challenges/challenges.service';
       color: white;
     }
 
-    .you-badge {
-      font-size: 10px;
-      font-weight: 700;
-      text-transform: uppercase;
-      letter-spacing: 0.5px;
-      color: #60a5fa;
-      background: rgba(37, 99, 235, 0.15);
-      border: 1px solid rgba(37, 99, 235, 0.25);
-      padding: 2px 8px;
-      border-radius: 20px;
-    }
-
     .listing-meta {
       display: flex;
       align-items: center;
@@ -630,15 +521,6 @@ import { ChallengesService, Match } from '../challenges/challenges.service';
       background: rgba(255, 255, 255, 0.08);
     }
 
-    .xp-tag {
-      color: #fbbf24;
-      background: rgba(251, 191, 36, 0.1);
-
-      i {
-        font-size: 10px;
-      }
-    }
-
     .meta-time {
       font-size: 12px;
       color: rgba(255, 255, 255, 0.2);
@@ -646,62 +528,6 @@ import { ChallengesService, Match } from '../challenges/challenges.service';
 
     .listing-actions {
       flex-shrink: 0;
-    }
-
-    .accept-btn {
-      padding: 10px 24px;
-      background: #2563EB;
-      border: none;
-      border-radius: 10px;
-      color: white;
-      font-size: 13px;
-      font-weight: 700;
-      font-family: inherit;
-      cursor: pointer;
-      transition: all 0.2s ease;
-      display: flex;
-      align-items: center;
-      gap: 8px;
-
-      i {
-        font-size: 12px;
-      }
-
-      &:hover {
-        background: #1d4ed8;
-        box-shadow: 0 4px 16px rgba(37, 99, 235, 0.4);
-        transform: translateY(-1px);
-      }
-
-      &:active {
-        transform: translateY(0);
-      }
-    }
-
-    .cancel-btn {
-      padding: 10px 20px;
-      background: rgba(255, 255, 255, 0.04);
-      border: 1px solid rgba(255, 255, 255, 0.08);
-      border-radius: 10px;
-      color: rgba(255, 255, 255, 0.4);
-      font-size: 13px;
-      font-weight: 600;
-      font-family: inherit;
-      cursor: pointer;
-      transition: all 0.2s ease;
-      display: flex;
-      align-items: center;
-      gap: 6px;
-
-      i {
-        font-size: 11px;
-      }
-
-      &:hover {
-        background: rgba(239, 68, 68, 0.1);
-        border-color: rgba(239, 68, 68, 0.25);
-        color: #f87171;
-      }
     }
 
     /* Tab count badge */
@@ -876,14 +702,14 @@ import { ChallengesService, Match } from '../challenges/challenges.service';
 export class MatchfinderDetailComponent implements OnInit {
   game = '';
   platform = '';
-  activeTab: 'xp' | 'matches' | 'cash' = 'xp';
+  activeTab: 'matches' | 'cash' = 'matches';
   showCashTooltip = false;
-  listings: MatchfinderListing[] = [];
   myMatches: Match[] = [];
   myMatchesLoading = false;
   myMatchesLoaded = false;
   currentUserId = '';
   isLoggedIn = false;
+  isProd = environment.production;
 
   private gameNames: Record<string, string> = {
     'mw2': 'Modern Warfare 2',
@@ -916,17 +742,9 @@ export class MatchfinderDetailComponent implements OnInit {
       this.currentUserId = user.id;
       this.isLoggedIn = true;
     }
-    this.loadListings();
     if (this.isLoggedIn) {
       this.loadMyMatches();
     }
-  }
-
-  loadListings(): void {
-    this.matchfinderService.getListings(this.game, this.platform).subscribe({
-      next: (listings) => this.listings = listings,
-      error: (err) => console.error('Failed to load listings:', err),
-    });
   }
 
   loadMyMatches(): void {
@@ -951,37 +769,8 @@ export class MatchfinderDetailComponent implements OnInit {
     });
   }
 
-  switchTab(tab: 'xp' | 'matches' | 'cash'): void {
+  switchTab(tab: 'matches' | 'cash'): void {
     this.activeTab = tab;
-  }
-
-  acceptListing(id: string): void {
-    if (!this.authService.isAuthenticated()) {
-      this.authService.storePendingAction({
-        type: 'CREATE_MATCH',
-        payload: {},
-        returnUrl: this.router.url
-      });
-      this.dialog.open(AuthModalComponent, {
-        width: '400px',
-        data: { message: 'Sign in to accept this match' }
-      });
-      return;
-    }
-    this.matchfinderService.acceptListing(id).subscribe({
-      next: () => {
-        this.loadListings();
-        this.loadMyMatches();
-      },
-      error: (err) => alert(err.error?.message || 'Failed to accept listing'),
-    });
-  }
-
-  cancelListing(id: string): void {
-    this.matchfinderService.cancelListing(id).subscribe({
-      next: () => this.loadListings(),
-      error: (err) => alert(err.error?.message || 'Failed to cancel listing'),
-    });
   }
 
   get gameName(): string {
@@ -1038,19 +827,4 @@ export class MatchfinderDetailComponent implements OnInit {
     return `${Math.floor(diffHr / 24)}d ago`;
   }
 
-  createMatch(): void {
-    if (!this.authService.isAuthenticated()) {
-      this.authService.storePendingAction({
-        type: 'CREATE_MATCH',
-        payload: {},
-        returnUrl: this.router.url
-      });
-      this.dialog.open(AuthModalComponent, {
-        width: '400px',
-        data: { message: 'Sign in to create a match' }
-      });
-      return;
-    }
-    this.router.navigate(['/matchfinder', this.game, this.platform, 'create']);
-  }
 }

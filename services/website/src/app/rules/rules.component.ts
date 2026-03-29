@@ -194,12 +194,12 @@ import { MatIconModule } from '@angular/material/icon';
               <div class="setting"><span class="setting-label">Muzzle</span><span class="setting-value">None</span></div>
               <div class="setting"><span class="setting-label">Barrel</span><span class="setting-value">None</span></div>
               <div class="setting"><span class="setting-label">Laser</span><span class="setting-value">Tac Laser</span></div>
-              <div class="setting"><span class="setting-label">Optic</span><span class="setting-value">Sniper Scope</span></div>
+              <div class="setting"><span class="setting-label">Optic</span><span class="setting-value">Sniper Scope (default reticle)</span></div>
               <div class="setting"><span class="setting-label">Stock</span><span class="setting-value">FTAC Sport Comb</span></div>
               <div class="setting"><span class="setting-label">Underbarrel</span><span class="setting-value">None</span></div>
               <div class="setting"><span class="setting-label">Rear Grip</span><span class="setting-value">Stippled Grip Tape</span></div>
               <div class="setting"><span class="setting-label">Perk</span><span class="setting-value">FMJ or Sleight of Hand</span></div>
-              <div class="setting"><span class="setting-label">Perk 1</span><span class="setting-value">Double Time</span></div>
+              <div class="setting"><span class="setting-label">Perk 1</span><span class="setting-value">Double Time or Scavenger</span></div>
               <div class="setting"><span class="setting-label">Perk 2</span><span class="setting-value">Restock</span></div>
               <div class="setting"><span class="setting-label">Perk 3</span><span class="setting-value">Amped</span></div>
             </div>
@@ -249,6 +249,29 @@ import { MatIconModule } from '@angular/material/icon';
             </div>
 
           </section>
+
+          <section>
+            <h2>Warnings</h2>
+            <p class="section-desc">The following will result in a warning. Two warnings will result in a disqualification.</p>
+            <ul>
+              <li>Incorrect rules and setup</li>
+              <li>Illegal class setup</li>
+              <li>Spawning out and spawning back in / killing yourself with ammo</li>
+              <li>Using or throwing equipment that corrupts the game</li>
+            </ul>
+          </section>
+
+          <section>
+            <h2>Disqualifications</h2>
+            <p class="section-desc">The following will result in a disqualification:</p>
+            <ul>
+              <li>Killing with an illegal setup, rules, or class</li>
+              <li>Killing a player not participating in the match</li>
+              <li>Hardscoping, relapse shots</li>
+              <li>Killing a player with explosive objects on the map (barrels, cars, tanks) is legal, but only if the explosion was caused by a sniper</li>
+              <li>Any form of cheating that gives you an unfair advantage — hacking/mods, IP flooding/DDoS, manipulating in-game mechanics/glitching, or assistance from a non-competing player</li>
+            </ul>
+          </section>
         }
 
         @if (activeGame === 'bo2') {
@@ -256,6 +279,9 @@ import { MatIconModule } from '@angular/material/icon';
         }
         @if (activeGame === 'mw2') {
           <p class="disclaimer">A ref may request to inspect your Xbox at any time. Failure to comply will result in a disqualification.</p>
+        }
+        @if (activeGame === 'mw2019') {
+          <p class="disclaimer">A ref may request a screen share at any time. Failure to comply will result in a disqualification.</p>
         }
         @if (activeGame === 'bo2' || activeGame === 'mw2' || activeGame === 'mw2019') {
           <p class="disclaimer">Rules are subject to change. Not all situations are covered here.</p>

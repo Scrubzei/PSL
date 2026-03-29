@@ -11,6 +11,7 @@ import { handleQueueJoinButton, handleQueueJoinModal, handleQueuePlutoModal, han
 import { handlePugJoin, handlePugLeave, handlePugReady, handlePugMapPick, handlePugReport, handlePugConfirm, handlePugDispute, handlePugRematch } from '../commands/pug.js';
 import { handleSidebetSetupSelect } from '../commands/sidebet-setup.js';
 import { handleSelect as handleTourneyRoleSelect } from '../commands/tourney-role.js';
+import { handleSelect as handleTourneyThreadsSelect } from '../commands/tourney-threads.js';
 import { handleSidebetCreateButton, handleSidebetMatchSelect, handleSidebetPlayerPick, handleSidebetAmountModal, handleSidebetAccept, handleSidebetLock, handleSidebetCancel } from '../commands/sidebet.js';
 import { handleMatchfinderAccept, handleMatchfinderCancel } from '../commands/matchfinder.js';
 
@@ -165,6 +166,16 @@ export async function execute(interaction: Interaction) {
         await handleTourneyRoleSelect(interaction);
       } catch (error) {
         console.error('Error handling tourney role select:', error);
+      }
+      return;
+    }
+
+    // Tourney threads selection
+    if (interaction.customId === 'tourney_threads_select') {
+      try {
+        await handleTourneyThreadsSelect(interaction);
+      } catch (error) {
+        console.error('Error handling tourney threads select:', error);
       }
       return;
     }

@@ -20,7 +20,6 @@ import { RulesComponent } from './rules/rules.component';
 import { DownloadComponent } from './download/download.component';
 import { MatchfinderComponent } from './matchfinder/matchfinder.component';
 import { MatchfinderDetailComponent } from './matchfinder/matchfinder-detail.component';
-import { CreateMatchComponent } from './matchfinder/create-match.component';
 import { homeRedirectGuard } from './auth/home-redirect.guard';
 
 export const routes: Routes = [
@@ -38,7 +37,6 @@ export const routes: Routes = [
   { path: 'users/:id', component: UserProfileComponent },
   { path: 'matchfinder', component: MatchfinderComponent },
   { path: 'matchfinder/:game/:platform', component: MatchfinderDetailComponent },
-  { path: 'matchfinder/:game/:platform/create', component: CreateMatchComponent },
   { path: 'challenges', component: ChallengesComponent },
   { path: 'challenges/:id', component: ChallengeDetailComponent },
   { path: 'tournaments', component: TournamentsListComponent },

@@ -17,41 +17,6 @@ export class MatchesController {
     private readonly leaderboardsService: LeaderboardsService,
   ) {}
 
-  // Matchfinder endpoints
-  @Get('matchfinder')
-  async getMatchfinderListings(
-    @Query('game') game: string,
-    @Query('platform') platform: string,
-  ) {
-    return this.matchesService.findMatchfinderListings(game, platform);
-  }
-
-  @Post('matchfinder')
-  @UseGuards(JwtAuthGuard)
-  async createMatchfinderListing(
-    @Request() req,
-    @Body() body: { game: string; platform: string; bestOf: number; selectedMaps: string[] },
-  ) {
-    const leaderboard = await this.leaderboardsService.findByGameAndPlatform(body.game, body.platform);
-    return this.matchesService.createMatchfinderListing(req.user.userId, {
-      leaderboardId: leaderboard.id,
-      bestOf: body.bestOf,
-      selectedMaps: body.selectedMaps,
-    });
-  }
-
-  @Patch('matchfinder/:id/accept')
-  @UseGuards(JwtAuthGuard)
-  async acceptMatchfinderListing(@Param('id') id: string, @Request() req) {
-    return this.matchesService.acceptMatchfinderListing(id, req.user.userId);
-  }
-
-  @Patch('matchfinder/:id/cancel')
-  @UseGuards(JwtAuthGuard)
-  async cancelMatchfinderListing(@Param('id') id: string, @Request() req) {
-    return this.matchesService.cancelMatchfinderListing(id, req.user.userId);
-  }
-
   // Public endpoint - no auth required
   @Get('share/:token')
   async findByShareToken(@Param('token') token: string) {

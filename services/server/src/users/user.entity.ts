@@ -28,6 +28,9 @@ export class User {
   @Column({ nullable: true })
   xboxGamertag: string;
 
+  @Column({ nullable: true })
+  emblem: string;
+
   @Column({ default: 0 })
   goldTrophies: number;
 

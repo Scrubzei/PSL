@@ -1,111 +1,124 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, Inject, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { ActivatedRoute, Router, RouterModule } from '@angular/router';
+import { MAT_DIALOG_DATA, MatDialogRef } from '@angular/material/dialog';
+import { MatIconModule } from '@angular/material/icon';
 import { GamesService, GameMap } from '../games/games.service';
-import { MatchfinderService } from './matchfinder.service';
+
+export interface ChallengeModalData {
+  opponentUsername: string;
+  game: string;
+}
+
+export interface ChallengeModalResult {
+  bestOf: number;
+  selectedMaps: string[];
+}
 
 @Component({
-  selector: 'app-create-match',
+  selector: 'app-challenge-modal',
   standalone: true,
-  imports: [CommonModule, RouterModule],
+  imports: [CommonModule, MatIconModule],
   template: `
-    <div class="page-wrapper">
-      <div class="create-container">
-        <a [routerLink]="['/matchfinder', game, platform]" class="back-link">&larr; Back</a>
-        <h1>Create Match</h1>
+    <div class="modal">
+      <div class="modal-header">
+        <h2>Challenge {{ data.opponentUsername }}</h2>
+        <button class="close-btn" (click)="dialogRef.close()">
+          <mat-icon>close</mat-icon>
+        </button>
+      </div>
 
-        <!-- Best Of -->
-        <section>
-          <h2>Best Of</h2>
-          <div class="option-grid">
-            @for (option of bestOfOptions; track option) {
-              <button
-                class="option-card"
-                [class.selected]="selectedBestOf === option"
-                (click)="setBestOf(option)">
-                <span class="option-value">{{ option }}</span>
-                <span class="option-label">{{ option === 1 ? 'Game' : 'Games' }}</span>
+      <!-- Best Of -->
+      <section>
+        <h3>Best Of</h3>
+        <div class="option-grid">
+          @for (option of bestOfOptions; track option) {
+            <button
+              class="option-card"
+              [class.selected]="selectedBestOf === option"
+              (click)="setBestOf(option)">
+              <span class="option-value">{{ option }}</span>
+              <span class="option-label">{{ option === 1 ? 'Game' : 'Games' }}</span>
+            </button>
+          }
+        </div>
+      </section>
+
+      <!-- Map Slots -->
+      <section>
+        <h3>Maps</h3>
+        <div class="map-slots">
+          <div class="map-slot" *ngFor="let slot of selectedMaps; let i = index">
+            <div class="slot-header">
+              <span class="slot-label">Game {{ i + 1 }}</span>
+              <span class="host-badge" [class.you]="getHostType(i) === 'you'" [class.them]="getHostType(i) === 'them'" [class.tbd]="getHostType(i) === 'tbd'">
+                {{ getHostLabel(i) }}
+              </span>
+            </div>
+            <div class="slot-picker">
+              <button *ngIf="slot" class="slot-selected" (click)="clearSlot(i)">
+                {{ slot.mapName }}
+                <i class="fa-solid fa-xmark"></i>
               </button>
-            }
-          </div>
-        </section>
-
-        <!-- Map Slots -->
-        <section>
-          <h2>Maps</h2>
-          <div class="map-slots">
-            <div class="map-slot" *ngFor="let slot of selectedMaps; let i = index">
-              <div class="slot-header">
-                <span class="slot-label">Game {{ i + 1 }}</span>
-                <span class="host-badge" [class.you]="getHostType(i) === 'you'" [class.them]="getHostType(i) === 'them'" [class.tbd]="getHostType(i) === 'tbd'">
-                  {{ getHostLabel(i) }}
-                </span>
-              </div>
-              <div class="slot-picker">
-                <button *ngIf="slot" class="slot-selected" (click)="clearSlot(i)">
-                  {{ slot.mapName }}
-                  <i class="fa-solid fa-xmark"></i>
+              <div *ngIf="!slot" class="slot-options">
+                <button *ngFor="let map of gameMaps" class="map-option" (click)="pickMap(i, map)">
+                  {{ map.mapName }}
                 </button>
-                <div *ngIf="!slot" class="slot-options">
-                  <button *ngFor="let map of gameMaps" class="map-option" (click)="pickMap(i, map)">
-                    {{ map.mapName }}
-                  </button>
-                </div>
               </div>
             </div>
           </div>
-        </section>
+        </div>
+      </section>
 
-        <!-- Submit -->
-        <button
-          class="submit-btn"
-          [disabled]="!allMapsPicked || submitting"
-          (click)="submit()">
-          Find Opponent
-        </button>
-      </div>
+      <!-- Submit -->
+      <button
+        class="submit-btn"
+        [disabled]="!allMapsPicked"
+        (click)="submit()">
+        Send Challenge
+      </button>
     </div>
   `,
   styles: [`
-    .page-wrapper {
-      background: #0a0a0f;
-      min-height: 100%;
+    .modal {
+      padding: 24px;
+      max-height: 80vh;
+      overflow-y: auto;
     }
 
-    .create-container {
-      max-width: 600px;
-      margin: 0 auto;
-      padding: 48px 24px;
-    }
+    .modal-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 28px;
 
-    .back-link {
-      color: rgba(255, 255, 255, 0.5);
-      text-decoration: none;
-      font-size: 13px;
-      font-weight: 500;
-      transition: color 0.2s ease;
-
-      &:hover {
+      h2 {
+        margin: 0;
+        font-size: 22px;
+        font-weight: 700;
         color: white;
       }
     }
 
-    h1 {
-      font-size: 32px;
-      font-weight: 700;
-      color: white;
-      margin: 16px 0 40px;
+    .close-btn {
+      background: none;
+      border: none;
+      color: rgba(255, 255, 255, 0.4);
+      cursor: pointer;
+      padding: 4px;
+      display: flex;
+
+      &:hover { color: white; }
     }
 
     section {
-      margin-bottom: 40px;
+      margin-bottom: 28px;
     }
 
-    h2 {
-      font-size: 16px;
+    h3 {
+      font-size: 14px;
       font-weight: 600;
       color: rgba(255, 255, 255, 0.8);
-      margin: 0 0 16px;
+      margin: 0 0 12px;
     }
 
     .option-grid {
@@ -115,7 +128,7 @@ import { MatchfinderService } from './matchfinder.service';
 
     .option-card {
       flex: 1;
-      padding: 20px 16px;
+      padding: 16px 12px;
       background: rgba(255, 255, 255, 0.03);
       border: 1px solid rgba(255, 255, 255, 0.08);
       border-radius: 10px;
@@ -128,13 +141,13 @@ import { MatchfinderService } from './matchfinder.service';
       gap: 4px;
 
       .option-value {
-        font-size: 24px;
+        font-size: 22px;
         font-weight: 700;
         color: rgba(255, 255, 255, 0.6);
       }
 
       .option-label {
-        font-size: 12px;
+        font-size: 11px;
         color: rgba(255, 255, 255, 0.3);
         text-transform: uppercase;
         letter-spacing: 1px;
@@ -149,34 +162,29 @@ import { MatchfinderService } from './matchfinder.service';
         background: rgba(37, 99, 235, 0.15);
         border-color: #2563EB;
 
-        .option-value {
-          color: white;
-        }
-
-        .option-label {
-          color: rgba(255, 255, 255, 0.5);
-        }
+        .option-value { color: white; }
+        .option-label { color: rgba(255, 255, 255, 0.5); }
       }
     }
 
     .map-slots {
       display: flex;
       flex-direction: column;
-      gap: 16px;
+      gap: 12px;
     }
 
     .map-slot {
       background: rgba(255, 255, 255, 0.02);
       border: 1px solid rgba(255, 255, 255, 0.06);
       border-radius: 12px;
-      padding: 16px;
+      padding: 14px;
     }
 
     .slot-header {
       display: flex;
       align-items: center;
       justify-content: space-between;
-      margin-bottom: 12px;
+      margin-bottom: 10px;
     }
 
     .slot-label {
@@ -218,7 +226,7 @@ import { MatchfinderService } from './matchfinder.service';
       align-items: center;
       justify-content: space-between;
       width: 100%;
-      padding: 12px 16px;
+      padding: 10px 14px;
       background: rgba(37, 99, 235, 0.15);
       border: 1px solid #2563EB;
       border-radius: 8px;
@@ -236,10 +244,7 @@ import { MatchfinderService } from './matchfinder.service';
 
       &:hover {
         background: rgba(37, 99, 235, 0.25);
-
-        i {
-          color: white;
-        }
+        i { color: white; }
       }
     }
 
@@ -270,12 +275,12 @@ import { MatchfinderService } from './matchfinder.service';
 
     .submit-btn {
       width: 100%;
-      padding: 16px;
+      padding: 14px;
       background: #2563EB;
       border: none;
       border-radius: 10px;
       color: white;
-      font-size: 16px;
+      font-size: 15px;
       font-weight: 700;
       font-family: inherit;
       cursor: pointer;
@@ -291,39 +296,22 @@ import { MatchfinderService } from './matchfinder.service';
         cursor: not-allowed;
       }
     }
-
-    @media (max-width: 480px) {
-      .create-container {
-        padding: 32px 16px;
-      }
-
-      h1 {
-        font-size: 24px;
-      }
-    }
   `]
 })
-export class CreateMatchComponent implements OnInit {
-  game = '';
-  platform = '';
-  selectedBestOf = 1;
-  selectedMaps: (GameMap | null)[] = [null];
-  bestOfOptions = [1, 3, 5];
+export class ChallengeModalComponent implements OnInit {
   gameMaps: GameMap[] = [];
-
-  submitting = false;
+  selectedMaps: (GameMap | null)[] = [null];
+  selectedBestOf = 1;
+  bestOfOptions = [1, 3, 5];
 
   constructor(
-    private route: ActivatedRoute,
-    private router: Router,
+    public dialogRef: MatDialogRef<ChallengeModalComponent>,
+    @Inject(MAT_DIALOG_DATA) public data: ChallengeModalData,
     private gamesService: GamesService,
-    private matchfinderService: MatchfinderService,
   ) {}
 
   ngOnInit(): void {
-    this.game = this.route.snapshot.paramMap.get('game') || '';
-    this.platform = this.route.snapshot.paramMap.get('platform') || '';
-    this.gamesService.getMapsByGame(this.game).subscribe(maps => {
+    this.gamesService.getMapsByGame(this.data.game).subscribe(maps => {
       this.gameMaps = maps;
     });
   }
@@ -335,8 +323,8 @@ export class CreateMatchComponent implements OnInit {
   }
 
   getHostLabel(index: number): string {
-    if (this.selectedBestOf === 1) return 'Higher XP hosts';
-    if (index === this.selectedBestOf - 1) return 'Higher XP hosts';
+    if (this.selectedBestOf === 1) return 'Higher rank hosts';
+    if (index === this.selectedBestOf - 1) return 'Higher rank hosts';
     return index % 2 === 0 ? 'You host' : 'They host';
   }
 
@@ -358,24 +346,11 @@ export class CreateMatchComponent implements OnInit {
   }
 
   submit(): void {
-    if (this.submitting) return;
-    this.submitting = true;
-
-    const mapNames = this.selectedMaps.map(m => m!.mapName);
-    this.matchfinderService.createListing({
-      game: this.game,
-      platform: this.platform,
+    if (!this.allMapsPicked) return;
+    const result: ChallengeModalResult = {
       bestOf: this.selectedBestOf,
-      selectedMaps: mapNames,
-    }).subscribe({
-      next: () => {
-        this.router.navigate(['/matchfinder', this.game, this.platform]);
-      },
-      error: (err) => {
-        this.submitting = false;
-        console.error('Failed to create listing:', err);
-        alert(err.error?.message || 'Failed to create match listing');
-      }
-    });
+      selectedMaps: this.selectedMaps.map(m => m!.mapName),
+    };
+    this.dialogRef.close(result);
   }
 }

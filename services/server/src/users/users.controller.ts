@@ -74,7 +74,15 @@ export class UsersController {
 
   @Get(':id')
   async findOne(@Param('id') id: string) {
-    return this.usersService.findById(id) ?? null;
+    const user = await this.usersService.findById(id);
+    if (!user) return null;
+    const trophies = await this.usersService.getUserTrophies(id);
+    return {
+      ...user,
+      goldTrophies: trophies.gold,
+      silverTrophies: trophies.silver,
+      bronzeTrophies: trophies.bronze,
+    };
   }
 
   @Get(':id/stats')

@@ -1,15 +1,18 @@
 import { Injectable, NotFoundException, ConflictException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { Repository, In } from 'typeorm';
 import { Leaderboard } from './leaderboard.entity';
 import { LeaderboardEntry } from './leaderboard-entry.entity';
 import { Match } from '../matches/match.entity';
+import { TournamentMatch } from '../tournaments/tournament-match.entity';
+import { UsersService } from '../users/users.service';
 
 export interface LeaderboardEntryWithRank {
   id: string;
   rank: number;
   userId: string;
   username: string;
+  emblem: string | null;
   xp: number;
   rankScore: number;
   wins: number;
@@ -26,6 +29,9 @@ export class LeaderboardsService {
     private leaderboardEntriesRepository: Repository<LeaderboardEntry>,
     @InjectRepository(Match)
     private matchesRepository: Repository<Match>,
+    @InjectRepository(TournamentMatch)
+    private tournamentMatchesRepository: Repository<TournamentMatch>,
+    private usersService: UsersService,
   ) {}
 
   async findAll(): Promise<Leaderboard[]> {
@@ -101,6 +107,14 @@ export class LeaderboardsService {
     return this.leaderboardEntriesRepository.save(entry);
   }
 
+  async addUserByUsername(leaderboardId: string, username: string): Promise<LeaderboardEntry> {
+    const user = await this.usersService.findByUsername(username);
+    if (!user) {
+      throw new NotFoundException(`User "${username}" not found`);
+    }
+    return this.signup(user.id, leaderboardId);
+  }
+
   async getEntries(leaderboardId: string, type: 'ranked' | 'xp'): Promise<LeaderboardEntryWithRank[]> {
     // Check if leaderboard exists
     await this.findById(leaderboardId);
@@ -126,6 +140,11 @@ export class LeaderboardsService {
     const statsMap = new Map<string, { wins: number; losses: number }>();
 
     if (userIds.length > 0) {
+      // Get the leaderboard's game and platform to match tournaments
+      const leaderboard = await this.leaderboardsRepository.findOne({
+        where: { id: leaderboardId },
+      });
+
       // Get completed matches for this leaderboard
       const completedMatches = await this.matchesRepository.find({
         where: {
@@ -134,15 +153,41 @@ export class LeaderboardsService {
         },
       });
 
+      // Get completed tournament matches for the same game/platform
+      const tournamentMatches = leaderboard
+        ? await this.tournamentMatchesRepository
+            .createQueryBuilder('tm')
+            .innerJoin('tm.tournament', 't')
+            .where('t.gameId = :gameId', { gameId: leaderboard.gameId })
+            .andWhere('t.platformId = :platformId', { platformId: leaderboard.platformId })
+            .andWhere('tm.status = :status', { status: 'COMPLETED' })
+            .andWhere('tm.isBye = false')
+            .andWhere('tm.winnerId IS NOT NULL')
+            .getMany()
+        : [];
+
       // Count wins and losses for each user
       for (const userId of userIds) {
         let wins = 0;
         let losses = 0;
 
+        // Count from regular matches
         for (const match of completedMatches) {
           const isParticipant = match.challengerId === userId || match.challengeeId === userId;
           if (isParticipant && match.winnerId) {
             if (match.winnerId === userId) {
+              wins++;
+            } else {
+              losses++;
+            }
+          }
+        }
+
+        // Count from tournament matches
+        for (const tm of tournamentMatches) {
+          const isParticipant = tm.player1Id === userId || tm.player2Id === userId;
+          if (isParticipant) {
+            if (tm.winnerId === userId) {
               wins++;
             } else {
               losses++;
@@ -162,6 +207,7 @@ export class LeaderboardsService {
         rank: index + 1,
         userId: entry.userId,
         username: entry.user.username,
+        emblem: entry.user.emblem || null,
         xp: entry.xp,
         rankScore: entry.rankScore,
         wins: stats.wins,
@@ -180,6 +226,25 @@ export class LeaderboardsService {
   async isUserSignedUp(userId: string, leaderboardId: string): Promise<boolean> {
     const entry = await this.getUserEntry(userId, leaderboardId);
     return !!entry;
+  }
+
+  async updateRanks(leaderboardId: string, ranks: { userId: string; rank: number }[]): Promise<void> {
+    await this.findById(leaderboardId);
+
+    // Sort by rank ascending (1 = best) and assign descending rankScore
+    const sorted = [...ranks].sort((a, b) => a.rank - b.rank);
+
+    for (const { userId, rank } of sorted) {
+      const entry = await this.leaderboardEntriesRepository.findOne({
+        where: { userId, leaderboardId },
+      });
+      if (!entry) continue;
+
+      // Higher rank position (1st) gets higher rankScore
+      // e.g., rank 1 = 10000, rank 2 = 9000, etc.
+      entry.rankScore = Math.max(10000 - (rank - 1) * 1000, 100);
+      await this.leaderboardEntriesRepository.save(entry);
+    }
   }
 
   async awardXp(userId: string, leaderboardId: string, amount: number): Promise<LeaderboardEntry> {

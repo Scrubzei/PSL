@@ -4,6 +4,8 @@ import { Repository } from 'typeorm';
 import { User } from './user.entity';
 import { Match } from '../matches/match.entity';
 import { LeaderboardEntry } from '../leaderboards/leaderboard-entry.entity';
+import { TournamentMatch } from '../tournaments/tournament-match.entity';
+import { Tournament } from '../tournaments/tournament.entity';
 export interface UserProfileStats {
   totalWins: number;
   totalLosses: number;
@@ -61,6 +63,10 @@ export class UsersService {
     private matchesRepository: Repository<Match>,
     @InjectRepository(LeaderboardEntry)
     private leaderboardEntriesRepository: Repository<LeaderboardEntry>,
+    @InjectRepository(TournamentMatch)
+    private tournamentMatchesRepository: Repository<TournamentMatch>,
+    @InjectRepository(Tournament)
+    private tournamentsRepository: Repository<Tournament>,
   ) {}
 
   async findByUsername(username: string): Promise<User | undefined> {
@@ -201,6 +207,24 @@ export class UsersService {
         totalLosses++;
       }
     }
+
+    // Count tournament match wins/losses
+    const tournamentMatches = await this.tournamentMatchesRepository
+      .createQueryBuilder('tm')
+      .where('tm.status = :status', { status: 'COMPLETED' })
+      .andWhere('tm.isBye = false')
+      .andWhere('tm.winnerId IS NOT NULL')
+      .andWhere('(tm.player1Id = :userId OR tm.player2Id = :userId)', { userId })
+      .getMany();
+
+    for (const tm of tournamentMatches) {
+      if (tm.winnerId === userId) {
+        totalWins++;
+      } else {
+        totalLosses++;
+      }
+    }
+
     const totalMatches = totalWins + totalLosses;
     const winRate = totalMatches > 0 ? Math.round((totalWins / totalMatches) * 100) : 0;
 
@@ -238,6 +262,57 @@ export class UsersService {
         updatedAt: match.updatedAt,
       })),
     };
+  }
+
+  async getUserTrophies(userId: string): Promise<{ gold: number; silver: number; bronze: number }> {
+    // Get all completed tournaments
+    const completedTournaments = await this.tournamentsRepository.find({
+      where: { status: 'COMPLETED' as any },
+    });
+
+    let gold = 0;
+    let silver = 0;
+    let bronze = 0;
+
+    for (const tournament of completedTournaments) {
+      // Get the finals match (round 1) for this tournament
+      const finalsMatch = await this.tournamentMatchesRepository.findOne({
+        where: { tournamentId: tournament.id, round: 1, status: 'COMPLETED' as any },
+      });
+
+      if (!finalsMatch || !finalsMatch.winnerId) continue;
+
+      // 1st place: winner of finals
+      if (finalsMatch.winnerId === userId) {
+        gold++;
+        continue;
+      }
+
+      // 2nd place: loser of finals
+      const finalsLoser = finalsMatch.player1Id === finalsMatch.winnerId
+        ? finalsMatch.player2Id
+        : finalsMatch.player1Id;
+      if (finalsLoser === userId) {
+        silver++;
+        continue;
+      }
+
+      // 3rd place: losers of semi-finals (round 2)
+      const semiMatches = await this.tournamentMatchesRepository.find({
+        where: { tournamentId: tournament.id, round: 2, status: 'COMPLETED' as any },
+      });
+
+      for (const semi of semiMatches) {
+        if (!semi.winnerId || semi.isBye) continue;
+        const semiLoser = semi.player1Id === semi.winnerId ? semi.player2Id : semi.player1Id;
+        if (semiLoser === userId) {
+          bronze++;
+          break;
+        }
+      }
+    }
+
+    return { gold, silver, bronze };
   }
 
   // Calculate level from XP: Level = floor(sqrt(totalXP / 100)) + 1

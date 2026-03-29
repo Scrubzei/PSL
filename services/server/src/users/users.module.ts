@@ -3,11 +3,13 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { User } from './user.entity';
 import { Match } from '../matches/match.entity';
 import { LeaderboardEntry } from '../leaderboards/leaderboard-entry.entity';
+import { TournamentMatch } from '../tournaments/tournament-match.entity';
+import { Tournament } from '../tournaments/tournament.entity';
 import { UsersService } from './users.service';
 import { UsersController } from './users.controller';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([User, Match, LeaderboardEntry])],
+  imports: [TypeOrmModule.forFeature([User, Match, LeaderboardEntry, TournamentMatch, Tournament])],
   providers: [UsersService],
   controllers: [UsersController],
   exports: [UsersService],
