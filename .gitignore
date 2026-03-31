@@ -11,15 +11,6 @@ build/
 release/
 out/
 
-# Environment variables
-.env
-.env.local
-.env.*.local
-.env.production
-deploy/.env.production
-deploy/.env.production.botzei
-deploy/inventory.ini
-
 # IDE
 .vscode/
 .idea/
