@@ -12,8 +12,6 @@ import { MatIconModule } from '@angular/material/icon';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatDialog } from '@angular/material/dialog';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
-import { ChallengeModalComponent, ChallengeModalResult } from './challenge-modal.component';
-import { ChallengesService } from '../challenges/challenges.service';
 import { AuthService } from '../auth/auth.service';
 import { AuthModalComponent } from '../auth/auth-modal/auth-modal.component';
 import { LeaderboardsService, LeaderboardEntry, Leaderboard } from './leaderboards.service';
@@ -185,18 +183,6 @@ interface DisplayEntry {
                           <span class="winpct" [class.winpct-hot]="getWinPct(entry) >= 70" [class.winpct-good]="getWinPct(entry) >= 50 && getWinPct(entry) < 70" [class.winpct-cold]="getWinPct(entry) < 50 && (entry.wins + entry.losses) > 0" [class.winpct-none]="(entry.wins + entry.losses) === 0">{{ (entry.wins + entry.losses) === 0 ? '—' : (getWinPct(entry) + '%') }}</span>
                         } @else {
                           —
-                        }
-                      </td>
-                    </ng-container>
-
-                    <ng-container matColumnDef="challenge">
-                      <th mat-header-cell *matHeaderCellDef></th>
-                      <td mat-cell *matCellDef="let entry">
-                        @if (!entry.placeholder && entry.userId !== currentUserId) {
-                          <button class="challenge-btn" (click)="openChallenge(entry)">
-                            <mat-icon>sports_esports</mat-icon>
-                            <span class="desktop-only">Challenge</span>
-                          </button>
                         }
                       </td>
                     </ng-container>
@@ -866,39 +852,6 @@ interface DisplayEntry {
       }
     }
 
-    .challenge-btn {
-      display: inline-flex;
-      align-items: center;
-      gap: 4px;
-      padding: 4px 12px;
-      border-radius: 6px;
-      border: 1px solid rgba(var(--theme-primary-rgb, 37, 99, 235), 0.4);
-      background: rgba(var(--theme-primary-rgb, 37, 99, 235), 0.1);
-      color: var(--theme-primary-bright, #64b5f6);
-      font-size: 12px;
-      font-weight: 600;
-      cursor: pointer;
-      transition: all 0.15s;
-      white-space: nowrap;
-
-      mat-icon {
-        font-size: 16px;
-        width: 16px;
-        height: 16px;
-      }
-
-      &:hover {
-        background: rgba(var(--theme-primary-rgb, 37, 99, 235), 0.2);
-        border-color: var(--theme-primary, #2563EB);
-      }
-    }
-
-    .mat-column-challenge {
-      width: 100px;
-      text-align: right;
-      padding-right: 16px !important;
-    }
-
     .desktop-only {
       display: inline;
     }
@@ -973,7 +926,7 @@ export class LeaderboardDetailComponent implements OnInit {
   game = '';
   platform = '';
   currentTab: 'RANKED' | 'XP' = 'RANKED';
-  rankedColumns = ['rank', 'username', 'record', 'winpct', 'challenge'];
+  rankedColumns = ['rank', 'username', 'record', 'winpct'];
   xpColumns = ['rank', 'username', 'score', 'wins', 'losses'];
 
   leaderboard: Leaderboard | null = null;
@@ -993,14 +946,9 @@ export class LeaderboardDetailComponent implements OnInit {
     private dialog: MatDialog,
     private snackBar: MatSnackBar,
     private authService: AuthService,
-    private challengesService: ChallengesService,
     private leaderboardsService: LeaderboardsService,
     private themeService: ThemeService
   ) {}
-
-  get currentUserId(): string | null {
-    return this.authService.currentUser()?.id ?? null;
-  }
 
   get podiumPlayers(): DisplayEntry[] {
     return this.rankedData.filter(e => !e.placeholder && e.rank <= 3);
@@ -1217,109 +1165,4 @@ export class LeaderboardDetailComponent implements OnInit {
     });
   }
 
-  openChallenge(entry: DisplayEntry): void {
-    if (!this.authService.isAuthenticated()) {
-      this.authService.storePendingAction({
-        type: 'CHALLENGE_USER',
-        payload: { opponentId: entry.userId, game: this.game, platform: this.platform },
-        returnUrl: this.router.url
-      });
-      this.dialog.open(AuthModalComponent, {
-        width: '400px',
-        data: { message: `Sign in to challenge ${entry.username}` }
-      });
-      return;
-    }
-
-    const dialogRef = this.dialog.open(ChallengeModalComponent, {
-      width: '500px',
-      panelClass: 'challenge-modal-panel',
-      data: { opponentUsername: entry.username, game: this.game }
-    });
-
-    dialogRef.afterClosed().subscribe((result: ChallengeModalResult | undefined) => {
-      if (result && this.leaderboard) {
-        this.challengesService.createChallenge({
-          challengeeId: entry.userId,
-          leaderboardId: this.leaderboard.id,
-          type: 'RANKED',
-          bestOf: result.bestOf,
-          selectedMaps: result.selectedMaps,
-        }).subscribe({
-          next: (match) => {
-            this.snackBar.open('Challenge sent!', 'Close', { duration: 3000 });
-            this.router.navigate(['/challenges', match.id]);
-          },
-          error: (err) => {
-            this.snackBar.open(err.error?.message || 'Failed to send challenge', 'Close', { duration: 3000 });
-          }
-        });
-      }
-    });
-  }
-
-  // NOT RELEASED YET - Challenge feature
-  // openChallengeModal(entry: DisplayEntry, type: 'RANKED' | 'XP'): void {
-  //   if (!this.authService.isAuthenticated()) {
-  //     this.authService.storePendingAction({
-  //       type: 'CHALLENGE_USER',
-  //       payload: {
-  //         opponentId: entry.userId,
-  //         opponentUsername: entry.username,
-  //         game: this.game,
-  //         platform: this.platform,
-  //         matchType: type
-  //       },
-  //       returnUrl: this.router.url
-  //     });
-  //     this.dialog.open(AuthModalComponent, {
-  //       width: '400px',
-  //       data: { message: `Sign in to challenge ${entry.username}` }
-  //     });
-  //     return;
-  //   }
-  //
-  //   const dialogRef = this.dialog.open(LeaderboardChallengeModalComponent, {
-  //     width: '500px',
-  //     panelClass: 'challenge-modal-panel',
-  //     data: {
-  //       opponent: { id: entry.userId, username: entry.username },
-  //       game: this.game,
-  //       platform: this.platform,
-  //       type
-  //     }
-  //   });
-  //
-  //   dialogRef.afterClosed().subscribe(result => {
-  //     if (result && this.leaderboard) {
-  //       this.challengesService.createChallenge({
-  //         challengeeId: result.opponent.id,
-  //         leaderboardId: this.leaderboard.id,
-  //         type: result.type,
-  //         bestOf: result.bestOf,
-  //         selectedMaps: result.maps,
-  //         linkOnly: result.linkOnly || false
-  //       }).subscribe({
-  //         next: () => {
-  //           this.snackBar.open('Challenge sent!', 'Close', { duration: 3000 });
-  //         },
-  //         error: (err) => {
-  //           const existingChallengeId = err.error?.existingChallengeId;
-  //           if (existingChallengeId) {
-  //             const snackBarRef = this.snackBar.open(
-  //               err.error?.message || 'Active challenge already exists',
-  //               'View Challenge',
-  //               { duration: 8000 }
-  //             );
-  //             snackBarRef.onAction().subscribe(() => {
-  //               this.router.navigate(['/challenges', existingChallengeId]);
-  //             });
-  //           } else {
-  //             this.snackBar.open(err.error?.message || 'Failed to send challenge', 'Close', { duration: 3000 });
-  //           }
-  //         }
-  //       });
-  //     }
-  //   });
-  // }
 }

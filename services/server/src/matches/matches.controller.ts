@@ -114,26 +114,6 @@ export class MatchesController {
 
   // Bot-authenticated endpoints (API key instead of JWT)
 
-  @Patch('bot/matchfinder/:id/accept')
-  @UseGuards(ApiKeyGuard)
-  async botAcceptMatchfinderListing(@Param('id') id: string, @Body('discordId') discordId: string) {
-    const user = await this.usersService.findByDiscordId(discordId);
-    if (!user) {
-      throw new BadRequestException('You need an account to accept. Sign up at the website first.');
-    }
-    return this.matchesService.acceptMatchfinderListing(id, user.id);
-  }
-
-  @Patch('bot/matchfinder/:id/cancel')
-  @UseGuards(ApiKeyGuard)
-  async botCancelMatchfinderListing(@Param('id') id: string, @Body('discordId') discordId: string) {
-    const user = await this.usersService.findByDiscordId(discordId);
-    if (!user) {
-      throw new BadRequestException('User does not have an account');
-    }
-    return this.matchesService.cancelMatchfinderListing(id, user.id);
-  }
-
   @Post('bot/create')
   @UseGuards(ApiKeyGuard)
   async botCreateMatch(@Body() dto: BotCreateMatchDto) {

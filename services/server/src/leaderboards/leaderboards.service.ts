@@ -241,8 +241,8 @@ export class LeaderboardsService {
       if (!entry) continue;
 
       // Higher rank position (1st) gets higher rankScore
-      // e.g., rank 1 = 10000, rank 2 = 9000, etc.
-      entry.rankScore = Math.max(10000 - (rank - 1) * 1000, 100);
+      // e.g., rank 1 = 100000, rank 2 = 99000, etc.
+      entry.rankScore = 100000 - (rank - 1) * 1000;
       await this.leaderboardEntriesRepository.save(entry);
     }
   }
