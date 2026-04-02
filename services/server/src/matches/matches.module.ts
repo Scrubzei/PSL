@@ -3,6 +3,7 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { Match } from './match.entity';
 import { MatchesService } from './matches.service';
 import { MatchesController } from './matches.controller';
+import { MatchReportCronService } from './match-report-cron.service';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { NotificationsModule } from '../notifications/notifications.module';
 import { LeaderboardsModule } from '../leaderboards/leaderboards.module';
@@ -17,7 +18,7 @@ import { BotzeiModule } from '../botzei/botzei.module';
     UsersModule,
     BotzeiModule,
   ],
-  providers: [MatchesService, RolesGuard],
+  providers: [MatchesService, MatchReportCronService, RolesGuard],
   controllers: [MatchesController],
   exports: [MatchesService],
 })

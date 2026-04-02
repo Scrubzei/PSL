@@ -365,9 +365,11 @@ export class UsersService {
         .addOrderBy('e.createdAt', 'ASC')
         .getMany();
 
-      const rank = entry.rankedOptIn
-        ? allRankedEntries.findIndex(e => e.userId === userId) + 1
-        : null;
+      const rankedIdx = entry.rankedOptIn
+        ? allRankedEntries.findIndex(e => e.userId === userId)
+        : -1;
+      const rank =
+        entry.rankedOptIn && rankedIdx >= 0 ? rankedIdx + 1 : null;
       const totalPlayers = allRankedEntries.length;
 
       // Get wins/losses for this leaderboard

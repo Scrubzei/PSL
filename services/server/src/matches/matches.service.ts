@@ -26,15 +26,21 @@ export class MatchesService {
     private usersService: UsersService,
   ) {}
 
-  private async saveMatchAndApplyXpElo(match: Match): Promise<Match> {
+  /** After COMPLETED + winnerId: apply XP Elo or ranked ladder reorder (idempotent per match flags). */
+  async finalizeCompletedMatch(match: Match): Promise<Match> {
     const saved = await this.matchesRepository.save(match);
-    if (saved.type === 'XP' && saved.status === 'COMPLETED' && saved.winnerId) {
+    if (saved.status !== 'COMPLETED' || !saved.winnerId) {
+      return this.findOne(saved.id);
+    }
+    if (saved.type === 'XP') {
       await this.leaderboardsService.applyXpEloAfterMatchCompletion(saved.id);
+    } else if (saved.type === 'RANKED') {
+      await this.leaderboardsService.applyRankedLadderAfterMatchCompletion(saved.id);
     }
     return this.findOne(saved.id);
   }
 
-  private async notifyStaffOfXpDispute(match: Match): Promise<void> {
+  private async notifyStaffOfMatchDispute(match: Match): Promise<void> {
     const full = await this.findOne(match.id);
     const ids = await this.usersService.findUserIdsWithRoles(['ref', 'admin']);
     for (const uid of ids) {
@@ -42,8 +48,8 @@ export class MatchesService {
         await this.notificationsService.create(
           uid,
           'DISPUTE_AWAITING_MODERATION',
-          'XP match needs moderation',
-          `A result dispute needs review for ${full.challenger.username} vs ${full.challengee.username}.`,
+          'Match needs moderation',
+          `A result dispute needs review (${full.type}) for ${full.challenger.username} vs ${full.challengee?.username ?? '—'}.`,
           match.id,
           'MATCH',
         );
@@ -135,13 +141,27 @@ export class MatchesService {
           throw new BadRequestException('Both players must join the XP ladder for this leaderboard');
         }
       }
-    } else {
+    } else if (createMatchDto.type === 'RANKED') {
+      if (createMatchDto.bestOf !== 3) {
+        throw new BadRequestException('Ranked matches must be best of 3');
+      }
       try {
         await this.leaderboardsService.signup(challengerId, createMatchDto.leaderboardId);
       } catch (error) {
-        if (!error.message?.includes('already signed up')) {
-          console.error('Failed to sign up challenger for leaderboard:', error.message);
+        if (!(error as Error).message?.includes('already signed up')) {
+          console.error('Failed to sign up challenger for leaderboard:', (error as Error).message);
         }
+      }
+      const challengerEntry = await this.leaderboardsService.getUserEntry(
+        challengerId,
+        createMatchDto.leaderboardId,
+      );
+      const challengeeEntry = await this.leaderboardsService.getUserEntry(
+        createMatchDto.challengeeId!,
+        createMatchDto.leaderboardId,
+      );
+      if (!challengerEntry?.rankedOptIn || !challengeeEntry?.rankedOptIn) {
+        throw new BadRequestException('Both players must be on the ranked ladder for this leaderboard');
       }
     }
 
@@ -353,6 +373,7 @@ export class MatchesService {
     }
 
     match.status = 'ACCEPTED';
+    match.acceptedAt = new Date();
     await this.matchesRepository.save(match);
     const full = await this.findOne(match.id);
 
@@ -527,13 +548,13 @@ export class MatchesService {
           console.error('Failed to create completion notifications:', error.message);
         }
 
-        return this.saveMatchAndApplyXpElo(match);
+        return this.finalizeCompletedMatch(match);
       } else {
         // Disagreement! Create a dispute
         match.status = 'DISPUTED';
-        if (match.type === 'XP') {
+        if (match.type === 'XP' || match.type === 'RANKED') {
           match.disputePhase = 'AWAITING_REF';
-          await this.notifyStaffOfXpDispute(match);
+          await this.notifyStaffOfMatchDispute(match);
         }
 
         // Notify both players of the dispute
@@ -594,7 +615,7 @@ export class MatchesService {
       }
       match.winnerId = winnerId;
       match.status = 'COMPLETED';
-      if (match.type === 'XP') {
+      if (match.type === 'XP' || match.type === 'RANKED') {
         // Refs (including users who are both ref and admin) get REF_DECIDED so players can
         // appeal to a pure admin. Only admin-only moderators seal the match as FINAL.
         if (isRef) {
@@ -636,13 +657,13 @@ export class MatchesService {
       console.error('Failed to create dispute resolution notifications:', error.message);
     }
 
-    return this.saveMatchAndApplyXpElo(match);
+    return this.finalizeCompletedMatch(match);
   }
 
   async disputeRefDecision(userId: string, matchId: string): Promise<Match> {
     const match = await this.findOne(matchId);
-    if (match.type !== 'XP') {
-      throw new BadRequestException('Only XP ladder matches support this flow');
+    if (match.type !== 'XP' && match.type !== 'RANKED') {
+      throw new BadRequestException('This match type does not support ref appeal');
     }
     if (match.status !== 'COMPLETED') {
       throw new BadRequestException('You cannot dispute this match result');
@@ -660,7 +681,11 @@ export class MatchesService {
       throw new BadRequestException('You cannot dispute this match result');
     }
 
-    await this.leaderboardsService.rollbackXpEloForMatch(matchId);
+    if (match.type === 'XP') {
+      await this.leaderboardsService.rollbackXpEloForMatch(matchId);
+    } else {
+      await this.leaderboardsService.rollbackRankedLadderForMatch(matchId);
+    }
     const m = await this.findOne(matchId);
     m.winnerId = null;
     m.status = 'DISPUTED';
@@ -795,6 +820,90 @@ export class MatchesService {
       console.error('Failed to create concede notifications:', error.message);
     }
 
-    return this.saveMatchAndApplyXpElo(match);
+    return this.finalizeCompletedMatch(match);
+  }
+
+  /** Challenger may edit maps (and best-of, fixed to 3 for ranked) while match is PENDING. */
+  async updatePendingByChallenger(
+    matchId: string,
+    challengerId: string,
+    body: { bestOf?: number; selectedMaps: string[] },
+  ): Promise<Match> {
+    const match = await this.findOne(matchId);
+    if (match.challengerId !== challengerId) {
+      throw new ForbiddenException('Only the challenger can update this challenge');
+    }
+    if (match.status !== 'PENDING') {
+      throw new BadRequestException('This challenge can no longer be edited');
+    }
+    const bestOf = body.bestOf ?? match.bestOf;
+    if (match.type === 'RANKED' && bestOf !== 3) {
+      throw new BadRequestException('Ranked matches must be best of 3');
+    }
+    if (body.selectedMaps.length !== bestOf) {
+      throw new BadRequestException(`You must select exactly ${bestOf} maps`);
+    }
+    match.bestOf = bestOf;
+    match.selectedMaps = body.selectedMaps;
+    await this.matchesRepository.save(match);
+    return this.findOne(matchId);
+  }
+
+  /** Cross-game feed: recent PENDING / ACCEPTED matches (e.g. matchfinder). */
+  async publicFeed(params: { limit?: number; statuses?: MatchStatus[] }): Promise<Match[]> {
+    const limit = Math.min(params.limit ?? 50, 100);
+    const statuses = params.statuses?.length ? params.statuses : (['PENDING', 'ACCEPTED'] as MatchStatus[]);
+    const qb = this.matchesRepository
+      .createQueryBuilder('match')
+      .leftJoinAndSelect('match.challenger', 'challenger')
+      .leftJoinAndSelect('match.challengee', 'challengee')
+      .leftJoinAndSelect('match.leaderboard', 'leaderboard')
+      .leftJoinAndSelect('leaderboard.game', 'game')
+      .leftJoinAndSelect('leaderboard.platform', 'platform')
+      .where('match.status IN (:...statuses)', { statuses })
+      .orderBy('match.updatedAt', 'DESC')
+      .take(limit);
+    return qb.getMany();
+  }
+
+  /**
+   * Auto-cancel ACCEPTED matches with no reports after deadline, or complete when only one side reported.
+   * Env: MATCH_REPORT_DEADLINE_RANKED_HOURS (default 24), MATCH_REPORT_DEADLINE_XP_HOURS (default 3).
+   */
+  async autoResolveStaleReports(): Promise<void> {
+    const rankedH = parseFloat(process.env.MATCH_REPORT_DEADLINE_RANKED_HOURS || '24');
+    const xpH = parseFloat(process.env.MATCH_REPORT_DEADLINE_XP_HOURS || '3');
+    const now = Date.now();
+
+    const matches = await this.matchesRepository.find({
+      where: { status: 'ACCEPTED' as const },
+      relations: ['challenger', 'challengee', 'leaderboard', 'leaderboard.game', 'leaderboard.platform'],
+    });
+
+    for (const match of matches) {
+      if (!match.acceptedAt) continue;
+
+      const hours = match.type === 'RANKED' ? rankedH : xpH;
+      const deadlineMs = new Date(match.acceptedAt).getTime() + hours * 3600 * 1000;
+      if (deadlineMs >= now) continue;
+
+      const chRep = !!match.challengerReportedWinnerId;
+      const ceRep = !!match.challengeeReportedWinnerId;
+
+      if (!chRep && !ceRep) {
+        match.status = 'CANCELLED';
+        await this.matchesRepository.save(match);
+        continue;
+      }
+
+      if (chRep && ceRep) {
+        continue;
+      }
+
+      const reportedWinnerId = chRep ? match.challengerReportedWinnerId! : match.challengeeReportedWinnerId!;
+      match.winnerId = reportedWinnerId;
+      match.status = 'COMPLETED';
+      await this.finalizeCompletedMatch(match);
+    }
   }
 }

@@ -23,6 +23,8 @@ services:
       context: ./services/server
       dockerfile: Dockerfile
     container_name: server
+    # Ensures deps (e.g. @nestjs/schedule) exist in the /app/node_modules volume after package.json changes — no image rebuild required.
+    command: sh -c "npm install && npm run start:dev"
     environment:
       DATABASE_HOST: postgres
       DATABASE_PORT: 5432

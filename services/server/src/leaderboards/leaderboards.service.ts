@@ -7,6 +7,7 @@ import { Match } from '../matches/match.entity';
 import { TournamentMatch } from '../tournaments/tournament-match.entity';
 import { UsersService } from '../users/users.service';
 import { calculateEloChange, initialEloRating } from './elo.util';
+import { rankScoreForLadderRank, reorderRankedUserIdsAfterUpset } from './ladder-reorder.util';
 
 export interface LeaderboardEntryWithRank {
   id: string;
@@ -267,6 +268,68 @@ export class LeaderboardsService {
     return this.leaderboardEntriesRepository.save(entry);
   }
 
+  /**
+   * After a completed RANKED match, reorder rankScore when the winner was lower on the ladder (upset).
+   * If the winner was already ranked above the loser (favorite wins), rankScore is unchanged.
+   * Uses {@link reorderRankedUserIdsAfterUpset} — see ladder-reorder.util.ts for spec examples.
+   * Idempotent via match.rankedLadderApplied.
+   */
+  async applyRankedLadderAfterMatchCompletion(matchId: string): Promise<void> {
+    await this.dataSource.transaction(async (manager) => {
+      const match = await manager.findOne(Match, { where: { id: matchId } });
+      if (
+        !match ||
+        match.type !== 'RANKED' ||
+        match.status !== 'COMPLETED' ||
+        !match.winnerId ||
+        !match.challengeeId ||
+        match.rankedLadderApplied
+      ) {
+        return;
+      }
+
+      const loserId =
+        match.winnerId === match.challengerId ? match.challengeeId! : match.challengerId;
+
+      const entries = await manager
+        .getRepository(LeaderboardEntry)
+        .createQueryBuilder('entry')
+        .where('entry.leaderboardId = :leaderboardId', { leaderboardId: match.leaderboardId })
+        .andWhere('entry.rankedOptIn = :r', { r: true })
+        .orderBy('entry.rankScore', 'DESC')
+        .addOrderBy('entry.createdAt', 'ASC')
+        .getMany();
+
+      const userIds = entries.map((e) => e.userId);
+      const reordered = reorderRankedUserIdsAfterUpset(userIds, match.winnerId, loserId);
+
+      if (reordered === null) {
+        match.rankedLadderApplied = true;
+        match.rankedSnapshotBefore = null;
+        await manager.save(match);
+        return;
+      }
+
+      match.rankedSnapshotBefore = entries.map((e) => ({
+        userId: e.userId,
+        rankScore: Number(e.rankScore),
+      }));
+
+      const entryByUser = new Map(entries.map((e) => [e.userId, e]));
+      for (let i = 0; i < reordered.length; i++) {
+        const uid = reordered[i];
+        const rank = i + 1;
+        const entry = entryByUser.get(uid);
+        if (!entry) continue;
+        entry.rankScore = rankScoreForLadderRank(rank);
+        await manager.save(entry);
+      }
+
+      match.rankedLadderApplied = true;
+      await manager.save(match);
+    });
+  }
+
   /** Apply Elo deltas from frozen snapshots on match (XP ladder only). Idempotent via eloApplied. */
   async applyXpEloAfterMatchCompletion(matchId: string): Promise<void> {
     await this.dataSource.transaction(async (manager) => {
@@ -342,6 +405,35 @@ export class LeaderboardsService {
     });
   }
 
+  /**
+   * Restore rankScore from snapshot when players dispute a ref ruling (before admin re-decides).
+   * Clears rankedLadderApplied; favorite-win matches only flip the flag (no snapshot rows).
+   */
+  async rollbackRankedLadderForMatch(matchId: string): Promise<void> {
+    await this.dataSource.transaction(async (manager) => {
+      const match = await manager.findOne(Match, { where: { id: matchId } });
+      if (!match || !match.rankedLadderApplied) {
+        return;
+      }
+
+      if (match.rankedSnapshotBefore && match.rankedSnapshotBefore.length > 0) {
+        for (const snap of match.rankedSnapshotBefore) {
+          const entry = await manager.findOne(LeaderboardEntry, {
+            where: { userId: snap.userId, leaderboardId: match.leaderboardId },
+          });
+          if (entry) {
+            entry.rankScore = Number(snap.rankScore);
+            await manager.save(entry);
+          }
+        }
+      }
+
+      match.rankedLadderApplied = false;
+      match.rankedSnapshotBefore = null;
+      await manager.save(match);
+    });
+  }
+
   async getUserEntry(userId: string, leaderboardId: string): Promise<LeaderboardEntry | null> {
     return this.leaderboardEntriesRepository.findOne({
       where: { userId, leaderboardId },
@@ -364,6 +456,7 @@ export class LeaderboardsService {
         where: { userId, leaderboardId },
       });
       if (!entry) continue;
+      if (!entry.rankedOptIn) continue;
 
       // Higher rank position (1st) gets higher rankScore
       // e.g., rank 1 = 100000, rank 2 = 99000, etc.

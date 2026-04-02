@@ -39,10 +39,27 @@ interface ChallengeData {
       </div>
 
       @if (data.type === 'RANKED') {
-        <div class="ranked-disabled-message">
-          <mat-icon>info</mat-icon>
-          <p>Ranks have not been set yet. XP games can be played in the meantime.</p>
-        </div>
+        <p class="ranked-copy">
+          Ranked matches are <strong>best of 3</strong>. You pick all three maps before sending; you can edit them on the match page until your opponent accepts.
+        </p>
+        <p class="ranked-copy ranked-copy-secondary">
+          If you disagree on who won, the match is disputed and staff can declare the winner—the same reporting and moderation flow as other matches.
+        </p>
+        <form [formGroup]="challengeForm" class="form-fields">
+          <div class="maps-section">
+            <h4>Maps</h4>
+            @for (mapControl of mapsArray.controls; track $index) {
+              <mat-form-field appearance="outline">
+                <mat-label>Map {{ $index + 1 }}</mat-label>
+                <mat-select [formControl]="getMapControl($index)">
+                  @for (map of maps; track map) {
+                    <mat-option [value]="map">{{ map }}</mat-option>
+                  }
+                </mat-select>
+              </mat-form-field>
+            }
+          </div>
+        </form>
       }
 
       @if (data.type !== 'RANKED') {
@@ -77,11 +94,9 @@ interface ChallengeData {
     <mat-dialog-actions>
       <span class="spacer"></span>
       <button mat-button (click)="onCancel()">Cancel</button>
-      @if (data.type !== 'RANKED') {
-        <button mat-raised-button color="primary" (click)="onSubmit()" [disabled]="!challengeForm.valid">
-          Send Challenge
-        </button>
-      }
+      <button mat-raised-button color="primary" (click)="onSubmit()" [disabled]="!challengeForm.valid">
+        Send Challenge
+      </button>
     </mat-dialog-actions>
   `,
   styles: [`
@@ -100,7 +115,7 @@ interface ChallengeData {
     .challenge-info {
       display: flex;
       gap: 10px;
-      margin-bottom: 32px;
+      margin-bottom: 24px;
       flex-wrap: wrap;
     }
 
@@ -119,6 +134,20 @@ interface ChallengeData {
     .badge.type {
       border-color: var(--theme-primary, #bf2120);
       color: var(--theme-primary-bright, #ff4444);
+    }
+
+    .ranked-copy {
+      margin: 0 0 12px 0;
+      font-size: 14px;
+      line-height: 1.5;
+      color: rgba(255, 255, 255, 0.65);
+    }
+
+    .ranked-copy-secondary {
+      margin-bottom: 16px;
+      font-size: 13px;
+      line-height: 1.45;
+      color: rgba(255, 255, 255, 0.5);
     }
 
     .form-fields {
@@ -147,29 +176,6 @@ interface ChallengeData {
     .spacer {
       flex: 1;
     }
-
-    .ranked-disabled-message {
-      display: flex;
-      align-items: flex-start;
-      gap: 12px;
-      padding: 16px;
-      background: rgba(255, 255, 255, 0.05);
-      border: 1px solid rgba(255, 255, 255, 0.1);
-      border-radius: 8px;
-      margin-bottom: 16px;
-
-      mat-icon {
-        color: rgba(255, 255, 255, 0.6);
-        flex-shrink: 0;
-      }
-
-      p {
-        margin: 0;
-        color: rgba(255, 255, 255, 0.7);
-        font-size: 14px;
-        line-height: 1.5;
-      }
-    }
   `]
 })
 export class LeaderboardChallengeModalComponent implements OnInit {
@@ -187,7 +193,8 @@ export class LeaderboardChallengeModalComponent implements OnInit {
       bestOf: [3, Validators.required],
       maps: this.fb.array([])
     });
-    this.onBestOfChange(3);
+    const initialBo = data.type === 'RANKED' ? 3 : 3;
+    this.onBestOfChange(initialBo);
   }
 
   ngOnInit(): void {
@@ -216,15 +223,16 @@ export class LeaderboardChallengeModalComponent implements OnInit {
   }
 
   onSubmit(): void {
-    if (this.challengeForm.valid) {
-      const result = {
-        opponent: this.data.opponent,
-        game: this.data.game,
-        platform: this.data.platform,
-        type: this.data.type,
-        ...this.challengeForm.value
-      };
-      this.dialogRef.close(result);
-    }
+    if (!this.challengeForm.valid) return;
+    const v = this.challengeForm.value;
+    const result = {
+      opponent: this.data.opponent,
+      game: this.data.game,
+      platform: this.data.platform,
+      type: this.data.type,
+      bestOf: this.data.type === 'RANKED' ? 3 : v.bestOf,
+      maps: v.maps as string[],
+    };
+    this.dialogRef.close(result);
   }
 }

@@ -19,6 +19,7 @@ import { adminGuard } from './auth/admin.guard';
 import { RulesComponent } from './rules/rules.component';
 import { DownloadComponent } from './download/download.component';
 import { MatchfinderComponent } from './matchfinder/matchfinder.component';
+import { MatchfinderAllComponent } from './matchfinder/matchfinder-all.component';
 import { MatchfinderDetailComponent } from './matchfinder/matchfinder-detail.component';
 import { homeRedirectGuard } from './auth/home-redirect.guard';
 import { refOrAdminGuard } from './auth/ref-or-admin.guard';
@@ -38,6 +39,7 @@ export const routes: Routes = [
   { path: 'users', component: UsersListComponent },
   { path: 'users/:id', component: UserProfileComponent },
   { path: 'matchfinder', component: MatchfinderComponent },
+  { path: 'matchfinder/all', component: MatchfinderAllComponent },
   { path: 'matchfinder/:game/:platform', component: MatchfinderDetailComponent },
   { path: 'challenges', component: ChallengesComponent },
   { path: 'challenges/:id', component: ChallengeDetailComponent },

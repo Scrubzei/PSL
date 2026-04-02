@@ -7,6 +7,7 @@ import { Roles } from '../auth/decorators/roles.decorator';
 import { MatchesService } from './matches.service';
 import { CreateMatchDto } from './dto/create-match.dto';
 import { BotCreateMatchDto } from './dto/bot-create-match.dto';
+import { UpdatePendingMatchDto } from './dto/update-pending-match.dto';
 import { MatchStatus } from './match.entity';
 import { UsersService } from '../users/users.service';
 import { LeaderboardsService } from '../leaderboards/leaderboards.service';
@@ -96,6 +97,21 @@ export class MatchesController {
     return this.matchesService.findXpOpenForLeaderboard(lbId, limit ? parseInt(limit, 10) : 50);
   }
 
+  /** Cross-game recent matches (PENDING / ACCEPTED by default). Public. */
+  @Get('feed')
+  async publicFeed(
+    @Query('limit') limit?: string,
+    @Query('statuses') statusesParam?: string,
+  ) {
+    const statuses = statusesParam
+      ? (statusesParam.split(',').map((s) => s.trim()) as MatchStatus[])
+      : undefined;
+    return this.matchesService.publicFeed({
+      limit: limit ? parseInt(limit, 10) : 50,
+      statuses,
+    });
+  }
+
   @Get(':id')
   async findOne(@Param('id') id: string) {
     return this.matchesService.findOne(id);
@@ -117,6 +133,16 @@ export class MatchesController {
   @UseGuards(JwtAuthGuard)
   async cancel(@Param('id') id: string, @Request() req) {
     return this.matchesService.cancel(id, req.user.userId);
+  }
+
+  @Patch(':id/pending')
+  @UseGuards(JwtAuthGuard)
+  async updatePendingMatch(
+    @Param('id') id: string,
+    @Request() req,
+    @Body() body: UpdatePendingMatchDto,
+  ) {
+    return this.matchesService.updatePendingByChallenger(id, req.user.userId, body);
   }
 
   @Patch(':id/report-result')

@@ -1,4 +1,5 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, DestroyRef, inject } from '@angular/core';
+import { takeUntilDestroyed, toObservable } from '@angular/core/rxjs-interop';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router, RouterModule } from '@angular/router';
@@ -12,7 +13,7 @@ import { MatSelectModule } from '@angular/material/select';
 import { MatDialog } from '@angular/material/dialog';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { UsersService, UserProfile, UserStats, RecentMatch, LeaderboardRanking, DashboardStats } from './users.service';
-import { forkJoin, of } from 'rxjs';
+import { combineLatest, forkJoin, map, of, Subscription } from 'rxjs';
 import { AuthService } from '../auth/auth.service';
 import { LeaderboardsService } from '../leaderboard/leaderboards.service';
 import { ChallengesService } from '../challenges/challenges.service';
@@ -117,7 +118,7 @@ import { LeaderboardChallengeModalComponent } from '../leaderboard/leaderboard-c
               @if (sharedXpLeaderboards.length > 1) {
                 <mat-form-field appearance="outline" class="lb-select">
                   <mat-label>Leaderboard</mat-label>
-                  <mat-select [(ngModel)]="selectedLbId">
+                  <mat-select [(ngModel)]="selectedXpLbId">
                     @for (lb of sharedXpLeaderboards; track lb.leaderboardId) {
                       <mat-option [value]="lb.leaderboardId">{{ lb.game }} — {{ lb.platform }}</mat-option>
                     }
@@ -128,6 +129,42 @@ import { LeaderboardChallengeModalComponent } from '../leaderboard/leaderboard-c
                 <mat-icon>sports_esports</mat-icon>
                 Challenge
               </button>
+            </mat-card-content>
+          </mat-card>
+        }
+
+        @if (canChallengeRanked) {
+          <mat-card class="challenge-card">
+            <mat-card-header>
+              <mat-card-title>Ranked challenge</mat-card-title>
+              <mat-card-subtitle>Best of 3 on a ladder you both opted into for ranked</mat-card-subtitle>
+            </mat-card-header>
+            <mat-card-content class="challenge-card-content">
+              @if (sharedRankedLeaderboards.length > 1) {
+                <mat-form-field appearance="outline" class="lb-select">
+                  <mat-label>Leaderboard</mat-label>
+                  <mat-select [(ngModel)]="selectedRankedLbId">
+                    @for (lb of sharedRankedLeaderboards; track lb.leaderboardId) {
+                      <mat-option [value]="lb.leaderboardId">{{ lb.game }} — {{ lb.platform }}</mat-option>
+                    }
+                  </mat-select>
+                </mat-form-field>
+              }
+              <button mat-raised-button color="primary" (click)="openRankedChallenge()">
+                <mat-icon>trending_up</mat-icon>
+                Ranked challenge
+              </button>
+            </mat-card-content>
+          </mat-card>
+        }
+
+        @if (showChallengeJoinHint) {
+          <mat-card class="challenge-hint-card">
+            <mat-card-content>
+              <p class="challenge-hint-text">
+                Challenge buttons only show when you share a leaderboard with this player. Join the same game and
+                platform from the Leaderboards page (XP and/or ranked) first.
+              </p>
             </mat-card-content>
           </mat-card>
         }
@@ -363,6 +400,17 @@ import { LeaderboardChallengeModalComponent } from '../leaderboard/leaderboard-c
       }
     }
 
+    .challenge-hint-card {
+      margin-bottom: 24px;
+
+      .challenge-hint-text {
+        margin: 0;
+        font-size: 14px;
+        line-height: 1.5;
+        color: rgba(255, 255, 255, 0.55);
+      }
+    }
+
     .trophies-section {
       display: flex;
       justify-content: center;
@@ -520,12 +568,25 @@ import { LeaderboardChallengeModalComponent } from '../leaderboard/leaderboard-c
     }
   `]
 })
-export class UserProfileComponent implements OnInit {
+export class UserProfileComponent {
+  private readonly destroyRef = inject(DestroyRef);
+
   user: UserProfile | null = null;
   stats: UserStats | null = null;
   loading = true;
   sharedXpLeaderboards: LeaderboardRanking[] = [];
-  selectedLbId: string | null = null;
+  sharedRankedLeaderboards: LeaderboardRanking[] = [];
+  /** Profile user's ladders (for join hint when viewer shares none). */
+  profileXpLeaderboards: LeaderboardRanking[] = [];
+  profileRankedLeaderboards: LeaderboardRanking[] = [];
+  selectedXpLbId: string | null = null;
+  selectedRankedLbId: string | null = null;
+  private profileSub: Subscription | null = null;
+
+  /** Same logical ladder as the server (one leaderboard per game + platform). */
+  private static ladderKey(r: LeaderboardRanking): string {
+    return `${r.game.trim().toLowerCase()}\0${r.platform.trim().toLowerCase()}`;
+  }
 
   constructor(
     private usersService: UsersService,
@@ -536,7 +597,22 @@ export class UserProfileComponent implements OnInit {
     private leaderboardsService: LeaderboardsService,
     private challengesService: ChallengesService,
     private snackBar: MatSnackBar
-  ) {}
+  ) {
+    // toObservable must run in an injection context (constructor), not ngOnInit.
+    const auth$ = toObservable(this.authService.currentUser);
+    combineLatest([
+      this.route.paramMap.pipe(map((p) => p.get('id'))),
+      auth$,
+    ])
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe(([userId]) => {
+        if (!userId) {
+          this.loading = false;
+          return;
+        }
+        this.loadUserProfile(userId);
+      });
+  }
 
   get canChallengeXp(): boolean {
     const viewer = this.authService.currentUser();
@@ -546,19 +622,34 @@ export class UserProfileComponent implements OnInit {
     return this.sharedXpLeaderboards.length > 0;
   }
 
-  ngOnInit(): void {
-    const userId = this.route.snapshot.paramMap.get('id');
-    if (userId) {
-      this.loadUserProfile(userId);
-    } else {
-      this.loading = false;
+  get canChallengeRanked(): boolean {
+    const viewer = this.authService.currentUser();
+    if (!viewer || !this.user || viewer.id === this.user.id) {
+      return false;
     }
+    return this.sharedRankedLeaderboards.length > 0;
+  }
+
+  /**
+   * Viewer cannot challenge on XP or ranked (no shared ladder), while this profile does play XP/ranked.
+   * Not shown if they share at least one ladder for either mode — even when only XP or only ranked overlaps.
+   */
+  get showChallengeJoinHint(): boolean {
+    const viewer = this.authService.currentUser();
+    if (!viewer || !this.user || viewer.id === this.user.id) {
+      return false;
+    }
+    if (this.sharedXpLeaderboards.length > 0 || this.sharedRankedLeaderboards.length > 0) {
+      return false;
+    }
+    return this.profileXpLeaderboards.length > 0 || this.profileRankedLeaderboards.length > 0;
   }
 
   private loadUserProfile(userId: string): void {
+    this.profileSub?.unsubscribe();
     const viewer = this.authService.currentUser();
     const needsDash = viewer && viewer.id !== userId;
-    forkJoin({
+    this.profileSub = forkJoin({
       user: this.usersService.getUserById(userId),
       stats: this.usersService.getUserStats(userId),
       themDash: needsDash ? this.usersService.getDashboardStats(userId) : of(null as DashboardStats | null),
@@ -568,14 +659,33 @@ export class UserProfileComponent implements OnInit {
         this.user = result.user;
         this.stats = result.stats;
         this.sharedXpLeaderboards = [];
+        this.sharedRankedLeaderboards = [];
+        this.profileXpLeaderboards = [];
+        this.profileRankedLeaderboards = [];
+        if (result.themDash) {
+          this.profileXpLeaderboards = result.themDash.leaderboardRankings.filter((r) => r.xpOptIn);
+          this.profileRankedLeaderboards = result.themDash.leaderboardRankings.filter((r) => r.rankedOptIn);
+        }
         if (result.themDash && result.meDash) {
-          const mine = new Set(
-            result.meDash.leaderboardRankings.filter((r) => r.xpOptIn).map((r) => r.leaderboardId),
+          const mineXpKeys = new Set(
+            result.meDash.leaderboardRankings
+              .filter((r) => r.xpOptIn)
+              .map((r) => UserProfileComponent.ladderKey(r)),
           );
           this.sharedXpLeaderboards = result.themDash.leaderboardRankings.filter(
-            (r) => r.xpOptIn && mine.has(r.leaderboardId),
+            (r) => r.xpOptIn && mineXpKeys.has(UserProfileComponent.ladderKey(r)),
           );
-          this.selectedLbId = this.sharedXpLeaderboards[0]?.leaderboardId ?? null;
+          this.selectedXpLbId = this.sharedXpLeaderboards[0]?.leaderboardId ?? null;
+
+          const mineRankedKeys = new Set(
+            result.meDash.leaderboardRankings
+              .filter((r) => r.rankedOptIn)
+              .map((r) => UserProfileComponent.ladderKey(r)),
+          );
+          this.sharedRankedLeaderboards = result.themDash.leaderboardRankings.filter(
+            (r) => r.rankedOptIn && mineRankedKeys.has(UserProfileComponent.ladderKey(r)),
+          );
+          this.selectedRankedLbId = this.sharedRankedLeaderboards[0]?.leaderboardId ?? null;
         }
         this.loading = false;
       },
@@ -591,7 +701,7 @@ export class UserProfileComponent implements OnInit {
       return;
     }
     const lb =
-      this.sharedXpLeaderboards.find((l) => l.leaderboardId === this.selectedLbId) ??
+      this.sharedXpLeaderboards.find((l) => l.leaderboardId === this.selectedXpLbId) ??
       this.sharedXpLeaderboards[0];
     if (!lb) {
       return;
@@ -622,6 +732,57 @@ export class UserProfileComponent implements OnInit {
             .subscribe({
               next: () => {
                 this.snackBar.open('Challenge sent!', 'Close', { duration: 3000 });
+              },
+              error: (err) => {
+                this.snackBar.open(err.error?.message || 'Failed to send challenge', 'Close', {
+                  duration: 4000,
+                });
+              },
+            });
+        },
+        error: () => {
+          this.snackBar.open('Failed to load leaderboard', 'Close', { duration: 3000 });
+        },
+      });
+    });
+  }
+
+  openRankedChallenge(): void {
+    if (!this.user || !this.canChallengeRanked) {
+      return;
+    }
+    const lb =
+      this.sharedRankedLeaderboards.find((l) => l.leaderboardId === this.selectedRankedLbId) ??
+      this.sharedRankedLeaderboards[0];
+    if (!lb) {
+      return;
+    }
+    this.dialog.open(LeaderboardChallengeModalComponent, {
+      width: '500px',
+      panelClass: 'challenge-modal-panel',
+      data: {
+        opponent: { id: this.user.id, username: this.user.username || 'Player' },
+        game: lb.game,
+        platform: lb.platform,
+        type: 'RANKED' as const,
+      },
+    }).afterClosed().subscribe((result) => {
+      if (!result?.maps?.length || !this.user) {
+        return;
+      }
+      this.leaderboardsService.getByGameAndPlatform(result.game, result.platform).subscribe({
+        next: (leaderboard) => {
+          this.challengesService
+            .createChallenge({
+              challengeeId: this.user!.id,
+              leaderboardId: leaderboard.id,
+              type: 'RANKED',
+              bestOf: 3,
+              selectedMaps: result.maps,
+            })
+            .subscribe({
+              next: () => {
+                this.snackBar.open('Ranked challenge sent!', 'Close', { duration: 3000 });
               },
               error: (err) => {
                 this.snackBar.open(err.error?.message || 'Failed to send challenge', 'Close', {

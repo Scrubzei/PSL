@@ -1,11 +1,11 @@
-import { Injectable, signal, inject } from '@angular/core';
-import { HttpClient } from '@angular/common/http';
-import { Router } from '@angular/router';
-import { Observable, tap } from 'rxjs';
-import { NotificationsService } from '../notifications/notifications.service';
-import { environment } from '../../environments/environment';
+import { Injectable, signal, inject } from "@angular/core";
+import { HttpClient } from "@angular/common/http";
+import { Router } from "@angular/router";
+import { Observable, tap } from "rxjs";
+import { NotificationsService } from "../notifications/notifications.service";
+import { environment } from "../../environments/environment";
 
-export type UserRole = 'player' | 'ref' | 'admin';
+export type UserRole = "player" | "ref" | "admin";
 
 export interface User {
   id: string;
@@ -22,7 +22,11 @@ export interface AuthResponse {
 }
 
 export interface PendingAuthAction {
-  type: 'LEADERBOARD_SIGNUP' | 'CHALLENGE_USER' | 'TOURNAMENT_SIGNUP' | 'CREATE_MATCH';
+  type:
+    | "LEADERBOARD_SIGNUP"
+    | "CHALLENGE_USER"
+    | "TOURNAMENT_SIGNUP"
+    | "CREATE_MATCH";
   payload: {
     leaderboardId?: string;
     tournamentId?: string;
@@ -30,18 +34,18 @@ export interface PendingAuthAction {
     opponentUsername?: string;
     game?: string;
     platform?: string;
-    matchType?: 'RANKED' | 'XP';
+    matchType?: "RANKED" | "XP";
   };
   returnUrl: string;
 }
 
 @Injectable({
-  providedIn: 'root'
+  providedIn: "root",
 })
 export class AuthService {
   private readonly API_URL = `${environment.apiUrl}/auth`;
-  private readonly TOKEN_KEY = 'access_token';
-  private readonly PENDING_ACTION_KEY = 'pending_auth_action';
+  private readonly TOKEN_KEY = "access_token";
+  private readonly PENDING_ACTION_KEY = "pending_auth_action";
 
   currentUser = signal<User | null>(null);
   needsUsername = signal<boolean>(false);
@@ -51,7 +55,7 @@ export class AuthService {
 
   constructor(
     private http: HttpClient,
-    private router: Router
+    private router: Router,
   ) {
     this.loadUserFromToken();
   }
@@ -60,7 +64,7 @@ export class AuthService {
     localStorage.removeItem(this.TOKEN_KEY);
     this.currentUser.set(null);
     this.notificationsService.clearNotifications();
-    this.router.navigate(['/leaderboards']);
+    this.router.navigate(["/leaderboards"]);
   }
 
   getToken(): string | null {
@@ -81,7 +85,11 @@ export class AuthService {
           this.needsUsername.set(!user.username);
         },
         error: (err) => {
-          console.error('Failed to load user profile:', err.status, err.message);
+          console.error(
+            "Failed to load user profile:",
+            err.status,
+            err.message,
+          );
           // Only clear token if it's actually invalid (401)
           // Don't clear on network errors, server errors, etc.
           if (err.status === 401) {
@@ -91,7 +99,7 @@ export class AuthService {
             // Network error or server error - retry after a delay
             setTimeout(() => this.loadUserFromToken(), 2000);
           }
-        }
+        },
       });
     }
   }
@@ -101,56 +109,62 @@ export class AuthService {
     window.location.href = `${this.API_URL}/discord`;
   }
 
-  handleDiscordCallback(token: string, needsUsername: boolean, discordUsername?: string | null): Observable<User> {
+  handleDiscordCallback(
+    token: string,
+    needsUsername: boolean,
+    discordUsername?: string | null,
+  ): Observable<User> {
     localStorage.setItem(this.TOKEN_KEY, token);
     this.needsUsername.set(needsUsername);
     this.suggestedUsername.set(discordUsername || null);
 
     // Load user profile and return observable for caller to handle navigation
     return this.http.get<User>(`${this.API_URL}/profile`).pipe(
-      tap(user => {
+      tap((user) => {
         this.currentUser.set(user);
         this.notificationsService.clearNotifications();
         this.notificationsService.refreshNotifications();
-      })
+      }),
     );
   }
 
   // Helper to navigate after Discord callback (called by discord-callback component)
   navigateAfterDiscordLogin(needsUsername: boolean): void {
     if (needsUsername) {
-      this.router.navigate(['/choose-username']);
+      this.router.navigate(["/choose-username"]);
     } else if (this.hasPendingAction()) {
       // Don't navigate - PendingActionService will handle it
       return;
     } else {
       // Check for pending match redirect (legacy)
-      const pendingRedirect = localStorage.getItem('pendingMatchRedirect');
+      const pendingRedirect = localStorage.getItem("pendingMatchRedirect");
       if (pendingRedirect) {
-        localStorage.removeItem('pendingMatchRedirect');
+        localStorage.removeItem("pendingMatchRedirect");
         this.router.navigate([pendingRedirect]);
       } else {
-        this.router.navigate(['/dashboard']);
+        this.router.navigate(["/dashboard"]);
       }
     }
   }
 
   setUsername(username: string): Observable<{ user: User }> {
-    return this.http.post<{ user: User }>(`${this.API_URL}/set-username`, { username }).pipe(
-      tap(response => {
-        this.currentUser.set(response.user);
-        this.needsUsername.set(false);
+    return this.http
+      .post<{ user: User }>(`${this.API_URL}/set-username`, { username })
+      .pipe(
+        tap((response) => {
+          this.currentUser.set(response.user);
+          this.needsUsername.set(false);
 
-        // Check for pending match redirect
-        const pendingRedirect = localStorage.getItem('pendingMatchRedirect');
-        if (pendingRedirect) {
-          localStorage.removeItem('pendingMatchRedirect');
-          this.router.navigate([pendingRedirect]);
-        } else {
-          this.router.navigate(['/dashboard']);
-        }
-      })
-    );
+          // Check for pending match redirect
+          const pendingRedirect = localStorage.getItem("pendingMatchRedirect");
+          if (pendingRedirect) {
+            localStorage.removeItem("pendingMatchRedirect");
+            this.router.navigate([pendingRedirect]);
+          } else {
+            this.router.navigate(["/dashboard"]);
+          }
+        }),
+      );
   }
 
   // Pending action methods for guest -> login flow
@@ -182,15 +196,17 @@ export class AuthService {
   // Development-only login by username
   devLogin(username: string): Observable<AuthResponse> {
     if (environment.production) {
-      throw new Error('Dev login is not available in production');
+      throw new Error("Dev login is not available in production");
     }
-    return this.http.post<AuthResponse>(`${this.API_URL}/dev-login`, { username }).pipe(
-      tap(response => {
-        localStorage.setItem(this.TOKEN_KEY, response.access_token);
-        this.currentUser.set(response.user);
-        this.notificationsService.clearNotifications();
-        this.notificationsService.refreshNotifications();
-      })
-    );
+    return this.http
+      .post<AuthResponse>(`${this.API_URL}/dev-login`, { username })
+      .pipe(
+        tap((response) => {
+          localStorage.setItem(this.TOKEN_KEY, response.access_token);
+          this.currentUser.set(response.user);
+          this.notificationsService.clearNotifications();
+          this.notificationsService.refreshNotifications();
+        }),
+      );
   }
 }
