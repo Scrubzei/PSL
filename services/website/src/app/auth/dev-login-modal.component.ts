@@ -47,19 +47,33 @@ import { AuthService } from './auth.service';
       } @else {
         <div class="user-list">
           @for (user of users; track user.id) {
-            <button
-              class="user-item"
-              [class.logging-in]="loggingInAs === user.username"
-              (click)="loginAs(user)"
-              [disabled]="!!loggingInAs">
-              <mat-icon class="user-avatar">account_circle</mat-icon>
-              <span class="user-name">{{ user.username }}</span>
-              @if (loggingInAs === user.username) {
-                <mat-spinner diameter="18" class="login-spinner"></mat-spinner>
-              } @else {
-                <mat-icon class="arrow">chevron_right</mat-icon>
-              }
-            </button>
+            <div class="user-row" [class.current-user]="user.id === currentUserId">
+              <button
+                class="user-item"
+                [class.logging-in]="loggingInAs === user.username"
+                (click)="loginAs(user)"
+                [disabled]="!!loggingInAs">
+                <mat-icon class="user-avatar">account_circle</mat-icon>
+                <span class="user-name">{{ user.username }}</span>
+                @if (user.id === currentUserId) {
+                  <span class="you-badge">you</span>
+                }
+                @if (loggingInAs === user.username) {
+                  <mat-spinner diameter="18" class="login-spinner"></mat-spinner>
+                } @else {
+                  <mat-icon class="arrow">chevron_right</mat-icon>
+                }
+              </button>
+              <select
+                class="role-select"
+                [value]="user.role || 'player'"
+                (change)="changeRole(user, $event)"
+                (click)="$event.stopPropagation()">
+                <option value="player">player</option>
+                <option value="ref">ref</option>
+                <option value="admin">admin</option>
+              </select>
+            </div>
           }
           @if (users.length === 0) {
             <div class="empty">No users found</div>
@@ -185,15 +199,41 @@ import { AuthService } from './auth.service';
       scrollbar-color: #333 transparent;
     }
 
+    .user-row {
+      display: flex;
+      align-items: center;
+      border-bottom: 1px solid #222;
+
+      &:last-child {
+        border-bottom: none;
+      }
+
+      &.current-user {
+        background: rgba(255, 152, 0, 0.06);
+        border-left: 2px solid #ff9800;
+      }
+    }
+
+    .you-badge {
+      font-size: 10px;
+      padding: 1px 6px;
+      border-radius: 4px;
+      background: rgba(255, 152, 0, 0.15);
+      color: #ff9800;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      flex-shrink: 0;
+    }
+
     .user-item {
       display: flex;
       align-items: center;
       gap: 12px;
-      width: 100%;
-      padding: 12px 20px;
+      flex: 1;
+      padding: 12px 12px 12px 20px;
       background: none;
       border: none;
-      border-bottom: 1px solid #222;
       color: rgba(255, 255, 255, 0.85);
       font-size: 14px;
       font-family: inherit;
@@ -214,9 +254,25 @@ import { AuthService } from './auth.service';
         opacity: 1;
         background: rgba(255, 152, 0, 0.08);
       }
+    }
 
-      &:last-child {
-        border-bottom: none;
+    .role-select {
+      padding: 4px 6px;
+      margin-right: 12px;
+      background: rgba(255, 255, 255, 0.06);
+      border: 1px solid #333;
+      border-radius: 4px;
+      color: rgba(255, 255, 255, 0.7);
+      font-size: 11px;
+      font-family: inherit;
+      cursor: pointer;
+      flex-shrink: 0;
+
+      &:focus { outline: none; border-color: #ff9800; }
+
+      option {
+        background: #1a1a1a;
+        color: white;
       }
     }
 
@@ -263,9 +319,17 @@ export class DevLoginModalComponent implements OnInit {
     private authService: AuthService,
   ) {}
 
+  get currentUserId(): string | null {
+    return this.authService.currentUser()?.id ?? null;
+  }
+
   ngOnInit(): void {
     this.usersService.getUsers().subscribe({
       next: (users) => {
+        const uid = this.currentUserId;
+        if (uid) {
+          users.sort((a, b) => (a.id === uid ? -1 : b.id === uid ? 1 : 0));
+        }
         this.users = users;
         this.loading = false;
       },
@@ -287,6 +351,15 @@ export class DevLoginModalComponent implements OnInit {
       error: () => {
         this.loggingInAs = null;
       }
+    });
+  }
+
+  changeRole(user: UserProfile, event: Event): void {
+    const role = (event.target as HTMLSelectElement).value;
+    this.authService.devSetRole(user.id, role).subscribe({
+      next: () => {
+        user.role = role as any;
+      },
     });
   }
 

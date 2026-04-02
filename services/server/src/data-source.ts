@@ -37,6 +37,7 @@ import { AddTournamentMatchScheduledTime1740000000000 } from './migrations/17400
 import { AddPlutoId1740100000000 } from './migrations/1740100000000-AddPlutoId';
 import { AddCrossPlatform1740200000000 } from './migrations/1740200000000-AddCrossPlatform';
 import { AddMW20191740300000000 } from './migrations/1740300000000-AddMW2019';
+import { AddDiscordUsername1741200000000 } from './migrations/1741200000000-AddDiscordUsername';
 
 export const AppDataSource = new DataSource({
   type: 'postgres',
@@ -73,6 +74,7 @@ export const AppDataSource = new DataSource({
     AddPlutoId1740100000000,
     AddCrossPlatform1740200000000,
     AddMW20191740300000000,
+    AddDiscordUsername1741200000000,
   ],
   synchronize: false,
 });

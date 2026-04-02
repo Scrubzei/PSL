@@ -193,4 +193,8 @@ export class AuthService {
       })
     );
   }
+
+  devSetRole(userId: string, role: string): Observable<any> {
+    return this.http.patch(`${this.API_URL}/dev-set-role`, { userId, role });
+  }
 }

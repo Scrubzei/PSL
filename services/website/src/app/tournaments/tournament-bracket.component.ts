@@ -14,6 +14,8 @@ import { ThemeService, Platform } from '../shared/theme.service';
 import { ReportResultDialogComponent } from './report-result-dialog.component';
 import { MapPickerDialogComponent } from './map-picker-dialog.component';
 import { ScheduleTimeDialogComponent } from './schedule-time-dialog.component';
+import { SwapPlayerDialogComponent } from './swap-player-dialog.component';
+import { PlayerDetailsDialogComponent } from './player-details-dialog.component';
 
 interface RoundData {
   roundNumber: number;
@@ -193,9 +195,14 @@ interface RoundData {
                                 <div class="player-avatar">
                                   <span>{{ match.player1.username.charAt(0).toUpperCase() }}</span>
                                 </div>
-                                <span class="player-name">{{ match.player1.username }}</span>
+                                <span class="player-name clickable" (click)="openPlayerDetails(match.player1); $event.stopPropagation()">{{ match.player1.username }}</span>
                                 @if (match.status === 'COMPLETED' && !match.isBye && match.winner && match.winner.id === match.player1.id) {
                                   <mat-icon class="winner-icon">emoji_events</mat-icon>
+                                }
+                                @if (isAdmin) {
+                                  <button class="swap-btn" (click)="openSwapDialog(match.player1); $event.stopPropagation()" matTooltip="Swap player">
+                                    <mat-icon>swap_horiz</mat-icon>
+                                  </button>
                                 }
                               } @else {
                                 <div class="player-avatar tbd">
@@ -217,9 +224,14 @@ interface RoundData {
                                 <div class="player-avatar">
                                   <span>{{ match.player2.username.charAt(0).toUpperCase() }}</span>
                                 </div>
-                                <span class="player-name">{{ match.player2.username }}</span>
+                                <span class="player-name clickable" (click)="openPlayerDetails(match.player2); $event.stopPropagation()">{{ match.player2.username }}</span>
                                 @if (match.status === 'COMPLETED' && !match.isBye && match.winner && match.winner.id === match.player2.id) {
                                   <mat-icon class="winner-icon">emoji_events</mat-icon>
+                                }
+                                @if (isAdmin) {
+                                  <button class="swap-btn" (click)="openSwapDialog(match.player2); $event.stopPropagation()" matTooltip="Swap player">
+                                    <mat-icon>swap_horiz</mat-icon>
+                                  </button>
                                 }
                               } @else {
                                 <div class="player-avatar tbd">
@@ -990,6 +1002,11 @@ interface RoundData {
       font-weight: 500;
       color: rgba(255, 255, 255, 0.9);
 
+      &.clickable {
+        cursor: pointer;
+        &:hover { text-decoration: underline; color: var(--color-primary); }
+      }
+
       &.tbd {
         color: var(--color-steel);
         font-style: italic;
@@ -1027,6 +1044,35 @@ interface RoundData {
     }
 
     /* Report Button - Red */
+    .swap-btn {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 22px;
+      height: 22px;
+      padding: 0;
+      background: rgba(34, 211, 238, 0.1);
+      border: 1px solid rgba(34, 211, 238, 0.2);
+      border-radius: 4px;
+      color: rgba(34, 211, 238, 0.6);
+      cursor: pointer;
+      transition: all 0.15s;
+      margin-left: auto;
+      flex-shrink: 0;
+
+      mat-icon {
+        font-size: 14px;
+        width: 14px;
+        height: 14px;
+      }
+
+      &:hover {
+        background: rgba(34, 211, 238, 0.2);
+        color: #22d3ee;
+        border-color: rgba(34, 211, 238, 0.4);
+      }
+    }
+
     .report-btn {
       display: flex;
       align-items: center;
@@ -1115,6 +1161,21 @@ export class TournamentBracketComponent implements OnInit, OnDestroy {
   get canReportResult(): boolean {
     const role = this.authService.currentUser()?.role;
     return role === 'admin' || role === 'ref';
+  }
+
+  get isAdmin(): boolean {
+    return this.authService.currentUser()?.role === 'admin';
+  }
+
+  openPlayerDetails(player: { id: string; username: string; xboxGamertag?: string | null; plutoniumUsername?: string | null; discordUsername?: string | null }): void {
+    if (!this.bracketData) return;
+    this.dialog.open(PlayerDetailsDialogComponent, {
+      width: '380px',
+      data: {
+        player,
+        platformName: this.bracketData.tournament.platform.name,
+      }
+    });
   }
 
   isUserInMatch(match: TournamentMatch): boolean {
@@ -1267,6 +1328,43 @@ export class TournamentBracketComponent implements OnInit, OnDestroy {
       if (saved) {
         this.snackBar.open('Scheduled time updated', 'Close', { duration: 3000 });
         this.loadBracket(this.bracketData!.tournament.id);
+      }
+    });
+  }
+
+  openSwapDialog(player: { id: string; username: string }): void {
+    if (!this.bracketData) return;
+
+    const participantIds = new Set<string>();
+    for (const match of this.bracketData.matches) {
+      if (match.player1) participantIds.add(match.player1.id);
+      if (match.player2) participantIds.add(match.player2.id);
+    }
+
+    const dialogRef = this.dialog.open(SwapPlayerDialogComponent, {
+      width: '400px',
+      data: {
+        currentPlayer: player,
+        tournamentId: this.bracketData.tournament.id,
+        participantIds,
+      }
+    });
+
+    dialogRef.afterClosed().subscribe((newUser) => {
+      if (newUser && this.bracketData) {
+        this.tournamentsService.swapPlayer(
+          this.bracketData.tournament.id,
+          player.id,
+          newUser.id
+        ).subscribe({
+          next: () => {
+            this.snackBar.open(`Swapped ${player.username} with ${newUser.username}`, 'Close', { duration: 3000 });
+            this.loadBracket(this.bracketData!.tournament.id);
+          },
+          error: (err: any) => {
+            this.snackBar.open(err.error?.message || 'Failed to swap player', 'Close', { duration: 3000 });
+          }
+        });
       }
     });
   }

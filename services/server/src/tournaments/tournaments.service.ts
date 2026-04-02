@@ -638,6 +638,56 @@ export class TournamentsService {
     return match;
   }
 
+  /**
+   * Swap a player in the bracket with any other user.
+   * Replaces the old player with the new one across ALL matches in the tournament.
+   */
+  async swapPlayer(tournamentId: string, oldUserId: string, newUserId: string): Promise<void> {
+    const tournament = await this.findOne(tournamentId);
+    if (tournament.status === 'COMPLETED' || tournament.status === 'CANCELLED') {
+      throw new BadRequestException('Cannot swap players in a completed or cancelled tournament');
+    }
+
+    // Verify new user exists
+    const newUser = await this.usersService.findById(newUserId);
+    if (!newUser) {
+      throw new NotFoundException('New user not found');
+    }
+
+    // Find all matches where old player appears
+    const matches = await this.matchRepository.find({ where: { tournamentId } });
+
+    for (const match of matches) {
+      let changed = false;
+
+      if (match.player1Id === oldUserId) {
+        match.player1Id = newUserId;
+        changed = true;
+      }
+      if (match.player2Id === oldUserId) {
+        match.player2Id = newUserId;
+        changed = true;
+      }
+      if (match.winnerId === oldUserId) {
+        match.winnerId = newUserId;
+        changed = true;
+      }
+
+      if (changed) {
+        await this.matchRepository.save(match);
+      }
+    }
+
+    // Update participant record
+    const oldParticipant = await this.participantRepository.findOne({
+      where: { tournamentId, userId: oldUserId },
+    });
+    if (oldParticipant) {
+      oldParticipant.userId = newUserId;
+      await this.participantRepository.save(oldParticipant);
+    }
+  }
+
   async getActiveMatchesForUser(userId: string): Promise<{ match: TournamentMatch; tournament: Tournament }[]> {
     // Find all active matches across all tournaments where user is a participant
     const matches = await this.matchRepository

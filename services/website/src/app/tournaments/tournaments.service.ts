@@ -51,8 +51,8 @@ export interface TournamentMatch {
   matchNumber: number;
   status: 'PENDING' | 'READY' | 'IN_PROGRESS' | 'COMPLETED';
   nextMatchId: string | null;
-  player1: { id: string; username: string } | null;
-  player2: { id: string; username: string } | null;
+  player1: { id: string; username: string; xboxGamertag?: string | null; plutoniumUsername?: string | null; discordUsername?: string | null } | null;
+  player2: { id: string; username: string; xboxGamertag?: string | null; plutoniumUsername?: string | null; discordUsername?: string | null } | null;
   winner: { id: string; username: string } | null;
   gameMaps?: GameMap[];
   isBye?: boolean;
@@ -186,6 +186,10 @@ export class TournamentsService {
 
   updateMatchMaps(matchId: string, mapIds: string[], gameId: string): Observable<any> {
     return this.http.patch(`${this.API_URL}/matches/${matchId}/maps`, { mapIds, gameId });
+  }
+
+  swapPlayer(tournamentId: string, oldUserId: string, newUserId: string): Observable<any> {
+    return this.http.patch(`${this.API_URL}/${tournamentId}/swap-player`, { oldUserId, newUserId });
   }
 
   getGameMaps(gameName: string): Observable<GameMap[]> {

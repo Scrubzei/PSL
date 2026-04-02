@@ -97,13 +97,25 @@ export class TournamentsController {
         status: m.status,
         nextMatchId: m.nextMatchId,
         isBye: m.isBye,
-        player1: m.player1 ? { id: m.player1.id, username: m.player1.username } : null,
-        player2: m.player2 ? { id: m.player2.id, username: m.player2.username } : null,
+        player1: m.player1 ? { id: m.player1.id, username: m.player1.username, xboxGamertag: m.player1.xboxGamertag || null, plutoniumUsername: m.player1.plutoniumUsername || null, discordUsername: m.player1.discordUsername || null } : null,
+        player2: m.player2 ? { id: m.player2.id, username: m.player2.username, xboxGamertag: m.player2.xboxGamertag || null, plutoniumUsername: m.player2.plutoniumUsername || null, discordUsername: m.player2.discordUsername || null } : null,
         winner: m.winner ? { id: m.winner.id, username: m.winner.username } : null,
         gameMaps: m.gameMaps || [],
         scheduledTime: m.scheduledTime || null,
       })),
     };
+  }
+
+  @Patch(':id/swap-player')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('admin')
+  async swapPlayer(
+    @Param('id') id: string,
+    @Body() body: { oldUserId: string; newUserId: string },
+  ) {
+    const tournament = await this.tournamentsService.findOne(id);
+    await this.tournamentsService.swapPlayer(tournament.id, body.oldUserId, body.newUserId);
+    return { message: 'Player swapped successfully' };
   }
 
   @Patch('matches/:matchId/maps')

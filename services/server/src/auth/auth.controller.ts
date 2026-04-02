@@ -80,4 +80,9 @@ export class AuthController {
   async devLogin(@Body() body: { username: string }) {
     return this.authService.devLogin(body.username);
   }
+
+  @Patch('dev-set-role')
+  async devSetRole(@Body() body: { userId: string; role: string }) {
+    return this.authService.devSetRole(body.userId, body.role);
+  }
 }

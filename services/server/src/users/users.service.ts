@@ -142,6 +142,10 @@ export class UsersService {
     return !existingUser;
   }
 
+  async save(user: User): Promise<User> {
+    return this.usersRepository.save(user);
+  }
+
   async findAll(): Promise<User[]> {
     return this.usersRepository.find();
   }

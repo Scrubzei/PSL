@@ -20,6 +20,9 @@ export class User {
   discordId: string;
 
   @Column({ nullable: true })
+  discordUsername: string;
+
+  @Column({ nullable: true })
   plutoniumUsername: string;
 
   @Column({ nullable: true, unique: true })

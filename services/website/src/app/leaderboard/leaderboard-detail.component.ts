@@ -203,6 +203,46 @@ interface DisplayEntry {
             </mat-tab>
 
             <mat-tab label="XP (Elo)">
+              @if (xpPodiumPlayers.length === 3) {
+                <div class="podium">
+                  <div class="podium-spot podium-2">
+                    <div class="podium-player">
+                      @if (xpPodiumPlayers[1].emblem) {
+                        <img class="podium-emblem podium-emblem-2" [src]="'/assets/emblems/' + xpPodiumPlayers[1].emblem" alt="emblem">
+                      }
+                      <div class="podium-rank-badge podium-rank-2">#2</div>
+                      <div class="podium-name">{{ xpPodiumPlayers[1].username }}</div>
+                      <div class="podium-elo">{{ xpPodiumPlayers[1].score | number }}</div>
+                      <div class="podium-record"><span class="wins">{{ xpPodiumPlayers[1].wins }}</span><span class="podium-sep">-</span><span class="losses">{{ xpPodiumPlayers[1].losses }}</span></div>
+                    </div>
+                    <div class="podium-bar podium-bar-2"></div>
+                  </div>
+                  <div class="podium-spot podium-1">
+                    <div class="podium-player">
+                      @if (xpPodiumPlayers[0].emblem) {
+                        <img class="podium-emblem podium-emblem-1" [src]="'/assets/emblems/' + xpPodiumPlayers[0].emblem" alt="emblem">
+                      }
+                      <div class="podium-rank-badge podium-rank-1">#1</div>
+                      <div class="podium-name">{{ xpPodiumPlayers[0].username }}</div>
+                      <div class="podium-elo">{{ xpPodiumPlayers[0].score | number }}</div>
+                      <div class="podium-record"><span class="wins">{{ xpPodiumPlayers[0].wins }}</span><span class="podium-sep">-</span><span class="losses">{{ xpPodiumPlayers[0].losses }}</span></div>
+                    </div>
+                    <div class="podium-bar podium-bar-1"></div>
+                  </div>
+                  <div class="podium-spot podium-3">
+                    <div class="podium-player">
+                      @if (xpPodiumPlayers[2].emblem) {
+                        <img class="podium-emblem podium-emblem-3" [src]="'/assets/emblems/' + xpPodiumPlayers[2].emblem" alt="emblem">
+                      }
+                      <div class="podium-rank-badge podium-rank-3">#3</div>
+                      <div class="podium-name">{{ xpPodiumPlayers[2].username }}</div>
+                      <div class="podium-elo">{{ xpPodiumPlayers[2].score | number }}</div>
+                      <div class="podium-record"><span class="wins">{{ xpPodiumPlayers[2].wins }}</span><span class="podium-sep">-</span><span class="losses">{{ xpPodiumPlayers[2].losses }}</span></div>
+                    </div>
+                    <div class="podium-bar podium-bar-3"></div>
+                  </div>
+                </div>
+              }
               <div class="table-container xp-tab">
                 @if (leaderboard) {
                 <div class="xp-actions">
@@ -221,15 +261,23 @@ interface DisplayEntry {
                     <ng-container matColumnDef="rank">
                       <th mat-header-cell *matHeaderCellDef>Rank</th>
                       <td mat-cell *matCellDef="let entry" [class]="getRankClass(entry.rank)">
-                        {{ entry.rank }}
+                        @if (entry.rank === 1 && !entry.placeholder) {
+                          <span class="rank-1-badge">#1</span>
+                        } @else if (entry.rank === 2 && !entry.placeholder) {
+                          <span class="rank-2-badge">#2</span>
+                        } @else if (entry.rank === 3 && !entry.placeholder) {
+                          <span class="rank-3-badge">#3</span>
+                        } @else {
+                          {{ entry.rank }}
+                        }
                       </td>
                     </ng-container>
 
                     <ng-container matColumnDef="username">
                       <th mat-header-cell *matHeaderCellDef>Player</th>
-                      <td mat-cell *matCellDef="let entry" [class.placeholder-cell]="entry.placeholder">
+                      <td mat-cell *matCellDef="let entry" [class.placeholder-cell]="entry.placeholder" [class.rank-1-name]="entry.rank === 1 && !entry.placeholder" [class.rank-2-name]="entry.rank === 2 && !entry.placeholder" [class.rank-3-name]="entry.rank === 3 && !entry.placeholder">
                         @if (entry.placeholder) {
-                          ?
+                          Awaiting challenger
                         } @else {
                           <a [routerLink]="['/users', entry.userId]" class="lb-player-link">{{ entry.username }}</a>
                         }
@@ -243,22 +291,34 @@ interface DisplayEntry {
                       </td>
                     </ng-container>
 
-                    <ng-container matColumnDef="wins">
-                      <th mat-header-cell *matHeaderCellDef>W</th>
-                      <td mat-cell *matCellDef="let entry" [class.placeholder-cell]="entry.placeholder" [class.wins]="!entry.placeholder">
-                        {{ entry.placeholder ? '—' : entry.wins }}
+                    <ng-container matColumnDef="record">
+                      <th mat-header-cell *matHeaderCellDef>Record</th>
+                      <td mat-cell *matCellDef="let entry" [class.placeholder-cell]="entry.placeholder">
+                        @if (!entry.placeholder) {
+                          <span class="record"><span class="wins">{{ entry.wins }}</span><span class="record-sep">-</span><span class="losses">{{ entry.losses }}</span></span>
+                        } @else {
+                          —
+                        }
                       </td>
                     </ng-container>
 
-                    <ng-container matColumnDef="losses">
-                      <th mat-header-cell *matHeaderCellDef>L</th>
-                      <td mat-cell *matCellDef="let entry" [class.placeholder-cell]="entry.placeholder" [class.losses]="!entry.placeholder">
-                        {{ entry.placeholder ? '—' : entry.losses }}
+                    <ng-container matColumnDef="winpct">
+                      <th mat-header-cell *matHeaderCellDef>Win %</th>
+                      <td mat-cell *matCellDef="let entry" [class.placeholder-cell]="entry.placeholder">
+                        @if (!entry.placeholder) {
+                          <span class="winpct" [class.winpct-hot]="getWinPct(entry) >= 70" [class.winpct-good]="getWinPct(entry) >= 50 && getWinPct(entry) < 70" [class.winpct-cold]="getWinPct(entry) < 50 && (entry.wins + entry.losses) > 0" [class.winpct-none]="(entry.wins + entry.losses) === 0">{{ (entry.wins + entry.losses) === 0 ? '—' : (getWinPct(entry) + '%') }}</span>
+                        } @else {
+                          —
+                        }
                       </td>
                     </ng-container>
 
                     <tr mat-header-row *matHeaderRowDef="xpColumns"></tr>
-                    <tr mat-row *matRowDef="let row; columns: xpColumns;" [class.placeholder-row]="row.placeholder"></tr>
+                    <tr mat-row *matRowDef="let row; columns: xpColumns;"
+                        [class.placeholder-row]="row.placeholder"
+                        [class.rank-1-row]="row.rank === 1 && !row.placeholder"
+                        [class.rank-2-row]="row.rank === 2 && !row.placeholder"
+                        [class.rank-3-row]="row.rank === 3 && !row.placeholder"></tr>
                   </table>
               </div>
             </mat-tab>
@@ -464,6 +524,13 @@ interface DisplayEntry {
 
     .podium-3 .podium-name {
       color: #E8915A;
+    }
+
+    .podium-elo {
+      font-size: 13px;
+      font-weight: 700;
+      color: rgba(255, 255, 255, 0.8);
+      margin-bottom: 2px;
     }
 
     .podium-record {
@@ -974,7 +1041,7 @@ export class LeaderboardDetailComponent implements OnInit {
   platform = '';
   currentTab: 'RANKED' | 'XP' = 'RANKED';
   rankedColumns = ['rank', 'username', 'record', 'winpct'];
-  xpColumns = ['rank', 'username', 'score', 'wins', 'losses'];
+  xpColumns = ['rank', 'username', 'score', 'record', 'winpct'];
 
   leaderboard: Leaderboard | null = null;
   rankedData: DisplayEntry[] = [];
@@ -999,6 +1066,10 @@ export class LeaderboardDetailComponent implements OnInit {
 
   get podiumPlayers(): DisplayEntry[] {
     return this.rankedData.filter(e => !e.placeholder && e.rank <= 3);
+  }
+
+  get xpPodiumPlayers(): DisplayEntry[] {
+    return this.xpData.filter(e => !e.placeholder && e.rank <= 3);
   }
 
   get isAdmin(): boolean {

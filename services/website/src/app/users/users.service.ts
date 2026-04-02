@@ -6,6 +6,7 @@ import { environment } from '../../environments/environment';
 export interface UserProfile {
   id: string;
   username: string;
+  role?: 'player' | 'ref' | 'admin';
   avatar?: string;
   goldTrophies: number;
   silverTrophies: number;

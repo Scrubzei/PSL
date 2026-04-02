@@ -132,4 +132,23 @@ export class AuthService {
 
     return this.login(user);
   }
+
+  async devSetRole(userId: string, role: string) {
+    if (process.env.NODE_ENV === 'production') {
+      throw new ForbiddenException('Dev set role is not available in production');
+    }
+
+    const validRoles = ['player', 'ref', 'admin'];
+    if (!validRoles.includes(role)) {
+      throw new BadRequestException(`Invalid role. Must be one of: ${validRoles.join(', ')}`);
+    }
+
+    const user = await this.usersService.findById(userId);
+    if (!user) {
+      throw new NotFoundException('User not found');
+    }
+
+    user.role = role as any;
+    return this.usersService.save(user);
+  }
 }
