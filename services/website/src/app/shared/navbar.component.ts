@@ -5,7 +5,9 @@ import { MatToolbarModule } from '@angular/material/toolbar';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { MatMenuModule } from '@angular/material/menu';
+import { MatDialog } from '@angular/material/dialog';
 import { AuthService } from '../auth/auth.service';
+import { DevLoginModalComponent } from '../auth/dev-login-modal.component';
 import { NotificationPanelComponent } from './notification-panel.component';
 import { HallOfFameService } from './hall-of-fame.service';
 import { environment } from '../../environments/environment';
@@ -49,6 +51,12 @@ import { environment } from '../../environments/environment';
       <span class="spacer"></span>
 
       <div class="nav-actions">
+        @if (!isProduction) {
+          <button class="dev-login-btn" (click)="openDevLogin()">
+            <mat-icon>code</mat-icon>
+            <span class="desktop-only">Dev Login</span>
+          </button>
+        }
         @if (authService.currentUser(); as user) {
           <app-notification-panel></app-notification-panel>
           <button mat-button [matMenuTriggerFor]="userMenu" class="user-menu-trigger desktop-only">
@@ -492,6 +500,33 @@ import { environment } from '../../environments/environment';
       }
     }
 
+    .dev-login-btn {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      padding: 5px 10px;
+      background: rgba(255, 152, 0, 0.12);
+      border: 1px solid rgba(255, 152, 0, 0.3);
+      border-radius: 6px;
+      color: #ff9800;
+      font-size: 12px;
+      font-weight: 600;
+      cursor: pointer;
+      font-family: inherit;
+      transition: all 0.15s;
+
+      mat-icon {
+        font-size: 16px;
+        width: 16px;
+        height: 16px;
+      }
+
+      &:hover {
+        background: rgba(255, 152, 0, 0.2);
+        border-color: #ff9800;
+      }
+    }
+
     .sign-in-btn {
       display: flex;
       align-items: center;
@@ -632,6 +667,7 @@ export class NavbarComponent {
   constructor(
     public authService: AuthService,
     private router: Router,
+    private dialog: MatDialog,
     private hofService: HallOfFameService
   ) {}
 
@@ -653,6 +689,23 @@ export class NavbarComponent {
   signIn(): void {
     this.authService.initiateDiscordLogin();
   }
+
+  openDevLogin(): void {
+    this.dialogRef?.close();
+    const ref = this.dialog.open(DevLoginModalComponent, {
+      width: '360px',
+      panelClass: 'dev-login-dialog',
+    });
+    this.dialogRef = ref;
+    ref.afterClosed().subscribe((user) => {
+      this.dialogRef = null;
+      if (user) {
+        window.location.reload();
+      }
+    });
+  }
+
+  private dialogRef: any = null;
 
   goToHallOfFame(): void {
     this.closeMobileMenu();

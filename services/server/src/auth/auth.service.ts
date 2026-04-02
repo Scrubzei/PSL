@@ -122,9 +122,12 @@ export class AuthService {
       throw new ForbiddenException('Dev login is not available in production');
     }
 
-    const user = await this.usersService.findByUsername(username);
+    let user = await this.usersService.findByUsername(username);
     if (!user) {
-      throw new NotFoundException(`User "${username}" not found`);
+      // Auto-create dummy user in dev mode
+      const fakeDiscordId = `dev-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+      user = await this.usersService.createFromDiscord(fakeDiscordId);
+      user = await this.usersService.setUsername(user.id, username);
     }
 
     return this.login(user);
