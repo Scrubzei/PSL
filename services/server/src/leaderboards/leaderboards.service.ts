@@ -1,11 +1,12 @@
 import { Injectable, NotFoundException, ConflictException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, In } from 'typeorm';
+import { DataSource, Repository } from 'typeorm';
 import { Leaderboard } from './leaderboard.entity';
 import { LeaderboardEntry } from './leaderboard-entry.entity';
 import { Match } from '../matches/match.entity';
 import { TournamentMatch } from '../tournaments/tournament-match.entity';
 import { UsersService } from '../users/users.service';
+import { calculateEloChange, initialEloRating } from './elo.util';
 
 export interface LeaderboardEntryWithRank {
   id: string;
@@ -15,6 +16,9 @@ export interface LeaderboardEntryWithRank {
   emblem: string | null;
   xp: number;
   rankScore: number;
+  elo: number | null;
+  rankedOptIn: boolean;
+  xpOptIn: boolean;
   wins: number;
   losses: number;
   createdAt: Date;
@@ -32,6 +36,7 @@ export class LeaderboardsService {
     @InjectRepository(TournamentMatch)
     private tournamentMatchesRepository: Repository<TournamentMatch>,
     private usersService: UsersService,
+    private dataSource: DataSource,
   ) {}
 
   async findAll(): Promise<Leaderboard[]> {
@@ -74,27 +79,37 @@ export class LeaderboardsService {
   }
 
   async signup(userId: string, leaderboardId: string): Promise<LeaderboardEntry> {
-    // Check if leaderboard exists
     await this.findById(leaderboardId);
 
-    // Check if user is already signed up
     const existing = await this.leaderboardEntriesRepository.findOne({
       where: { userId, leaderboardId },
     });
 
     if (existing) {
-      throw new ConflictException('You are already signed up for this leaderboard');
+      if (existing.rankedOptIn) {
+        throw new ConflictException('You are already signed up for this leaderboard');
+      }
+      // XP-only (or neutral) entry: join the ranked ladder
+      const lowestEntry = await this.leaderboardEntriesRepository
+        .createQueryBuilder('entry')
+        .where('entry.leaderboardId = :leaderboardId', { leaderboardId })
+        .andWhere('entry.rankedOptIn = :r', { r: true })
+        .orderBy('entry.rankScore', 'ASC')
+        .getOne();
+
+      const rankScore = lowestEntry ? Math.max(lowestEntry.rankScore - 100, 100) : 1000;
+      existing.rankScore = rankScore;
+      existing.rankedOptIn = true;
+      return this.leaderboardEntriesRepository.save(existing);
     }
 
-    // Find the lowest rank score currently in the leaderboard to place new user below
     const lowestEntry = await this.leaderboardEntriesRepository
       .createQueryBuilder('entry')
       .where('entry.leaderboardId = :leaderboardId', { leaderboardId })
+      .andWhere('entry.rankedOptIn = :r', { r: true })
       .orderBy('entry.rankScore', 'ASC')
       .getOne();
 
-    // If there are existing entries, new user gets a rank score 100 below the lowest
-    // Otherwise start at 1000 (default)
     const rankScore = lowestEntry ? Math.max(lowestEntry.rankScore - 100, 100) : 1000;
 
     const entry = this.leaderboardEntriesRepository.create({
@@ -102,6 +117,7 @@ export class LeaderboardsService {
       leaderboardId,
       xp: 0,
       rankScore,
+      rankedOptIn: true,
     });
 
     return this.leaderboardEntriesRepository.save(entry);
@@ -124,11 +140,12 @@ export class LeaderboardsService {
       .leftJoinAndSelect('entry.user', 'user')
       .where('entry.leaderboardId = :leaderboardId', { leaderboardId });
 
-    // Sort by score (desc), then by createdAt (asc) for ties
     if (type === 'ranked') {
+      query.andWhere('entry.rankedOptIn = :rankedOptIn', { rankedOptIn: true });
       query.orderBy('entry.rankScore', 'DESC').addOrderBy('entry.createdAt', 'ASC');
     } else {
-      query.orderBy('entry.xp', 'DESC').addOrderBy('entry.createdAt', 'ASC');
+      query.andWhere('entry.xpOptIn = :xpOptIn', { xpOptIn: true });
+      query.orderBy('entry.elo', 'DESC').addOrderBy('entry.createdAt', 'ASC');
     }
 
     const entries = await query.getMany();
@@ -210,10 +227,118 @@ export class LeaderboardsService {
         emblem: entry.user.emblem || null,
         xp: entry.xp,
         rankScore: entry.rankScore,
+        elo: entry.elo ?? null,
+        rankedOptIn: entry.rankedOptIn,
+        xpOptIn: entry.xpOptIn,
         wins: stats.wins,
         losses: stats.losses,
         createdAt: entry.createdAt,
       };
+    });
+  }
+
+  /** New XP ladder participant without joining the ranked placement ladder. */
+  private async createXpOnlyEntry(userId: string, leaderboardId: string): Promise<LeaderboardEntry> {
+    await this.findById(leaderboardId);
+    const entry = this.leaderboardEntriesRepository.create({
+      userId,
+      leaderboardId,
+      xp: 0,
+      rankScore: 0,
+      rankedOptIn: false,
+      xpOptIn: true,
+      elo: initialEloRating,
+    });
+    return this.leaderboardEntriesRepository.save(entry);
+  }
+
+  async xpJoin(userId: string, leaderboardId: string): Promise<LeaderboardEntry> {
+    await this.findById(leaderboardId);
+    let entry = await this.getUserEntry(userId, leaderboardId);
+    if (!entry) {
+      entry = await this.createXpOnlyEntry(userId, leaderboardId);
+      return entry;
+    }
+    if (entry.xpOptIn) {
+      throw new ConflictException('You already joined the XP ladder for this leaderboard');
+    }
+    entry.xpOptIn = true;
+    entry.elo = initialEloRating;
+    return this.leaderboardEntriesRepository.save(entry);
+  }
+
+  /** Apply Elo deltas from frozen snapshots on match (XP ladder only). Idempotent via eloApplied. */
+  async applyXpEloAfterMatchCompletion(matchId: string): Promise<void> {
+    await this.dataSource.transaction(async (manager) => {
+      const match = await manager.findOne(Match, { where: { id: matchId } });
+      if (
+        !match ||
+        match.type !== 'XP' ||
+        match.status !== 'COMPLETED' ||
+        !match.winnerId ||
+        match.eloApplied
+      ) {
+        return;
+      }
+      if (match.challengerEloBefore == null || match.challengeeEloBefore == null) {
+        return;
+      }
+
+      const challengerWon = match.winnerId === match.challengerId;
+      const { challengerEloChange, opponentEloChange } = calculateEloChange(
+        match.challengerEloBefore,
+        match.challengeeEloBefore,
+        challengerWon,
+      );
+
+      const chEntry = await manager.findOne(LeaderboardEntry, {
+        where: { userId: match.challengerId, leaderboardId: match.leaderboardId },
+      });
+      const ceEntry = await manager.findOne(LeaderboardEntry, {
+        where: { userId: match.challengeeId!, leaderboardId: match.leaderboardId },
+      });
+      if (!chEntry || !ceEntry || !chEntry.xpOptIn || !ceEntry.xpOptIn) {
+        return;
+      }
+
+      chEntry.elo = match.challengerEloBefore + challengerEloChange;
+      ceEntry.elo = match.challengeeEloBefore + opponentEloChange;
+
+      match.lastChallengerEloDelta = challengerEloChange;
+      match.lastChallengeeEloDelta = opponentEloChange;
+      match.eloApplied = true;
+
+      await manager.save([chEntry, ceEntry]);
+      await manager.save(match);
+    });
+  }
+
+  /** Reset ladder Elo to frozen pre-match snapshots (used when ref decision is disputed). */
+  async rollbackXpEloForMatch(matchId: string): Promise<void> {
+    await this.dataSource.transaction(async (manager) => {
+      const match = await manager.findOne(Match, { where: { id: matchId } });
+      if (!match || !match.eloApplied || match.challengerEloBefore == null || match.challengeeEloBefore == null) {
+        return;
+      }
+
+      const chEntry = await manager.findOne(LeaderboardEntry, {
+        where: { userId: match.challengerId, leaderboardId: match.leaderboardId },
+      });
+      const ceEntry = await manager.findOne(LeaderboardEntry, {
+        where: { userId: match.challengeeId!, leaderboardId: match.leaderboardId },
+      });
+      if (!chEntry || !ceEntry) {
+        return;
+      }
+
+      chEntry.elo = match.challengerEloBefore;
+      ceEntry.elo = match.challengeeEloBefore;
+      match.eloApplied = false;
+      match.lastChallengerEloDelta = null;
+      match.lastChallengeeEloDelta = null;
+
+      await manager.save([chEntry, ceEntry]);
+      await manager.save(match);
     });
   }
 
@@ -253,7 +378,15 @@ export class LeaderboardsService {
     });
 
     if (!entry) {
-      entry = await this.signup(userId, leaderboardId);
+      entry = this.leaderboardEntriesRepository.create({
+        userId,
+        leaderboardId,
+        xp: 0,
+        rankScore: 0,
+        rankedOptIn: false,
+        xpOptIn: false,
+      });
+      entry = await this.leaderboardEntriesRepository.save(entry);
     }
 
     entry.xp += amount;

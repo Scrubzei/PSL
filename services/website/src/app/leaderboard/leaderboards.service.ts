@@ -1,5 +1,5 @@
 import { Injectable } from '@angular/core';
-import { HttpClient } from '@angular/common/http';
+import { HttpClient, HttpParams } from '@angular/common/http';
 import { Observable } from 'rxjs';
 import { environment } from '../../environments/environment';
 
@@ -19,6 +19,9 @@ export interface LeaderboardEntry {
   emblem: string | null;
   xp: number;
   rankScore: number;
+  elo: number | null;
+  rankedOptIn: boolean;
+  xpOptIn: boolean;
   wins: number;
   losses: number;
   createdAt: string;
@@ -42,7 +45,8 @@ export class LeaderboardsService {
   }
 
   getByGameAndPlatform(game: string, platform: string): Observable<Leaderboard> {
-    return this.http.get<Leaderboard>(`${this.API_URL}/by-game-platform?game=${game}&platform=${platform}`);
+    const params = new HttpParams().set('game', game).set('platform', platform);
+    return this.http.get<Leaderboard>(`${this.API_URL}/by-game-platform`, { params });
   }
 
   getById(id: string): Observable<Leaderboard> {
@@ -55,6 +59,10 @@ export class LeaderboardsService {
 
   signup(leaderboardId: string): Observable<LeaderboardEntry> {
     return this.http.post<LeaderboardEntry>(`${this.API_URL}/${leaderboardId}/signup`, {});
+  }
+
+  xpJoin(leaderboardId: string): Observable<LeaderboardEntry> {
+    return this.http.post<LeaderboardEntry>(`${this.API_URL}/${leaderboardId}/xp-join`, {});
   }
 
   getMyEntry(leaderboardId: string): Observable<MyEntryResponse> {

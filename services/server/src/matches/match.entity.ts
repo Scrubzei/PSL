@@ -5,6 +5,15 @@ import { Leaderboard } from '../leaderboards/leaderboard.entity';
 export type MatchType = 'XP' | 'RANKED';
 export type MatchStatus = 'SEARCHING' | 'PENDING' | 'ACCEPTED' | 'DECLINED' | 'COMPLETED' | 'CANCELLED' | 'DISPUTED';
 
+/** Moderation pipeline for XP disputes */
+export type DisputePhase =
+  | 'NONE'
+  | 'PLAYER_MISMATCH'
+  | 'AWAITING_REF'
+  | 'REF_DECIDED'
+  | 'AWAITING_ADMIN'
+  | 'FINAL';
+
 @Entity('matches')
 export class Match {
   @PrimaryGeneratedColumn('uuid')
@@ -35,7 +44,7 @@ export class Match {
   selectedMaps: string[];
 
   @Column({ nullable: true })
-  winnerId: string;
+  winnerId: string | null;
 
   @Column({ nullable: true })
   challengerReportedWinnerId: string;
@@ -60,6 +69,38 @@ export class Match {
 
   @Column({ nullable: true, unique: true })
   shareToken: string;
+
+  @Column({ type: 'int', nullable: true })
+  challengerEloBefore: number | null;
+
+  @Column({ type: 'int', nullable: true })
+  challengeeEloBefore: number | null;
+
+  @Column({ default: false })
+  eloApplied: boolean;
+
+  @Column({ type: 'varchar', length: 32, default: 'NONE' })
+  disputePhase: DisputePhase;
+
+  @Column({ type: 'int', nullable: true })
+  lastChallengerEloDelta: number | null;
+
+  @Column({ type: 'int', nullable: true })
+  lastChallengeeEloDelta: number | null;
+
+  @Column({ nullable: true })
+  refResolvedByUserId: string | null;
+
+  @Column({ nullable: true })
+  adminResolvedByUserId: string | null;
+
+  @ManyToOne(() => User, { nullable: true })
+  @JoinColumn({ name: 'refResolvedByUserId' })
+  refResolvedBy: User | null;
+
+  @ManyToOne(() => User, { nullable: true })
+  @JoinColumn({ name: 'adminResolvedByUserId' })
+  adminResolvedBy: User | null;
 
   @ManyToOne(() => User)
   @JoinColumn({ name: 'challengerId' })

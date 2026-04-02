@@ -1,13 +1,22 @@
 import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router, RouterModule } from '@angular/router';
 import { MatButtonModule } from '@angular/material/button';
 import { MatCardModule } from '@angular/material/card';
 import { MatIconModule } from '@angular/material/icon';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatChipsModule } from '@angular/material/chips';
-import { UsersService, UserProfile, UserStats, RecentMatch } from './users.service';
-import { forkJoin } from 'rxjs';
+import { MatFormFieldModule } from '@angular/material/form-field';
+import { MatSelectModule } from '@angular/material/select';
+import { MatDialog } from '@angular/material/dialog';
+import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
+import { UsersService, UserProfile, UserStats, RecentMatch, LeaderboardRanking, DashboardStats } from './users.service';
+import { forkJoin, of } from 'rxjs';
+import { AuthService } from '../auth/auth.service';
+import { LeaderboardsService } from '../leaderboard/leaderboards.service';
+import { ChallengesService } from '../challenges/challenges.service';
+import { LeaderboardChallengeModalComponent } from '../leaderboard/leaderboard-challenge-modal.component';
 
 @Component({
   selector: 'app-user-profile',
@@ -15,11 +24,15 @@ import { forkJoin } from 'rxjs';
   imports: [
     CommonModule,
     RouterModule,
+    FormsModule,
     MatButtonModule,
     MatCardModule,
     MatIconModule,
     MatProgressSpinnerModule,
-    MatChipsModule
+    MatChipsModule,
+    MatFormFieldModule,
+    MatSelectModule,
+    MatSnackBarModule
   ],
   template: `
     <div class="profile-container">
@@ -93,6 +106,31 @@ import { forkJoin } from 'rxjs';
             <span class="trophy-count">{{ user.bronzeTrophies }}</span>
           </div>
         </div>
+
+        @if (canChallengeXp) {
+          <mat-card class="challenge-card">
+            <mat-card-header>
+              <mat-card-title>XP challenge</mat-card-title>
+              <mat-card-subtitle>Challenge on a ladder you both joined</mat-card-subtitle>
+            </mat-card-header>
+            <mat-card-content class="challenge-card-content">
+              @if (sharedXpLeaderboards.length > 1) {
+                <mat-form-field appearance="outline" class="lb-select">
+                  <mat-label>Leaderboard</mat-label>
+                  <mat-select [(ngModel)]="selectedLbId">
+                    @for (lb of sharedXpLeaderboards; track lb.leaderboardId) {
+                      <mat-option [value]="lb.leaderboardId">{{ lb.game }} — {{ lb.platform }}</mat-option>
+                    }
+                  </mat-select>
+                </mat-form-field>
+              }
+              <button mat-raised-button color="primary" (click)="openXpChallenge()">
+                <mat-icon>sports_esports</mat-icon>
+                Challenge
+              </button>
+            </mat-card-content>
+          </mat-card>
+        }
 
         <mat-card class="recent-matches-card">
           <mat-card-header>
@@ -289,6 +327,42 @@ import { forkJoin } from 'rxjs';
       }
     }
 
+    .challenge-card {
+      margin-bottom: 24px;
+
+      mat-card-header {
+        padding: 16px 16px 12px 16px;
+        display: block;
+      }
+
+      mat-card-title {
+        margin: 0 0 8px 0;
+        font-size: 18px;
+        font-weight: 600;
+        line-height: 1.3;
+      }
+
+      mat-card-subtitle {
+        margin: 0;
+        line-height: 1.45;
+        color: rgba(255, 255, 255, 0.55);
+      }
+
+      .challenge-card-content {
+        display: flex;
+        flex-direction: column;
+        gap: 14px;
+        align-items: flex-start;
+        padding: 4px 16px 18px 16px !important;
+        margin: 0;
+      }
+
+      .lb-select {
+        width: 100%;
+        max-width: 360px;
+      }
+    }
+
     .trophies-section {
       display: flex;
       justify-content: center;
@@ -450,12 +524,27 @@ export class UserProfileComponent implements OnInit {
   user: UserProfile | null = null;
   stats: UserStats | null = null;
   loading = true;
+  sharedXpLeaderboards: LeaderboardRanking[] = [];
+  selectedLbId: string | null = null;
 
   constructor(
     private usersService: UsersService,
     private route: ActivatedRoute,
-    private router: Router
+    private router: Router,
+    private authService: AuthService,
+    private dialog: MatDialog,
+    private leaderboardsService: LeaderboardsService,
+    private challengesService: ChallengesService,
+    private snackBar: MatSnackBar
   ) {}
+
+  get canChallengeXp(): boolean {
+    const viewer = this.authService.currentUser();
+    if (!viewer || !this.user || viewer.id === this.user.id) {
+      return false;
+    }
+    return this.sharedXpLeaderboards.length > 0;
+  }
 
   ngOnInit(): void {
     const userId = this.route.snapshot.paramMap.get('id');
@@ -467,20 +556,84 @@ export class UserProfileComponent implements OnInit {
   }
 
   private loadUserProfile(userId: string): void {
+    const viewer = this.authService.currentUser();
+    const needsDash = viewer && viewer.id !== userId;
     forkJoin({
       user: this.usersService.getUserById(userId),
-      stats: this.usersService.getUserStats(userId)
+      stats: this.usersService.getUserStats(userId),
+      themDash: needsDash ? this.usersService.getDashboardStats(userId) : of(null as DashboardStats | null),
+      meDash: needsDash ? this.usersService.getDashboardStats(viewer!.id) : of(null as DashboardStats | null),
     }).subscribe({
       next: (result) => {
-        console.log('User data:', result.user);
         this.user = result.user;
         this.stats = result.stats;
+        this.sharedXpLeaderboards = [];
+        if (result.themDash && result.meDash) {
+          const mine = new Set(
+            result.meDash.leaderboardRankings.filter((r) => r.xpOptIn).map((r) => r.leaderboardId),
+          );
+          this.sharedXpLeaderboards = result.themDash.leaderboardRankings.filter(
+            (r) => r.xpOptIn && mine.has(r.leaderboardId),
+          );
+          this.selectedLbId = this.sharedXpLeaderboards[0]?.leaderboardId ?? null;
+        }
         this.loading = false;
       },
       error: () => {
         this.user = null;
         this.loading = false;
       }
+    });
+  }
+
+  openXpChallenge(): void {
+    if (!this.user || !this.canChallengeXp) {
+      return;
+    }
+    const lb =
+      this.sharedXpLeaderboards.find((l) => l.leaderboardId === this.selectedLbId) ??
+      this.sharedXpLeaderboards[0];
+    if (!lb) {
+      return;
+    }
+    this.dialog.open(LeaderboardChallengeModalComponent, {
+      width: '500px',
+      panelClass: 'challenge-modal-panel',
+      data: {
+        opponent: { id: this.user.id, username: this.user.username || 'Player' },
+        game: lb.game,
+        platform: lb.platform,
+        type: 'XP' as const,
+      },
+    }).afterClosed().subscribe((result) => {
+      if (!result || !this.user) {
+        return;
+      }
+      this.leaderboardsService.getByGameAndPlatform(result.game, result.platform).subscribe({
+        next: (leaderboard) => {
+          this.challengesService
+            .createChallenge({
+              challengeeId: this.user!.id,
+              leaderboardId: leaderboard.id,
+              type: 'XP',
+              bestOf: result.bestOf,
+              selectedMaps: result.maps,
+            })
+            .subscribe({
+              next: () => {
+                this.snackBar.open('Challenge sent!', 'Close', { duration: 3000 });
+              },
+              error: (err) => {
+                this.snackBar.open(err.error?.message || 'Failed to send challenge', 'Close', {
+                  duration: 4000,
+                });
+              },
+            });
+        },
+        error: () => {
+          this.snackBar.open('Failed to load leaderboard', 'Close', { duration: 3000 });
+        },
+      });
     });
   }
 

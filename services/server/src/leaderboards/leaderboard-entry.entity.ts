@@ -17,6 +17,18 @@ export class LeaderboardEntry {
   @Column({ default: 0 })
   xp: number;
 
+  /** Ranked ladder (placement / rankScore) — false for XP-only participants */
+  @Column({ default: true })
+  rankedOptIn: boolean;
+
+  /** Voluntary XP ladder (Elo) participation */
+  @Column({ default: false })
+  xpOptIn: boolean;
+
+  /** Elo rating when xpOptIn is true */
+  @Column({ type: 'int', nullable: true })
+  elo: number | null;
+
   @Column({ default: 1000 })
   rankScore: number;
 

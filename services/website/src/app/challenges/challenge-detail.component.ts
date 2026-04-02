@@ -12,6 +12,7 @@ import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { ChallengesService, Match } from './challenges.service';
 import { AuthService } from '../auth/auth.service';
+import { LeaderboardsService } from '../leaderboard/leaderboards.service';
 
 @Component({
   selector: 'app-challenge-detail',
@@ -50,13 +51,51 @@ import { AuthService } from '../auth/auth.service';
         <mat-card class="match-card">
           <mat-card-header>
             <mat-card-title class="match-title">
-              {{ match.challenger.username }} vs {{ match.challengee.username }}
+              @if (isOpenMatchPending) {
+                {{ match.challenger.username }} — open XP listing
+              } @else {
+                {{ match.challenger.username }} vs {{ match.challengee?.username }}
+              }
             </mat-card-title>
             <mat-card-subtitle>
               {{ match.leaderboard.game.name }} - {{ match.leaderboard.platform.name }}
             </mat-card-subtitle>
           </mat-card-header>
 
+          @if (isOpenMatchPending) {
+            <mat-card-content>
+              <p class="open-copy">
+                This is an open listing on the XP ladder. Another player can accept to start the match.
+              </p>
+              <div class="match-info">
+                <div class="badges">
+                  <span class="badge type xp">{{ match.type }}</span>
+                  <span class="badge status pending">{{ match.status }}</span>
+                  <span class="badge best-of">Best of {{ match.bestOf }}</span>
+                </div>
+              </div>
+              <div class="map-chips">
+                @for (map of match.selectedMaps; track $index) {
+                  <span class="map-chip">{{ map }}</span>
+                }
+              </div>
+            </mat-card-content>
+            <mat-card-actions class="open-actions">
+              @if (isChallenger) {
+                <button mat-stroked-button color="warn" (click)="cancelOpenListing()" [disabled]="submitting">
+                  Cancel listing
+                </button>
+              } @else if (currentUserId && !isChallenger) {
+                <button mat-raised-button color="primary" (click)="acceptOpenListing()" [disabled]="submitting">
+                  Accept match
+                </button>
+              } @else {
+                <p class="hint">Sign in to accept this listing.</p>
+              }
+            </mat-card-actions>
+          }
+
+          @if (!isOpenMatchPending) {
           <mat-card-content>
             <div class="match-info">
               <div class="badges">
@@ -71,8 +110,16 @@ import { AuthService } from '../auth/auth.service';
               <div class="dispute-warning">
                 <mat-icon>warning</mat-icon>
                 <div class="dispute-text">
-                  <strong>This match is disputed!</strong>
-                  <p>Both players reported different winners. You can either update your report or concede to accept your opponent's result.</p>
+                  @if (match.disputePhase === 'AWAITING_ADMIN') {
+                    <strong>Awaiting admin decision</strong>
+                    <p>A ref ruling was disputed. An admin will set the final winner.</p>
+                  } @else if (match.disputePhase === 'AWAITING_REF') {
+                    <strong>Awaiting staff review</strong>
+                    <p>Results conflict — a ref or admin will decide the winner.</p>
+                  } @else {
+                    <strong>This match is disputed!</strong>
+                    <p>Both players reported different winners. You can either update your report or concede to accept your opponent's result.</p>
+                  }
                 </div>
               </div>
             }
@@ -93,7 +140,7 @@ import { AuthService } from '../auth/auth.service';
                 </div>
                 <div class="reporter" [class.reported]="match.challengeeReportedWinnerId">
                   <mat-icon>{{ match.challengeeReportedWinnerId ? 'check_circle' : 'hourglass_empty' }}</mat-icon>
-                  <span class="reporter-name">{{ match.challengee.username }}</span>
+                  <span class="reporter-name">{{ match.challengee?.username ?? '—' }}</span>
                   <span class="status-text">
                     @if (match.challengeeReportedWinnerId) {
                       reported <strong>{{ getReportedWinnerName(match.challengeeReportedWinnerId) }}</strong> as winner
@@ -117,7 +164,7 @@ import { AuthService } from '../auth/auth.service';
                   <span [class.winning]="challengeeWins > challengerWins">{{ challengeeWins }}</span>
                 </span>
                 <span class="player-score" [class.winner]="challengeeWins > challengerWins">
-                  {{ match.challengee.username }}
+                  {{ match.challengee?.username ?? '—' }}
                 </span>
               </div>
             }
@@ -140,7 +187,7 @@ import { AuthService } from '../auth/auth.service';
                         {{ match.challenger.username }}
                       </mat-radio-button>
                       <mat-radio-button value="challengee">
-                        {{ match.challengee.username }}
+                        {{ match.challengee?.username ?? 'Challengee' }}
                       </mat-radio-button>
                     </mat-radio-group>
                   </div>
@@ -164,6 +211,24 @@ import { AuthService } from '../auth/auth.service';
                 <mat-icon>emoji_events</mat-icon>
                 <span>Winner: <strong>{{ getReportedWinnerName(match.winnerId) }}</strong></span>
               </div>
+              @if (match.disputePhase) {
+                <p class="phase-line">Status: {{ match.disputePhase }}</p>
+              }
+              @if (match.type === 'XP' && match.disputePhase === 'REF_DECIDED' && !match.adminResolvedByUserId) {
+                <p class="ref-appeal-hint">
+                  A ref set this result. Either player may escalate to an admin if you disagree.
+                </p>
+              }
+            }
+
+            @if (canDisputeRefDecision) {
+              <mat-divider></mat-divider>
+              <div class="ref-dispute-actions">
+                <p>If you believe the ref made the wrong call, you can escalate to an admin.</p>
+                <button mat-stroked-button color="warn" (click)="disputeRefDecision()" [disabled]="submitting">
+                  Dispute ref decision
+                </button>
+              </div>
             }
           </mat-card-content>
 
@@ -178,8 +243,10 @@ import { AuthService } from '../auth/auth.service';
                 @if (submitting) {
                   <mat-spinner diameter="20"></mat-spinner>
                 } @else {
-                  <mat-icon>save</mat-icon>
-                  {{ hasAlreadyReported ? 'Update Results' : 'Submit Results' }}
+                  <span class="submit-result-btn-content">
+                    <mat-icon matButtonIcon>save</mat-icon>
+                    {{ hasAlreadyReported ? 'Update Results' : 'Submit Results' }}
+                  </span>
                 }
               </button>
 
@@ -206,6 +273,7 @@ import { AuthService } from '../auth/auth.service';
                 </span>
               }
             </mat-card-actions>
+          }
           }
         </mat-card>
       } @else {
@@ -277,6 +345,41 @@ import { AuthService } from '../auth/auth.service';
 
     .match-title {
       font-size: 24px !important;
+    }
+
+    .open-copy {
+      margin: 0 0 16px;
+      font-size: 14px;
+      line-height: 1.5;
+      color: rgba(255, 255, 255, 0.65);
+    }
+
+    .map-chips {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-top: 12px;
+    }
+
+    .map-chip {
+      padding: 6px 12px;
+      border-radius: 8px;
+      font-size: 13px;
+      background: rgba(255, 255, 255, 0.06);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      color: rgba(255, 255, 255, 0.85);
+    }
+
+    .open-actions {
+      padding: 16px !important;
+      flex-wrap: wrap;
+      gap: 12px;
+
+      .hint {
+        margin: 0;
+        font-size: 14px;
+        color: rgba(255, 255, 255, 0.5);
+      }
     }
 
     .match-info {
@@ -560,12 +663,40 @@ import { AuthService } from '../auth/auth.service';
       }
     }
 
+    .phase-line {
+      margin: 8px 0 0 0;
+      font-size: 13px;
+      color: rgba(255, 255, 255, 0.5);
+    }
+
+    .ref-appeal-hint {
+      margin: 10px 0 0 0;
+      font-size: 13px;
+      line-height: 1.45;
+      color: rgba(255, 255, 255, 0.55);
+    }
+
+    .ref-dispute-actions {
+      margin-top: 12px;
+      p {
+        font-size: 14px;
+        color: rgba(255, 255, 255, 0.65);
+        margin-bottom: 12px;
+      }
+    }
+
     mat-card-actions {
       display: flex;
       align-items: center;
       gap: 12px;
       padding: 16px;
       flex-wrap: wrap;
+
+      .submit-result-btn-content {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+      }
 
       .waiting-message {
         display: flex;
@@ -596,7 +727,8 @@ export class ChallengeDetailComponent implements OnInit {
     private challengesService: ChallengesService,
     private authService: AuthService,
     private snackBar: MatSnackBar,
-    private clipboard: Clipboard
+    private clipboard: Clipboard,
+    private leaderboardsService: LeaderboardsService,
   ) {}
 
   get currentUserId(): string | null {
@@ -607,13 +739,38 @@ export class ChallengeDetailComponent implements OnInit {
     return this.match?.challengerId === this.currentUserId;
   }
 
+  get isOpenMatchPending(): boolean {
+    return !!this.match && this.match.status === 'PENDING' && this.match.challengeeId == null;
+  }
+
   get canReport(): boolean {
     if (!this.match) return false;
+    if (this.match.type === 'XP' && this.match.disputePhase === 'AWAITING_ADMIN') {
+      return false;
+    }
     return (
       (this.match.status === 'ACCEPTED' || this.match.status === 'DISPUTED') &&
       (this.match.challengerId === this.currentUserId ||
        this.match.challengeeId === this.currentUserId)
     );
+  }
+
+  get canDisputeRefDecision(): boolean {
+    if (!this.match || !this.currentUserId) return false;
+    const m = this.match;
+    if (m.type !== 'XP' || m.status !== 'COMPLETED') {
+      return false;
+    }
+    if (m.adminResolvedByUserId || m.disputePhase === 'AWAITING_ADMIN') {
+      return false;
+    }
+    const refRulingAppealable =
+      m.disputePhase === 'REF_DECIDED' ||
+      (m.disputePhase === 'FINAL' && !!m.refResolvedByUserId && !m.adminResolvedByUserId);
+    if (!refRulingAppealable) {
+      return false;
+    }
+    return m.challengerId === this.currentUserId || m.challengeeId === this.currentUserId;
   }
 
   get hasAlreadyReported(): boolean {
@@ -639,7 +796,7 @@ export class ChallengeDetailComponent implements OnInit {
       return this.match.challenger.username;
     }
     if (this.challengeeWins >= winsNeeded) {
-      return this.match.challengee.username;
+      return this.match.challengee?.username ?? null;
     }
     return null;
   }
@@ -651,7 +808,7 @@ export class ChallengeDetailComponent implements OnInit {
       return this.match.challengerId;
     }
     if (this.challengeeWins >= winsNeeded) {
-      return this.match.challengeeId;
+      return this.match.challengeeId ?? null;
     }
     return null;
   }
@@ -695,12 +852,82 @@ export class ChallengeDetailComponent implements OnInit {
     });
   }
 
+  disputeRefDecision(): void {
+    if (!this.match) return;
+    this.submitting = true;
+    this.challengesService.disputeRefDecision(this.match.id).subscribe({
+      next: (updated) => {
+        this.match = updated;
+        this.submitting = false;
+        this.snackBar.open('Escalated to admin review.', 'Close', { duration: 4000 });
+      },
+      error: (err) => {
+        this.snackBar.open(err.error?.message || 'Failed to escalate', 'Close', { duration: 4000 });
+        this.submitting = false;
+      },
+    });
+  }
+
   getReportedWinnerName(winnerId: string): string {
     if (!this.match) return '';
     if (winnerId === this.match.challengerId) {
       return this.match.challenger.username;
     }
-    return this.match.challengee.username;
+    return this.match.challengee?.username ?? '';
+  }
+
+  cancelOpenListing(): void {
+    if (!this.match) return;
+    this.submitting = true;
+    this.challengesService.cancelChallenge(this.match.id).subscribe({
+      next: (m) => {
+        this.match = m;
+        this.submitting = false;
+        this.snackBar.open('Listing cancelled', 'Close', { duration: 3000 });
+      },
+      error: (err) => {
+        this.snackBar.open(err.error?.message || 'Failed to cancel', 'Close', { duration: 3000 });
+        this.submitting = false;
+      },
+    });
+  }
+
+  acceptOpenListing(): void {
+    if (!this.match) return;
+    this.submitting = true;
+    const accept = () => {
+      this.challengesService.acceptChallenge(this.match!.id).subscribe({
+        next: (m) => {
+          this.match = m;
+          this.mapResults = new Array(m.selectedMaps.length).fill(null);
+          this.submitting = false;
+          this.snackBar.open('Match accepted!', 'Close', { duration: 3000 });
+        },
+        error: (err) => {
+          this.snackBar.open(err.error?.message || 'Failed to accept', 'Close', { duration: 4000 });
+          this.submitting = false;
+        },
+      });
+    };
+    this.leaderboardsService.getMyEntry(this.match.leaderboardId).subscribe({
+      next: (r) => {
+        const ok = r.entry?.xpOptIn && r.entry.elo != null;
+        if (ok) {
+          accept();
+        } else {
+          this.leaderboardsService.xpJoin(this.match!.leaderboardId).subscribe({
+            next: () => accept(),
+            error: (err) => {
+              this.snackBar.open(err.error?.message || 'Join the XP ladder first', 'Close', { duration: 4000 });
+              this.submitting = false;
+            },
+          });
+        }
+      },
+      error: () => {
+        this.submitting = false;
+      },
+    });
   }
 
   onMapResultChange(): void {
@@ -719,7 +946,12 @@ export class ChallengeDetailComponent implements OnInit {
 
     this.submitting = true;
 
-    this.challengesService.reportResult(this.match.id, this.calculatedWinnerId).subscribe({
+    const mapResultsPayload = this.match.selectedMaps.map((mapName, i) => ({
+      mapName,
+      winner: this.mapResults[i] as 'challenger' | 'challengee',
+    }));
+
+    this.challengesService.reportResult(this.match.id, this.calculatedWinnerId, mapResultsPayload).subscribe({
       next: (updatedMatch) => {
         this.match = updatedMatch;
         this.submitting = false;

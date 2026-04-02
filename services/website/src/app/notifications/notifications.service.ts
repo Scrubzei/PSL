@@ -4,7 +4,16 @@ import { Observable, interval } from 'rxjs';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { environment } from '../../environments/environment';
 
-export type NotificationType = 'CHALLENGE_RECEIVED' | 'CHALLENGE_ACCEPTED' | 'CHALLENGE_DECLINED' | 'CHALLENGE_CANCELLED';
+export type NotificationType =
+  | 'CHALLENGE_RECEIVED'
+  | 'CHALLENGE_ACCEPTED'
+  | 'CHALLENGE_DECLINED'
+  | 'CHALLENGE_CANCELLED'
+  | 'MATCH_COMPLETED'
+  | 'MATCH_DISPUTED'
+  | 'DISPUTE_RESOLVED'
+  | 'DISPUTE_AWAITING_MODERATION'
+  | 'REF_DECISION_DISPUTED';
 
 export interface Notification {
   id: string;

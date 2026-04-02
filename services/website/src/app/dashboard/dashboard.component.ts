@@ -102,7 +102,15 @@ import { forkJoin } from 'rxjs';
                 <div class="rankings">
                   @for (r of dashboardStats!.leaderboardRankings; track r.leaderboardId) {
                     <a [routerLink]="['/leaderboards', r.game.toLowerCase(), r.platform.toLowerCase()]" class="rank-row">
-                      <span class="rank" [class.gold]="r.rank === 1" [class.silver]="r.rank === 2" [class.bronze]="r.rank === 3">#{{ r.rank }}</span>
+                      <span class="rank" [class.gold]="r.rankedOptIn && r.rank === 1" [class.silver]="r.rankedOptIn && r.rank === 2" [class.bronze]="r.rankedOptIn && r.rank === 3">
+                        @if (r.rankedOptIn && r.rank != null) {
+                          #{{ r.rank }}
+                        } @else if (r.xpOptIn) {
+                          Elo {{ r.elo ?? '—' }}
+                        } @else {
+                          —
+                        }
+                      </span>
                       <span class="game">{{ r.game }}</span>
                       <span class="platform">{{ r.platform }}</span>
                       <span class="record">{{ r.wins }}W {{ r.losses }}L</span>
@@ -479,7 +487,8 @@ import { forkJoin } from 'rxjs';
 
     .rank-row {
       display: grid;
-      grid-template-columns: 48px 1fr auto auto;
+      /* First column must fit "Elo 1000" on one line (was 48px and wrapped) */
+      grid-template-columns: minmax(96px, max-content) 1fr auto auto;
       align-items: center;
       gap: 12px;
       padding: 10px 12px;
@@ -494,6 +503,8 @@ import { forkJoin } from 'rxjs';
       font-size: 14px;
       font-weight: 700;
       color: rgba(255,255,255,0.5);
+      white-space: nowrap;
+      line-height: 1.2;
 
       &.gold { color: #fbbf24; }
       &.silver { color: #94a3b8; }
@@ -706,7 +717,7 @@ import { forkJoin } from 'rxjs';
       }
 
       .rank-row {
-        grid-template-columns: 40px 1fr auto;
+        grid-template-columns: minmax(80px, max-content) 1fr auto;
       }
 
       .platform { display: none; }
@@ -780,7 +791,10 @@ export class DashboardComponent implements OnInit {
 
   getOpponent(match: Match): { id: string; username: string } | null {
     if (!this.user) return null;
-    return match.challengerId === this.user.id ? match.challengee : match.challenger;
+    if (match.challengerId === this.user.id) {
+      return match.challengee ?? null;
+    }
+    return match.challenger;
   }
 
   savePlutoniumUsername(): void {

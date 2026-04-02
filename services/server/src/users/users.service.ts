@@ -1,7 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
-import { User } from './user.entity';
+import { In, Repository } from 'typeorm';
+import { User, UserRole } from './user.entity';
 import { Match } from '../matches/match.entity';
 import { LeaderboardEntry } from '../leaderboards/leaderboard-entry.entity';
 import { TournamentMatch } from '../tournaments/tournament-match.entity';
@@ -26,10 +26,14 @@ export interface LeaderboardRanking {
   leaderboardId: string;
   game: string;
   platform: string;
-  rank: number;
+  /** Placement among ranked participants only; null if not on the ranked ladder */
+  rank: number | null;
   totalPlayers: number;
   xp: number;
   rankScore: number;
+  elo: number | null;
+  rankedOptIn: boolean;
+  xpOptIn: boolean;
   wins: number;
   losses: number;
 }
@@ -71,6 +75,17 @@ export class UsersService {
 
   async findByUsername(username: string): Promise<User | undefined> {
     return this.usersRepository.findOne({ where: { username } });
+  }
+
+  async findUserIdsWithRoles(roles: UserRole[]): Promise<string[]> {
+    if (roles.length === 0) {
+      return [];
+    }
+    const users = await this.usersRepository.find({
+      where: { role: In(roles) },
+      select: ['id'],
+    });
+    return users.map((u) => u.id);
   }
 
   async findById(id: string): Promise<User | undefined> {
@@ -342,16 +357,18 @@ export class UsersService {
     const leaderboardRankings: LeaderboardRanking[] = [];
 
     for (const entry of entries) {
-      // Get all entries for this leaderboard to calculate rank
-      const allEntries = await this.leaderboardEntriesRepository
+      const allRankedEntries = await this.leaderboardEntriesRepository
         .createQueryBuilder('e')
         .where('e.leaderboardId = :leaderboardId', { leaderboardId: entry.leaderboardId })
+        .andWhere('e.rankedOptIn = :r', { r: true })
         .orderBy('e.rankScore', 'DESC')
         .addOrderBy('e.createdAt', 'ASC')
         .getMany();
 
-      const rank = allEntries.findIndex(e => e.userId === userId) + 1;
-      const totalPlayers = allEntries.length;
+      const rank = entry.rankedOptIn
+        ? allRankedEntries.findIndex(e => e.userId === userId) + 1
+        : null;
+      const totalPlayers = allRankedEntries.length;
 
       // Get wins/losses for this leaderboard
       const completedMatches = await this.matchesRepository.find({
@@ -382,6 +399,9 @@ export class UsersService {
         totalPlayers,
         xp: entry.xp,
         rankScore: entry.rankScore,
+        elo: entry.elo ?? null,
+        rankedOptIn: entry.rankedOptIn,
+        xpOptIn: entry.xpOptIn,
         wins,
         losses,
       });

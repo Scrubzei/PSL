@@ -315,9 +315,14 @@ export class NotificationPanelComponent implements OnInit {
     }
 
     if (notification.relatedEntityType === 'MATCH' && notification.relatedEntityId) {
-      this.router.navigate(['/challenges'], {
-        queryParams: { highlight: notification.relatedEntityId }
-      });
+      const isDisputeAlert =
+        notification.type === 'DISPUTE_AWAITING_MODERATION' ||
+        notification.type === 'REF_DECISION_DISPUTED';
+      if (isDisputeAlert) {
+        this.router.navigate(['/disputes']);
+      } else {
+        this.router.navigate(['/challenges', notification.relatedEntityId]);
+      }
     }
   }
 
@@ -337,6 +342,14 @@ export class NotificationPanelComponent implements OnInit {
         return 'cancel';
       case 'CHALLENGE_CANCELLED':
         return 'block';
+      case 'MATCH_COMPLETED':
+        return 'emoji_events';
+      case 'MATCH_DISPUTED':
+      case 'DISPUTE_AWAITING_MODERATION':
+      case 'REF_DECISION_DISPUTED':
+        return 'gavel';
+      case 'DISPUTE_RESOLVED':
+        return 'check_circle';
       default:
         return 'notifications';
     }
@@ -352,6 +365,10 @@ export class NotificationPanelComponent implements OnInit {
         return 'challenge-declined';
       case 'CHALLENGE_CANCELLED':
         return 'challenge-cancelled';
+      case 'MATCH_DISPUTED':
+      case 'DISPUTE_AWAITING_MODERATION':
+      case 'REF_DECISION_DISPUTED':
+        return 'notif-dispute';
       default:
         return '';
     }

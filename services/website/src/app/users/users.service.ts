@@ -41,10 +41,13 @@ export interface LeaderboardRanking {
   leaderboardId: string;
   game: string;
   platform: string;
-  rank: number;
+  rank: number | null;
   totalPlayers: number;
   xp: number;
   rankScore: number;
+  elo: number | null;
+  rankedOptIn: boolean;
+  xpOptIn: boolean;
   wins: number;
   losses: number;
 }

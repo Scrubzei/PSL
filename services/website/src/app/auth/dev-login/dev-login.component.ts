@@ -71,8 +71,10 @@ import { environment } from '../../../environments/environment';
               @if (loading) {
                 <mat-spinner diameter="20"></mat-spinner>
               } @else {
-                <mat-icon>login</mat-icon>
-                Login as User
+                <span class="dev-login-btn-content">
+                  <mat-icon matButtonIcon>login</mat-icon>
+                  Login as User
+                </span>
               }
             </button>
           </mat-card-actions>
@@ -117,6 +119,12 @@ import { environment } from '../../../environments/environment';
       max-width: 400px;
       background: #1e1e1e;
       border: 1px solid #2d2d2d;
+    }
+
+    .dev-login-btn-content {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
     }
 
     mat-card-header {

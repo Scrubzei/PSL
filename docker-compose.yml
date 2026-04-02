@@ -43,7 +43,9 @@ services:
       postgres:
         condition: service_healthy
     networks:
-      - app-network
+      app-network:
+        aliases:
+          - backend
     volumes:
       - ./services/server:/app
       - /app/node_modules

@@ -2,6 +2,8 @@ import { Controller, Get, Post, Patch, Param, Body, Query, Request, UseGuards, B
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { JwtAuthOptionalGuard } from '../auth/guards/jwt-auth-optional.guard';
 import { ApiKeyGuard } from '../auth/guards/api-key.guard';
+import { RolesGuard } from '../auth/guards/roles.guard';
+import { Roles } from '../auth/decorators/roles.decorator';
 import { MatchesService } from './matches.service';
 import { CreateMatchDto } from './dto/create-match.dto';
 import { BotCreateMatchDto } from './dto/bot-create-match.dto';
@@ -16,6 +18,15 @@ export class MatchesController {
     private readonly usersService: UsersService,
     private readonly leaderboardsService: LeaderboardsService,
   ) {}
+
+  @Get('disputes/moderation-queue')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('admin', 'ref')
+  async getModerationQueue(@Request() req) {
+    const user = await this.usersService.findById(req.user.userId);
+    const level = user?.role === 'admin' ? 'admin' : 'ref';
+    return this.matchesService.getModerationQueue(level);
+  }
 
   // Public endpoint - no auth required
   @Get('share/:token')
@@ -65,6 +76,26 @@ export class MatchesController {
     return this.matchesService.findAllForUser(req.user.userId, status, role);
   }
 
+  /** Pending XP open listings (no opponent yet) for matchfinder browse. */
+  @Get('xp-open')
+  @UseGuards(JwtAuthGuard)
+  async findXpOpen(
+    @Query('leaderboardId') leaderboardId?: string,
+    @Query('game') game?: string,
+    @Query('platform') platform?: string,
+    @Query('limit') limit?: string,
+  ) {
+    let lbId = leaderboardId;
+    if (!lbId) {
+      if (!game?.trim() || !platform?.trim()) {
+        throw new BadRequestException('Provide leaderboardId or both game and platform query parameters');
+      }
+      const lb = await this.leaderboardsService.findByGameAndPlatform(game, platform);
+      lbId = lb.id;
+    }
+    return this.matchesService.findXpOpenForLeaderboard(lbId, limit ? parseInt(limit, 10) : 50);
+  }
+
   @Get(':id')
   async findOne(@Param('id') id: string) {
     return this.matchesService.findOne(id);
@@ -110,6 +141,23 @@ export class MatchesController {
   @UseGuards(JwtAuthGuard)
   async concedeDispute(@Param('id') id: string, @Request() req) {
     return this.matchesService.concedeDispute(id, req.user.userId);
+  }
+
+  @Patch(':id/moderate')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('admin', 'ref')
+  async moderateMatch(
+    @Param('id') id: string,
+    @Request() req,
+    @Body() body: { winnerId: string },
+  ) {
+    return this.matchesService.moderateMatch(req.user.userId, id, body.winnerId);
+  }
+
+  @Post(':id/dispute-ref-decision')
+  @UseGuards(JwtAuthGuard)
+  async disputeRefDecision(@Param('id') id: string, @Request() req) {
+    return this.matchesService.disputeRefDecision(req.user.userId, id);
   }
 
   // Bot-authenticated endpoints (API key instead of JWT)

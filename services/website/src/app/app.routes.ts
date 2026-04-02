@@ -21,6 +21,8 @@ import { DownloadComponent } from './download/download.component';
 import { MatchfinderComponent } from './matchfinder/matchfinder.component';
 import { MatchfinderDetailComponent } from './matchfinder/matchfinder-detail.component';
 import { homeRedirectGuard } from './auth/home-redirect.guard';
+import { refOrAdminGuard } from './auth/ref-or-admin.guard';
+import { DisputesPageComponent } from './disputes/disputes-page.component';
 
 export const routes: Routes = [
   { path: '', canActivate: [homeRedirectGuard], children: [] },
@@ -39,6 +41,11 @@ export const routes: Routes = [
   { path: 'matchfinder/:game/:platform', component: MatchfinderDetailComponent },
   { path: 'challenges', component: ChallengesComponent },
   { path: 'challenges/:id', component: ChallengeDetailComponent },
+  {
+    path: 'disputes',
+    component: DisputesPageComponent,
+    canActivate: [authGuard, refOrAdminGuard],
+  },
   { path: 'tournaments', component: TournamentsListComponent },
   { path: 'tournaments/create', component: TournamentCreateComponent, canActivate: [authGuard, adminGuard] },
   { path: 'tournaments/:id', component: TournamentDetailComponent },

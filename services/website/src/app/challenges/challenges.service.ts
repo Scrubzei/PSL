@@ -6,6 +6,14 @@ import { environment } from '../../environments/environment';
 export type MatchType = 'XP' | 'RANKED';
 export type MatchStatus = 'SEARCHING' | 'PENDING' | 'ACCEPTED' | 'DECLINED' | 'COMPLETED' | 'CANCELLED' | 'DISPUTED';
 
+export type DisputePhase =
+  | 'NONE'
+  | 'PLAYER_MISMATCH'
+  | 'AWAITING_REF'
+  | 'REF_DECIDED'
+  | 'AWAITING_ADMIN'
+  | 'FINAL';
+
 export interface MapResult {
   mapName: string;
   winner: 'challenger' | 'challengee';
@@ -14,7 +22,7 @@ export interface MapResult {
 export interface Match {
   id: string;
   challengerId: string;
-  challengeeId: string;
+  challengeeId: string | null;
   leaderboardId: string;
   type: MatchType;
   status: MatchStatus;
@@ -29,6 +37,12 @@ export interface Match {
   challengeeReportedMapResults?: MapResult[];
   linkOnly?: boolean;
   shareToken?: string;
+  disputePhase?: DisputePhase;
+  eloApplied?: boolean;
+  refResolvedByUserId?: string | null;
+  adminResolvedByUserId?: string | null;
+  challengerEloBefore?: number | null;
+  challengeeEloBefore?: number | null;
   createdAt: string;
   updatedAt: string;
   challenger: {
@@ -38,7 +52,7 @@ export interface Match {
   challengee: {
     id: string;
     username: string;
-  };
+  } | null;
   leaderboard: {
     id: string;
     game: { id: string; name: string };
@@ -47,7 +61,7 @@ export interface Match {
 }
 
 export interface CreateMatchDto {
-  challengeeId: string;
+  challengeeId?: string;
   leaderboardId: string;
   type: MatchType;
   bestOf: number;
@@ -55,6 +69,8 @@ export interface CreateMatchDto {
   wagerAmount?: number;
   message?: string;
   linkOnly?: boolean;
+  /** XP open listing (matchfinder); omit challengeeId. */
+  openListing?: boolean;
 }
 
 @Injectable({
@@ -67,6 +83,43 @@ export class ChallengesService {
 
   createChallenge(data: CreateMatchDto): Observable<Match> {
     return this.http.post<Match>(this.API_URL, data);
+  }
+
+  /** Post an XP open match (no opponent until someone accepts). */
+  createOpenXpMatch(body: {
+    leaderboardId: string;
+    bestOf: number;
+    selectedMaps: string[];
+    message?: string;
+  }): Observable<Match> {
+    return this.http.post<Match>(this.API_URL, {
+      ...body,
+      type: 'XP',
+      openListing: true,
+    });
+  }
+
+  /** Pending XP listings with no opponent yet for a leaderboard. */
+  getXpOpenMatches(params: {
+    leaderboardId?: string;
+    game?: string;
+    platform?: string;
+    limit?: number;
+  }): Observable<Match[]> {
+    let httpParams = new HttpParams();
+    if (params.leaderboardId) {
+      httpParams = httpParams.set('leaderboardId', params.leaderboardId);
+    }
+    if (params.game) {
+      httpParams = httpParams.set('game', params.game);
+    }
+    if (params.platform) {
+      httpParams = httpParams.set('platform', params.platform);
+    }
+    if (params.limit != null) {
+      httpParams = httpParams.set('limit', String(params.limit));
+    }
+    return this.http.get<Match[]>(`${this.API_URL}/xp-open`, { params: httpParams });
   }
 
   getMyChallenges(status?: MatchStatus, role?: 'challenger' | 'challengee'): Observable<Match[]> {
@@ -100,13 +153,30 @@ export class ChallengesService {
     return this.http.patch<Match>(`${this.API_URL}/${id}/cancel`, {});
   }
 
-  reportResult(id: string, reportedWinnerId: string): Observable<Match> {
+  reportResult(
+    id: string,
+    reportedWinnerId: string,
+    mapResults: { mapName: string; winner: 'challenger' | 'challengee' }[],
+  ): Observable<Match> {
     return this.http.patch<Match>(`${this.API_URL}/${id}/report-result`, {
-      reportedWinnerId
+      reportedWinnerId,
+      mapResults,
     });
   }
 
   concedeDispute(id: string): Observable<Match> {
     return this.http.patch<Match>(`${this.API_URL}/${id}/concede`, {});
+  }
+
+  moderateMatch(id: string, winnerId: string): Observable<Match> {
+    return this.http.patch<Match>(`${this.API_URL}/${id}/moderate`, { winnerId });
+  }
+
+  disputeRefDecision(id: string): Observable<Match> {
+    return this.http.post<Match>(`${this.API_URL}/${id}/dispute-ref-decision`, {});
+  }
+
+  getModerationQueue(): Observable<Match[]> {
+    return this.http.get<Match[]>(`${this.API_URL}/disputes/moderation-queue`);
   }
 }

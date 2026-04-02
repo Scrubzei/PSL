@@ -47,10 +47,13 @@ import { AuthService } from '../auth/auth.service';
                       <span class="badge platform">{{ challenge.leaderboard.platform.name }}</span>
                       <span class="badge type" [class]="challenge.type.toLowerCase()">{{ challenge.type }}</span>
                       <span class="badge status" [class]="challenge.status.toLowerCase()">{{ challenge.status }}</span>
+                      @if (refAppealAvailable(challenge)) {
+                        <span class="badge appeal">Appeal to admin</span>
+                      }
                     </div>
                     <div class="details">
                       <p><strong>Best of:</strong> {{ challenge.bestOf }}</p>
-                      <p><strong>Maps:</strong> {{ challenge.selectedMaps?.join(', ') }}</p>
+                      <p><strong>Maps:</strong> {{ challenge.selectedMaps.join(', ') }}</p>
                       <p class="time">{{ getTimeAgo(challenge.createdAt) }}</p>
                     </div>
                   </mat-card-content>
@@ -63,9 +66,9 @@ import { AuthService } from '../auth/auth.service';
                         <mat-icon>close</mat-icon> Decline
                       </button>
                     }
-                    @if (challenge.status === 'ACCEPTED') {
+                    @if (challenge.status === 'ACCEPTED' || challenge.status === 'DISPUTED' || challenge.status === 'COMPLETED') {
                       <button mat-button color="primary" (click)="viewChallenge(challenge)">
-                        <mat-icon>visibility</mat-icon> View Details
+                        <mat-icon>visibility</mat-icon> View details
                       </button>
                     }
                   </mat-card-actions>
@@ -86,7 +89,7 @@ import { AuthService } from '../auth/auth.service';
               @for (challenge of outgoingChallenges; track challenge.id) {
                 <mat-card class="challenge-card" [class.highlighted]="challenge.id === highlightedChallengeId">
                   <mat-card-header>
-                    <mat-card-title>{{ challenge.challengee.username }}</mat-card-title>
+                    <mat-card-title>{{ challenge.challengee?.username ?? 'Open listing' }}</mat-card-title>
                     <mat-card-subtitle>you challenged</mat-card-subtitle>
                   </mat-card-header>
                   <mat-card-content>
@@ -95,10 +98,13 @@ import { AuthService } from '../auth/auth.service';
                       <span class="badge platform">{{ challenge.leaderboard.platform.name }}</span>
                       <span class="badge type" [class]="challenge.type.toLowerCase()">{{ challenge.type }}</span>
                       <span class="badge status" [class]="challenge.status.toLowerCase()">{{ challenge.status }}</span>
+                      @if (refAppealAvailable(challenge)) {
+                        <span class="badge appeal">Appeal to admin</span>
+                      }
                     </div>
                     <div class="details">
                       <p><strong>Best of:</strong> {{ challenge.bestOf }}</p>
-                      <p><strong>Maps:</strong> {{ challenge.selectedMaps?.join(', ') }}</p>
+                      <p><strong>Maps:</strong> {{ challenge.selectedMaps.join(', ') }}</p>
                       <p class="time">{{ getTimeAgo(challenge.createdAt) }}</p>
                     </div>
                   </mat-card-content>
@@ -108,9 +114,9 @@ import { AuthService } from '../auth/auth.service';
                         <mat-icon>cancel</mat-icon> Cancel
                       </button>
                     }
-                    @if (challenge.status === 'ACCEPTED') {
+                    @if (challenge.status === 'ACCEPTED' || challenge.status === 'DISPUTED' || challenge.status === 'COMPLETED') {
                       <button mat-button color="primary" (click)="viewChallenge(challenge)">
-                        <mat-icon>visibility</mat-icon> View Details
+                        <mat-icon>visibility</mat-icon> View details
                       </button>
                     }
                   </mat-card-actions>
@@ -143,13 +149,8 @@ import { AuthService } from '../auth/auth.service';
               @for (challenge of disputedChallenges; track challenge.id) {
                 <mat-card class="challenge-card disputed clickable" [class.highlighted]="challenge.id === highlightedChallengeId" (click)="viewChallenge(challenge)">
                   <mat-card-header>
-                    @if (challenge.challengerId === currentUserId) {
-                      <mat-card-title>vs {{ challenge.challengee.username }}</mat-card-title>
-                      <mat-card-subtitle>You challenged</mat-card-subtitle>
-                    } @else {
-                      <mat-card-title>vs {{ challenge.challenger.username }}</mat-card-title>
-                      <mat-card-subtitle>Challenged you</mat-card-subtitle>
-                    }
+                    <mat-card-title>vs {{ challenge.challengerId === currentUserId ? (challenge.challengee?.username ?? 'Open listing') : challenge.challenger.username }}</mat-card-title>
+                    <mat-card-subtitle>{{ challenge.challengerId === currentUserId ? 'You challenged' : 'Challenged you' }}</mat-card-subtitle>
                   </mat-card-header>
                   <mat-card-content>
                     <div class="badges">
@@ -164,13 +165,13 @@ import { AuthService } from '../auth/auth.service';
                         <span class="winner">{{ getReportedWinnerName(challenge, challenge.challengerReportedWinnerId) }}</span>
                       </div>
                       <div class="report">
-                        <strong>{{ challenge.challengee.username }}</strong> reported:
+                        <strong>{{ challenge.challengee?.username ?? '—' }}</strong> reported:
                         <span class="winner">{{ getReportedWinnerName(challenge, challenge.challengeeReportedWinnerId) }}</span>
                       </div>
                     </div>
                     <div class="details">
                       <p><strong>Best of:</strong> {{ challenge.bestOf }}</p>
-                      <p><strong>Maps:</strong> {{ challenge.selectedMaps?.join(', ') }}</p>
+                      <p><strong>Maps:</strong> {{ challenge.selectedMaps.join(', ') }}</p>
                       <p class="time">{{ getTimeAgo(challenge.createdAt) }}</p>
                     </div>
                   </mat-card-content>
@@ -196,13 +197,8 @@ import { AuthService } from '../auth/auth.service';
               @for (challenge of allChallenges; track challenge.id) {
                 <mat-card class="challenge-card clickable" [class.highlighted]="challenge.id === highlightedChallengeId" (click)="viewChallenge(challenge)">
                   <mat-card-header>
-                    @if (challenge.challengerId === currentUserId) {
-                      <mat-card-title>vs {{ challenge.challengee.username }}</mat-card-title>
-                      <mat-card-subtitle>You challenged</mat-card-subtitle>
-                    } @else {
-                      <mat-card-title>vs {{ challenge.challenger.username }}</mat-card-title>
-                      <mat-card-subtitle>Challenged you</mat-card-subtitle>
-                    }
+                    <mat-card-title>vs {{ challenge.challengerId === currentUserId ? (challenge.challengee?.username ?? 'Open listing') : challenge.challenger.username }}</mat-card-title>
+                    <mat-card-subtitle>{{ challenge.challengerId === currentUserId ? 'You challenged' : 'Challenged you' }}</mat-card-subtitle>
                   </mat-card-header>
                   <mat-card-content>
                     <div class="badges">
@@ -210,13 +206,24 @@ import { AuthService } from '../auth/auth.service';
                       <span class="badge platform">{{ challenge.leaderboard.platform.name }}</span>
                       <span class="badge type" [class]="challenge.type.toLowerCase()">{{ challenge.type }}</span>
                       <span class="badge status" [class]="challenge.status.toLowerCase()">{{ challenge.status }}</span>
+                      @if (refAppealAvailable(challenge)) {
+                        <span class="badge appeal">Appeal to admin</span>
+                      }
                     </div>
                     <div class="details">
                       <p><strong>Best of:</strong> {{ challenge.bestOf }}</p>
-                      <p><strong>Maps:</strong> {{ challenge.selectedMaps?.join(', ') }}</p>
+                      <p><strong>Maps:</strong> {{ challenge.selectedMaps.join(', ') }}</p>
                       <p class="time">{{ getTimeAgo(challenge.createdAt) }}</p>
                     </div>
                   </mat-card-content>
+                  <mat-card-actions>
+                    <button
+                      mat-button
+                      color="primary"
+                      (click)="viewChallenge(challenge); $event.stopPropagation()">
+                      <mat-icon>visibility</mat-icon> View details
+                    </button>
+                  </mat-card-actions>
                 </mat-card>
               }
             }
@@ -343,6 +350,14 @@ import { AuthService } from '../auth/auth.service';
     .badge.status.disputed {
       background: rgba(229, 115, 115, 0.15);
       color: #e57373;
+    }
+
+    .badge.appeal {
+      background: rgba(255, 152, 0, 0.18);
+      color: #ffb74d;
+      text-transform: none;
+      letter-spacing: 0.2px;
+      font-size: 10px;
     }
 
     .disputes-tab-label {
@@ -583,6 +598,22 @@ export class ChallengesComponent implements OnInit {
     this.router.navigate(['/challenges', challenge.id]);
   }
 
+  /** XP match: ref ruled, players can still escalate to admin (same rules as challenge detail). */
+  refAppealAvailable(challenge: Match): boolean {
+    if (challenge.type !== 'XP' || challenge.status !== 'COMPLETED') {
+      return false;
+    }
+    if (challenge.adminResolvedByUserId || challenge.disputePhase === 'AWAITING_ADMIN') {
+      return false;
+    }
+    return (
+      challenge.disputePhase === 'REF_DECIDED' ||
+      (!!challenge.refResolvedByUserId &&
+        challenge.disputePhase === 'FINAL' &&
+        !challenge.adminResolvedByUserId)
+    );
+  }
+
   getTimeAgo(dateString: string): string {
     const date = new Date(dateString);
     const now = new Date();
@@ -600,6 +631,6 @@ export class ChallengesComponent implements OnInit {
     if (winnerId === challenge.challengerId) {
       return challenge.challenger.username;
     }
-    return challenge.challengee.username;
+    return challenge.challengee?.username ?? '—';
   }
 }

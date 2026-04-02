@@ -8,7 +8,9 @@ export type NotificationType =
   | 'CHALLENGE_CANCELLED'
   | 'MATCH_COMPLETED'
   | 'MATCH_DISPUTED'
-  | 'DISPUTE_RESOLVED';
+  | 'DISPUTE_RESOLVED'
+  | 'DISPUTE_AWAITING_MODERATION'
+  | 'REF_DECISION_DISPUTED';
 
 @Entity('notifications')
 export class Notification {

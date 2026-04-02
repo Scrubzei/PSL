@@ -1,9 +1,29 @@
-import { IsNotEmpty, IsUUID, IsEnum, IsNumber, Min, Max, IsArray, ArrayMinSize, IsOptional, IsString, IsBoolean } from 'class-validator';
+import {
+  IsNotEmpty,
+  IsUUID,
+  IsEnum,
+  IsNumber,
+  Min,
+  Max,
+  IsArray,
+  ArrayMinSize,
+  IsOptional,
+  IsString,
+  IsBoolean,
+  ValidateIf,
+} from 'class-validator';
 
 export class CreateMatchDto {
+  /** Required unless openListing is true (XP open match on matchfinder). */
+  @ValidateIf((o) => !o.openListing)
   @IsNotEmpty()
   @IsUUID()
-  challengeeId: string;
+  challengeeId?: string;
+
+  /** When true, creates an XP listing with no opponent until someone accepts (challengeeId must be omitted). */
+  @IsOptional()
+  @IsBoolean()
+  openListing?: boolean;
 
   @IsNotEmpty()
   @IsUUID()

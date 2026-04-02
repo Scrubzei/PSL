@@ -1,6 +1,6 @@
 import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { ActivatedRoute, Router } from '@angular/router';
+import { ActivatedRoute, Router, RouterModule } from '@angular/router';
 import { MatCardModule } from '@angular/material/card';
 import { MatTabsModule } from '@angular/material/tabs';
 import { MatTableModule } from '@angular/material/table';
@@ -35,6 +35,7 @@ interface DisplayEntry {
   standalone: true,
   imports: [
     CommonModule,
+    RouterModule,
     FormsModule,
     MatCardModule,
     MatTabsModule,
@@ -161,7 +162,11 @@ interface DisplayEntry {
                     <ng-container matColumnDef="username">
                       <th mat-header-cell *matHeaderCellDef>Player</th>
                       <td mat-cell *matCellDef="let entry" [class.placeholder-cell]="entry.placeholder" [class.rank-1-name]="entry.rank === 1 && !entry.placeholder" [class.rank-2-name]="entry.rank === 2 && !entry.placeholder" [class.rank-3-name]="entry.rank === 3 && !entry.placeholder">
-                        {{ entry.placeholder ? 'Awaiting placement match' : entry.username }}
+                        @if (entry.placeholder) {
+                          Awaiting placement match
+                        } @else {
+                          <a [routerLink]="['/users', entry.userId]" class="lb-player-link">{{ entry.username }}</a>
+                        }
                       </td>
                     </ng-container>
 
@@ -197,15 +202,21 @@ interface DisplayEntry {
               </div>
             </mat-tab>
 
-            <mat-tab disabled>
-              <ng-template mat-tab-label>
-                <span class="locked-tab"><mat-icon class="lock-icon">lock</mat-icon> XP</span>
-              </ng-template>
-              <div class="table-container locked-tab-content">
-                <div class="ranked-notice">
-                  <mat-icon>lock</mat-icon>
-                  <p>XP leaderboard is coming soon.</p>
+            <mat-tab label="XP (Elo)">
+              <div class="table-container xp-tab">
+                @if (leaderboard) {
+                <div class="xp-actions">
+                  @if (!xpOptIn) {
+                    <button mat-flat-button color="primary" (click)="xpJoin()">
+                      <mat-icon>emoji_events</mat-icon>
+                      Join XP ladder
+                    </button>
+                  }
+                  @if (xpOptIn) {
+                    <span class="xp-joined-badge"><mat-icon>check_circle</mat-icon> On XP ladder</span>
+                  }
                 </div>
+                }
                 <table mat-table [dataSource]="xpData">
                     <ng-container matColumnDef="rank">
                       <th mat-header-cell *matHeaderCellDef>Rank</th>
@@ -217,12 +228,16 @@ interface DisplayEntry {
                     <ng-container matColumnDef="username">
                       <th mat-header-cell *matHeaderCellDef>Player</th>
                       <td mat-cell *matCellDef="let entry" [class.placeholder-cell]="entry.placeholder">
-                        {{ entry.placeholder ? '?' : entry.username }}
+                        @if (entry.placeholder) {
+                          ?
+                        } @else {
+                          <a [routerLink]="['/users', entry.userId]" class="lb-player-link">{{ entry.username }}</a>
+                        }
                       </td>
                     </ng-container>
 
                     <ng-container matColumnDef="score">
-                      <th mat-header-cell *matHeaderCellDef>XP</th>
+                      <th mat-header-cell *matHeaderCellDef>Elo</th>
                       <td mat-cell *matCellDef="let entry" [class.placeholder-cell]="entry.placeholder">
                         {{ entry.placeholder ? '—' : (entry.score | number) }}
                       </td>
@@ -520,6 +535,38 @@ interface DisplayEntry {
       .podium-bar-1 { height: 72px; }
       .podium-bar-2 { height: 50px; }
       .podium-bar-3 { height: 36px; }
+    }
+
+    .lb-player-link {
+      color: rgba(255, 255, 255, 0.95);
+      text-decoration: none;
+      font-weight: 500;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.2);
+      &:hover {
+        color: var(--theme-primary-bright, #ff6b6b);
+        border-bottom-color: var(--theme-primary-bright, #ff6b6b);
+      }
+    }
+
+    .xp-tab .xp-actions {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      margin-bottom: 16px;
+      flex-wrap: wrap;
+    }
+
+    .xp-joined-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      color: #81c784;
+      font-size: 14px;
+      mat-icon {
+        font-size: 20px;
+        width: 20px;
+        height: 20px;
+      }
     }
 
     .table-container {
@@ -932,7 +979,7 @@ export class LeaderboardDetailComponent implements OnInit {
   leaderboard: Leaderboard | null = null;
   rankedData: DisplayEntry[] = [];
   xpData: DisplayEntry[] = [];
-  isSignedUp = false;
+  xpOptIn = false;
   loading = true;
   editingRanks = false;
   savingRanks = false;
@@ -945,7 +992,7 @@ export class LeaderboardDetailComponent implements OnInit {
     private router: Router,
     private dialog: MatDialog,
     private snackBar: MatSnackBar,
-    private authService: AuthService,
+    public authService: AuthService,
     private leaderboardsService: LeaderboardsService,
     private themeService: ThemeService
   ) {}
@@ -1002,14 +1049,14 @@ export class LeaderboardDetailComponent implements OnInit {
             if (this.authService.isAuthenticated()) {
               this.leaderboardsService.getMyEntry(leaderboard.id).subscribe({
                 next: (myEntry) => {
-                  this.isSignedUp = myEntry.isSignedUp;
+                  this.xpOptIn = !!myEntry.entry?.xpOptIn;
                 },
                 error: () => {
-                  this.isSignedUp = false;
+                  this.xpOptIn = false;
                 }
               });
             } else {
-              this.isSignedUp = false;
+              this.xpOptIn = false;
             }
           },
           error: () => {
@@ -1033,16 +1080,37 @@ export class LeaderboardDetailComponent implements OnInit {
   }
 
   private mapToDisplayEntry(entry: LeaderboardEntry, type: 'ranked' | 'xp'): DisplayEntry {
+    const eloScore = entry.elo ?? entry.xp;
     return {
       id: entry.id,
       rank: entry.rank,
       userId: entry.userId,
       username: entry.username,
       emblem: entry.emblem,
-      score: type === 'ranked' ? entry.rankScore : entry.xp,
+      score: type === 'ranked' ? entry.rankScore : eloScore,
       wins: entry.wins,
       losses: entry.losses
     };
+  }
+
+  xpJoin(): void {
+    if (!this.leaderboard) return;
+    if (!this.authService.isAuthenticated()) {
+      this.dialog.open(AuthModalComponent, {
+        width: '400px',
+        data: { message: 'Sign in to join the XP ladder' },
+      });
+      return;
+    }
+    this.leaderboardsService.xpJoin(this.leaderboard.id).subscribe({
+      next: () => {
+        this.snackBar.open('You joined the XP ladder!', 'Close', { duration: 3000 });
+        this.loadLeaderboardData();
+      },
+      error: (err) => {
+        this.snackBar.open(err.error?.message || 'Failed to join XP ladder', 'Close', { duration: 3000 });
+      },
+    });
   }
 
   signUp(): void {

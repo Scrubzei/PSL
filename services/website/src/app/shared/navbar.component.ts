@@ -40,6 +40,9 @@ import { environment } from '../../environments/environment';
         @if (authService.currentUser()) {
           <a routerLink="/challenges" routerLinkActive="active">My Matches</a>
         }
+        @if (isStaff) {
+          <a routerLink="/disputes" routerLinkActive="active">Disputes</a>
+        }
         <a routerLink="/rules" routerLinkActive="active">Rules</a>
       </nav>
 
@@ -141,6 +144,12 @@ import { environment } from '../../environments/environment';
           <a routerLink="/challenges" routerLinkActive="active" (click)="closeMobileMenu()">
             <mat-icon>sports_esports</mat-icon>
             My Matches
+          </a>
+        }
+        @if (isStaff) {
+          <a routerLink="/disputes" routerLinkActive="active" (click)="closeMobileMenu()">
+            <mat-icon>gavel</mat-icon>
+            Disputes
           </a>
         }
         <a routerLink="/rules" routerLinkActive="active" (click)="closeMobileMenu()">
@@ -614,6 +623,11 @@ import { environment } from '../../environments/environment';
 export class NavbarComponent {
   mobileMenuOpen = signal(false);
   isProduction = environment.production;
+
+  get isStaff(): boolean {
+    const r = this.authService.currentUser()?.role;
+    return r === 'ref' || r === 'admin';
+  }
 
   constructor(
     public authService: AuthService,

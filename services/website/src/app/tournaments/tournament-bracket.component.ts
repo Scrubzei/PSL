@@ -187,14 +187,14 @@ interface RoundData {
                           <div class="players">
                             <!-- Player 1 -->
                             <div class="player-slot"
-                                 [class.winner]="match.status === 'COMPLETED' && !match.isBye && match.winner?.id === match.player1?.id"
-                                 [class.loser]="match.status === 'COMPLETED' && !match.isBye && match.player1 && match.winner?.id !== match.player1?.id">
+                                 [class.winner]="match.status === 'COMPLETED' && !match.isBye && !!match.winner && !!match.player1 && match.winner.id === match.player1.id"
+                                 [class.loser]="match.status === 'COMPLETED' && !match.isBye && match.player1 && match.winner && match.winner.id !== match.player1.id">
                               @if (match.player1) {
                                 <div class="player-avatar">
                                   <span>{{ match.player1.username.charAt(0).toUpperCase() }}</span>
                                 </div>
                                 <span class="player-name">{{ match.player1.username }}</span>
-                                @if (match.status === 'COMPLETED' && !match.isBye && match.winner?.id === match.player1?.id) {
+                                @if (match.status === 'COMPLETED' && !match.isBye && match.winner && match.winner.id === match.player1.id) {
                                   <mat-icon class="winner-icon">emoji_events</mat-icon>
                                 }
                               } @else {
@@ -211,14 +211,14 @@ interface RoundData {
 
                             <!-- Player 2 -->
                             <div class="player-slot"
-                                 [class.winner]="match.status === 'COMPLETED' && !match.isBye && match.winner?.id === match.player2?.id"
-                                 [class.loser]="match.status === 'COMPLETED' && !match.isBye && match.player2 && match.winner?.id !== match.player2?.id">
+                                 [class.winner]="match.status === 'COMPLETED' && !match.isBye && !!match.winner && !!match.player2 && match.winner.id === match.player2.id"
+                                 [class.loser]="match.status === 'COMPLETED' && !match.isBye && match.player2 && match.winner && match.winner.id !== match.player2.id">
                               @if (match.player2) {
                                 <div class="player-avatar">
                                   <span>{{ match.player2.username.charAt(0).toUpperCase() }}</span>
                                 </div>
                                 <span class="player-name">{{ match.player2.username }}</span>
-                                @if (match.status === 'COMPLETED' && !match.isBye && match.winner?.id === match.player2?.id) {
+                                @if (match.status === 'COMPLETED' && !match.isBye && match.winner && match.winner.id === match.player2.id) {
                                   <mat-icon class="winner-icon">emoji_events</mat-icon>
                                 }
                               } @else {

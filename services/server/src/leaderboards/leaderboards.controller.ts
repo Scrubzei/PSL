@@ -21,11 +21,6 @@ export class LeaderboardsController {
     return this.leaderboardsService.findByGameAndPlatform(game, platform);
   }
 
-  @Get(':id')
-  async findById(@Param('id') id: string) {
-    return this.leaderboardsService.findById(id);
-  }
-
   @Get(':id/entries')
   async getEntries(
     @Param('id') id: string,
@@ -38,6 +33,12 @@ export class LeaderboardsController {
   @Post(':id/signup')
   async signup(@Param('id') id: string, @Request() req) {
     return this.leaderboardsService.signup(req.user.userId, id);
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Post(':id/xp-join')
+  async xpJoin(@Param('id') id: string, @Request() req) {
+    return this.leaderboardsService.xpJoin(req.user.userId, id);
   }
 
   @UseGuards(JwtAuthGuard)
@@ -66,5 +67,10 @@ export class LeaderboardsController {
   ) {
     await this.leaderboardsService.updateRanks(id, body.ranks);
     return { success: true };
+  }
+
+  @Get(':id')
+  async findById(@Param('id') id: string) {
+    return this.leaderboardsService.findById(id);
   }
 }

@@ -45,7 +45,7 @@ import { AuthService } from '../auth/auth.service';
             <div class="match-title">
               <span class="player">{{ match.challenger.username || 'Player 1' }}</span>
               <span class="vs">VS</span>
-              <span class="player">{{ match.challengee.username || 'Player 2' }}</span>
+              <span class="player">{{ match.challengee?.username ?? 'Player 2' }}</span>
             </div>
 
             <div class="match-details">
