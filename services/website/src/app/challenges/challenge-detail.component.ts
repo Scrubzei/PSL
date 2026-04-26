@@ -10,9 +10,13 @@ import { MatRadioModule } from '@angular/material/radio';
 import { MatDividerModule } from '@angular/material/divider';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
+import { MatFormFieldModule } from '@angular/material/form-field';
+import { MatSelectModule } from '@angular/material/select';
 import { ChallengesService, Match } from './challenges.service';
-import { AuthService } from '../auth/auth.service';
+import { AuthService, User } from '../auth/auth.service';
 import { LeaderboardsService } from '../leaderboard/leaderboards.service';
+import { GamesService } from '../games/games.service';
+import { mapImageUrl } from '../games/map-assets';
 
 @Component({
   selector: 'app-challenge-detail',
@@ -27,29 +31,48 @@ import { LeaderboardsService } from '../leaderboard/leaderboards.service';
     MatRadioModule,
     MatDividerModule,
     MatProgressSpinnerModule,
-    MatSnackBarModule
+    MatSnackBarModule,
+    MatFormFieldModule,
+    MatSelectModule,
   ],
   template: `
+    <div class="arena-challenge-detail">
+    <div class="detail-bg" aria-hidden="true"></div>
     <div class="challenge-detail-container">
       @if (loading) {
-        <div class="loading">
-          <mat-spinner diameter="40"></mat-spinner>
-          <p>Loading challenge...</p>
+        <div class="loading detail-loading">
+          <mat-spinner diameter="44"></mat-spinner>
+          <p class="loading-label">Loading match</p>
         </div>
       } @else if (match) {
-        <div class="header-actions">
-          <button mat-button class="back-button" (click)="goBack()">
-            <mat-icon>arrow_back</mat-icon> Back to Challenges
+        <div class="detail-toolbar">
+          <button type="button" mat-button class="detail-back-btn" (click)="goBack()">
+            <mat-icon>arrow_back</mat-icon>
+            <span>Challenges</span>
           </button>
           @if (match.shareToken) {
-            <button mat-stroked-button class="share-button" (click)="copyShareLink()">
-              <mat-icon>share</mat-icon> Copy Share Link
+            <button type="button" mat-stroked-button class="detail-share-btn" (click)="copyShareLink()">
+              <mat-icon>share</mat-icon>
+              Copy link
             </button>
           }
         </div>
 
-        <mat-card class="match-card">
-          <mat-card-header>
+        <mat-card class="detail-match-card match-card">
+          @if (match.selectedMaps.length > 0) {
+            <div
+              class="detail-card-hero"
+              [style.background-image]="'url(' + firstMapHeroUrl() + ')'"
+              role="img"
+              [attr.aria-label]="'Map: ' + match.selectedMaps[0]">
+              <div class="detail-card-hero-overlay"></div>
+              <div class="detail-card-hero-strip">
+                <span class="detail-hero-kicker">Arena</span>
+                <span class="detail-hero-sub">{{ match.leaderboard.game.name }} · {{ match.leaderboard.platform.name }}</span>
+              </div>
+            </div>
+          }
+          <mat-card-header class="detail-card-heading">
             <mat-card-title class="match-title">
               @if (isOpenMatchPending) {
                 {{ match.challenger.username }} — open XP listing
@@ -57,8 +80,12 @@ import { LeaderboardsService } from '../leaderboard/leaderboards.service';
                 {{ match.challenger.username }} vs {{ match.challengee?.username }}
               }
             </mat-card-title>
-            <mat-card-subtitle>
-              {{ match.leaderboard.game.name }} - {{ match.leaderboard.platform.name }}
+            <mat-card-subtitle class="detail-card-subtitle">
+              @if (match.selectedMaps.length === 0) {
+                {{ match.leaderboard.game.name }} · {{ match.leaderboard.platform.name }}
+              } @else {
+                Bo{{ match.bestOf }} · {{ match.type }}
+              }
             </mat-card-subtitle>
           </mat-card-header>
 
@@ -97,6 +124,38 @@ import { LeaderboardsService } from '../leaderboard/leaderboards.service';
 
           @if (!isOpenMatchPending) {
           <mat-card-content>
+            @if (match.status === 'PENDING' && isChallenger && match.challengee) {
+              <div class="pending-challenger-panel detail-inset-panel">
+                <h3 class="detail-section-title pending-title">Maps</h3>
+                <p class="pending-hint">
+                  @if (match.type === 'RANKED') {
+                    <span class="pending-hint-lead">Ranked is best of 3 — you set all three maps. </span>
+                  }
+                  Edit maps or cancel before {{ match.challengee.username }} accepts.
+                </p>
+                <div class="pending-map-grid">
+                  @for (map of pendingMapDrafts; track $index; let i = $index) {
+                    <mat-form-field appearance="outline" class="pending-map-field">
+                      <mat-label>Map {{ i + 1 }}</mat-label>
+                      <mat-select [(ngModel)]="pendingMapDrafts[i]">
+                        @for (opt of mapOptions; track opt) {
+                          <mat-option [value]="opt">{{ opt }}</mat-option>
+                        }
+                      </mat-select>
+                    </mat-form-field>
+                  }
+                </div>
+                <div class="pending-actions">
+                  <button mat-raised-button color="primary" (click)="savePendingMaps()" [disabled]="submitting || !pendingMapDraftsValid">
+                    Save maps
+                  </button>
+                  <button mat-stroked-button color="warn" (click)="cancelPendingChallenge()" [disabled]="submitting">
+                    Cancel challenge
+                  </button>
+                </div>
+              </div>
+            }
+
             <div class="match-info">
               <div class="badges">
                 <span class="badge type" [class]="match.type.toLowerCase()">{{ match.type }}</span>
@@ -107,12 +166,16 @@ import { LeaderboardsService } from '../leaderboard/leaderboards.service';
 
             <!-- Dispute Warning -->
             @if (match.status === 'DISPUTED') {
-              <div class="dispute-warning">
+              <div class="dispute-warning detail-section detail-section--dispute">
                 <mat-icon>warning</mat-icon>
                 <div class="dispute-text">
                   @if (match.disputePhase === 'AWAITING_ADMIN') {
                     <strong>Awaiting admin decision</strong>
-                    <p>A ref ruling was disputed. An admin will set the final winner.</p>
+                    @if (match.type === 'XP') {
+                      <p>A ref ruling was disputed. An admin will set the final winner.</p>
+                    } @else {
+                      <p>An admin will set the final winner.</p>
+                    }
                   } @else if (match.disputePhase === 'AWAITING_REF') {
                     <strong>Awaiting staff review</strong>
                     <p>Results conflict — a ref or admin will decide the winner.</p>
@@ -126,7 +189,7 @@ import { LeaderboardsService } from '../leaderboard/leaderboards.service';
 
             <!-- Reporting Status -->
             @if (match.status === 'ACCEPTED' || match.status === 'DISPUTED') {
-              <div class="reporting-status">
+              <div class="reporting-status detail-section detail-section--reports">
                 <div class="reporter" [class.reported]="match.challengerReportedWinnerId">
                   <mat-icon>{{ match.challengerReportedWinnerId ? 'check_circle' : 'hourglass_empty' }}</mat-icon>
                   <span class="reporter-name">{{ match.challenger.username }}</span>
@@ -154,7 +217,7 @@ import { LeaderboardsService } from '../leaderboard/leaderboards.service';
 
             <!-- Score Display -->
             @if (canReport || match.status === 'COMPLETED') {
-              <div class="score-display">
+              <div class="score-display detail-scoreboard">
                 <span class="player-score" [class.winner]="challengerWins > challengeeWins">
                   {{ match.challenger.username }}
                 </span>
@@ -171,8 +234,8 @@ import { LeaderboardsService } from '../leaderboard/leaderboards.service';
 
             <!-- Map Results Section -->
             @if (canReport) {
-              <div class="map-results-section">
-                <h3>Map Results</h3>
+              <div class="map-results-section detail-section">
+                <h3 class="detail-section-title">Map results</h3>
                 @for (map of match.selectedMaps; track $index; let i = $index) {
                   <div class="map-result-row">
                     <div class="map-info">
@@ -214,7 +277,7 @@ import { LeaderboardsService } from '../leaderboard/leaderboards.service';
               @if (match.disputePhase) {
                 <p class="phase-line">Status: {{ match.disputePhase }}</p>
               }
-              @if (match.type === 'XP' && match.disputePhase === 'REF_DECIDED' && !match.adminResolvedByUserId) {
+              @if ((match.type === 'XP' || match.type === 'RANKED') && match.disputePhase === 'REF_DECIDED' && !match.adminResolvedByUserId) {
                 <p class="ref-appeal-hint">
                   A ref set this result. Either player may escalate to an admin if you disagree.
                 </p>
@@ -234,7 +297,7 @@ import { LeaderboardsService } from '../leaderboard/leaderboards.service';
 
           <!-- Actions -->
           @if (canReport) {
-            <mat-card-actions>
+            <mat-card-actions class="detail-card-actions">
               <button
                 mat-raised-button
                 color="primary"
@@ -277,74 +340,276 @@ import { LeaderboardsService } from '../leaderboard/leaderboards.service';
           }
         </mat-card>
       } @else {
-        <div class="not-found">
-          <mat-icon>error_outline</mat-icon>
-          <h2>Challenge not found</h2>
-          <button mat-raised-button color="primary" (click)="goBack()">Go Back</button>
+        <div class="not-found detail-not-found">
+          <div class="detail-not-found-icon" aria-hidden="true">
+            <mat-icon>error_outline</mat-icon>
+          </div>
+          <h2>Match not found</h2>
+          <p class="detail-not-found-hint">It may have been removed or the link is invalid.</p>
+          <button mat-raised-button color="primary" (click)="goBack()">Back to challenges</button>
         </div>
       }
     </div>
+    </div>
   `,
   styles: [`
+    :host {
+      display: block;
+    }
+
+    .arena-challenge-detail {
+      position: relative;
+      margin: -24px -16px 0;
+      padding: 0 0 56px;
+    }
+
+    /* Fixed layer fills the main panel below the 72px bar without inflating document height (avoids extra scroll). */
+    .detail-bg {
+      position: fixed;
+      top: 72px;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      z-index: 0;
+      pointer-events: none;
+      background:
+        radial-gradient(ellipse 90% 55% at 50% 100%, rgba(var(--theme-primary-rgb, 37, 99, 235), 0.09), transparent 52%),
+        radial-gradient(ellipse 85% 50% at 100% -5%, rgba(var(--theme-primary-rgb, 37, 99, 235), 0.14), transparent 55%),
+        radial-gradient(ellipse 60% 40% at -5% 30%, rgba(var(--theme-primary-rgb, 37, 99, 235), 0.06), transparent 50%),
+        linear-gradient(168deg, #0c0c12 0%, #10141c 42%, #0a1020 100%);
+    }
+
+    .detail-bg::after {
+      content: '';
+      position: absolute;
+      inset: 0;
+      opacity: 0.04;
+      background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+    }
+
     .challenge-detail-container {
-      padding: 24px;
-      max-width: 600px;
+      position: relative;
+      z-index: 1;
+      padding: clamp(2.75rem, 7vw, 4rem) 24px 32px;
+      max-width: 680px;
       margin: 0 auto;
     }
 
-    .loading, .not-found {
+    .detail-loading.loading,
+    .detail-not-found.not-found {
+      padding: clamp(3rem, 10vw, 5rem) 24px;
+    }
+
+    .loading,
+    .not-found {
       display: flex;
       flex-direction: column;
       align-items: center;
-      padding: 64px;
+      text-align: center;
       color: rgba(255, 255, 255, 0.5);
+    }
+
+    .loading-label {
+      margin: 20px 0 0 0;
+      font-family: 'DM Sans', sans-serif;
+      font-size: 13px;
+      font-weight: 600;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      color: rgba(255, 255, 255, 0.4);
+    }
+
+    .detail-not-found h2 {
+      margin: 20px 0 8px 0;
+      font-family: 'Bebas Neue', sans-serif;
+      font-size: clamp(1.85rem, 4vw, 2.5rem);
+      letter-spacing: 0.06em;
+      color: rgba(255, 255, 255, 0.92);
+    }
+
+    .detail-not-found-hint {
+      margin: 0 0 24px 0;
+      max-width: 320px;
+      font-family: 'DM Sans', sans-serif;
+      font-size: 14px;
+      line-height: 1.5;
+      color: rgba(255, 255, 255, 0.45);
+    }
+
+    .detail-not-found-icon {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 88px;
+      height: 88px;
+      border-radius: 50%;
+      background: rgba(255, 255, 255, 0.04);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06);
 
       mat-icon {
-        font-size: 64px;
-        width: 64px;
-        height: 64px;
-        opacity: 0.3;
-        margin-bottom: 16px;
-      }
-
-      p, h2 {
-        margin: 16px 0;
-        color: rgba(255, 255, 255, 0.7);
+        font-size: 44px;
+        width: 44px;
+        height: 44px;
+        opacity: 0.45;
+        color: rgba(255, 255, 255, 0.45);
       }
     }
 
-    .header-actions {
+    .detail-toolbar {
       display: flex;
       justify-content: space-between;
       align-items: center;
-      margin-bottom: 16px;
+      gap: 12px;
+      flex-wrap: wrap;
+      margin-bottom: 22px;
     }
 
-    .back-button {
-      color: rgba(255, 255, 255, 0.7);
+    .detail-back-btn {
+      color: rgba(255, 255, 255, 0.72) !important;
+      font-family: 'DM Sans', sans-serif;
+      font-weight: 600;
+      font-size: 13px;
+      letter-spacing: 0.02em;
+      border-radius: 0 10px 10px 0;
+      padding-left: 4px;
+      border-left: 3px solid var(--theme-primary, #2563eb);
+
+      mat-icon {
+        margin-right: 4px;
+        opacity: 0.85;
+      }
     }
 
-    .share-button {
-      color: #90caf9;
-      border-color: rgba(144, 202, 249, 0.5);
+    .detail-share-btn {
+      color: var(--theme-primary-bright, #93c5fd) !important;
+      border-color: rgba(var(--theme-primary-rgb, 37, 99, 235), 0.45) !important;
+      background: rgba(var(--theme-primary-rgb, 37, 99, 235), 0.06) !important;
+      font-family: 'DM Sans', sans-serif;
+      font-weight: 600;
+      font-size: 13px;
+      border-radius: 10px;
+
+      mat-icon {
+        font-size: 18px;
+        margin-right: 4px;
+        opacity: 0.9;
+      }
+    }
+
+    .detail-match-card.match-card {
+      overflow: hidden !important;
+      border-radius: 2px 16px 16px 2px !important;
+      border: 1px solid rgba(255, 255, 255, 0.08) !important;
+      background: linear-gradient(
+        145deg,
+        rgba(22, 24, 32, 0.92) 0%,
+        rgba(14, 14, 18, 0.88) 100%
+      ) !important;
+      backdrop-filter: blur(14px);
+      -webkit-backdrop-filter: blur(14px);
+      box-shadow:
+        0 32px 64px rgba(0, 0, 0, 0.45),
+        inset 0 1px 0 rgba(255, 255, 255, 0.05);
+    }
+
+    .detail-card-hero {
+      position: relative;
+      height: 140px;
+      margin: -16px -16px 0 -16px;
+      background-size: cover;
+      background-position: center;
+    }
+
+    .detail-card-hero-overlay {
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(
+        180deg,
+        rgba(8, 9, 14, 0.15) 0%,
+        rgba(8, 9, 14, 0.75) 55%,
+        rgba(0, 0, 0, 0.92) 100%
+      );
+      pointer-events: none;
+    }
+
+    .detail-card-hero-strip {
+      position: absolute;
+      left: 16px;
+      right: 16px;
+      bottom: 14px;
+      z-index: 1;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+
+    .detail-hero-kicker {
+      font-family: 'DM Sans', sans-serif;
+      font-size: 9px;
+      font-weight: 700;
+      letter-spacing: 0.28em;
+      text-transform: uppercase;
+      color: rgba(255, 255, 255, 0.45);
+    }
+
+    .detail-hero-sub {
+      font-family: 'DM Sans', sans-serif;
+      font-size: 13px;
+      font-weight: 600;
+      color: rgba(255, 255, 255, 0.88);
+      text-shadow: 0 2px 12px rgba(0, 0, 0, 0.8);
+    }
+
+    .detail-card-heading {
+      padding-top: 8px !important;
+    }
+
+    .detail-card-heading ::ng-deep .mat-mdc-card-header-text {
+      width: 100%;
+    }
+
+    .detail-card-heading ::ng-deep .mat-mdc-card-title {
+      font-family: 'Bebas Neue', sans-serif !important;
+      font-size: clamp(1.75rem, 4.5vw, 2.35rem) !important;
+      letter-spacing: 0.06em !important;
+      line-height: 1.05 !important;
+      color: rgba(255, 255, 255, 0.98) !important;
+      text-shadow: 0 2px 12px rgba(0, 0, 0, 0.35);
+    }
+
+    .detail-card-subtitle {
+      font-family: 'DM Sans', sans-serif !important;
+      font-size: 13px !important;
+      font-weight: 700;
+      letter-spacing: 0.12em !important;
+      text-transform: uppercase;
+      color: rgba(255, 255, 255, 0.38) !important;
+      margin-top: 0.35rem !important;
     }
 
     .match-card {
       mat-card-header {
-        margin-bottom: 16px;
-      }
-
-      mat-card-title {
-        color: white !important;
-      }
-
-      mat-card-subtitle {
-        color: rgba(255, 255, 255, 0.6) !important;
+        margin-bottom: 8px;
       }
     }
 
     .match-title {
-      font-size: 24px !important;
+      font-size: inherit !important;
+    }
+
+    .detail-section-title {
+      margin: 0 0 14px 0;
+      font-family: 'DM Sans', sans-serif;
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.22em;
+      text-transform: uppercase;
+      color: rgba(255, 255, 255, 0.38);
+    }
+
+    .detail-section {
+      margin-top: 20px;
     }
 
     .open-copy {
@@ -362,12 +627,16 @@ import { LeaderboardsService } from '../leaderboard/leaderboards.service';
     }
 
     .map-chip {
-      padding: 6px 12px;
+      padding: 7px 14px;
       border-radius: 8px;
-      font-size: 13px;
-      background: rgba(255, 255, 255, 0.06);
+      font-family: 'DM Sans', sans-serif;
+      font-size: 12px;
+      font-weight: 600;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      background: rgba(255, 255, 255, 0.05);
       border: 1px solid rgba(255, 255, 255, 0.1);
-      color: rgba(255, 255, 255, 0.85);
+      color: rgba(255, 255, 255, 0.82);
     }
 
     .open-actions {
@@ -380,6 +649,48 @@ import { LeaderboardsService } from '../leaderboard/leaderboards.service';
         font-size: 14px;
         color: rgba(255, 255, 255, 0.5);
       }
+    }
+
+    .detail-inset-panel.pending-challenger-panel {
+      margin-bottom: 24px;
+      padding: 20px 18px 20px 20px;
+      border-radius: 2px 12px 12px 2px;
+      background: rgba(0, 0, 0, 0.38);
+      border: 1px solid rgba(255, 255, 255, 0.07);
+      border-left: 3px solid var(--theme-primary, #2563eb);
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
+    }
+
+    .pending-challenger-panel .detail-section-title.pending-title {
+      margin-bottom: 10px;
+    }
+
+    .pending-hint {
+      margin: 0 0 16px 0;
+      font-size: 13px;
+      color: rgba(255, 255, 255, 0.55);
+      line-height: 1.45;
+    }
+
+    .pending-hint-lead {
+      color: rgba(255, 255, 255, 0.72);
+    }
+
+    .pending-map-grid {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      margin-bottom: 16px;
+    }
+
+    .pending-map-field {
+      width: 100%;
+    }
+
+    .pending-actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px;
     }
 
     .match-info {
@@ -441,184 +752,235 @@ import { LeaderboardsService } from '../leaderboard/leaderboards.service';
       color: rgba(255, 255, 255, 0.7);
     }
 
-    .score-display {
+    .detail-scoreboard.score-display {
+      display: grid;
+      grid-template-columns: 1fr auto 1fr;
+      align-items: center;
+      gap: 12px 20px;
+      padding: 22px 18px;
+      margin: 8px 0 0 0;
+      background:
+        linear-gradient(180deg, rgba(255, 255, 255, 0.04) 0%, transparent 45%),
+        rgba(0, 0, 0, 0.35);
+      border-radius: 2px 12px 12px 2px;
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05);
+    }
+
+    .detail-scoreboard .player-score {
+      font-family: 'DM Sans', sans-serif;
+      font-size: 14px;
+      font-weight: 600;
+      color: rgba(255, 255, 255, 0.72);
+      text-align: center;
+      line-height: 1.25;
+
+      &.winner {
+        color: #86efac;
+        text-shadow: 0 0 24px rgba(34, 197, 94, 0.25);
+      }
+    }
+
+    .detail-scoreboard .player-score:first-of-type {
+      text-align: right;
+    }
+
+    .detail-scoreboard .player-score:last-of-type {
+      text-align: left;
+    }
+
+    .detail-scoreboard .score {
       display: flex;
       align-items: center;
-      justify-content: center;
-      gap: 16px;
-      padding: 20px;
-      background: rgba(0, 0, 0, 0.2);
-      border-radius: 8px;
-      margin: 16px 0;
-      border: 1px solid #2d2d2d;
+      gap: 6px;
+      font-family: 'Bebas Neue', sans-serif;
+      font-size: clamp(2rem, 6vw, 2.75rem);
+      font-weight: 400;
+      letter-spacing: 0.06em;
+      color: rgba(255, 255, 255, 0.96);
+      line-height: 1;
 
-      .player-score {
-        font-size: 16px;
-        font-weight: 500;
-        color: rgba(255, 255, 255, 0.8);
-
-        &.winner {
-          color: #4caf50;
-          font-weight: 600;
-        }
+      .separator {
+        color: rgba(255, 255, 255, 0.22);
+        font-weight: 400;
       }
 
-      .score {
-        display: flex;
-        align-items: center;
-        gap: 8px;
-        font-size: 32px;
-        font-weight: 700;
-        color: white;
-
-        .separator {
-          color: rgba(255, 255, 255, 0.4);
-        }
-
-        .winning {
-          color: #4caf50;
-        }
+      .winning {
+        color: #86efac;
       }
     }
 
     .map-results-section {
-      margin: 24px 0;
-
-      h3 {
-        margin: 0 0 16px 0;
-        font-size: 16px;
-        font-weight: 500;
-        color: white;
-      }
+      margin: 8px 0 0 0;
     }
 
     .map-result-row {
       display: flex;
       align-items: center;
       justify-content: space-between;
-      padding: 16px;
-      background: rgba(0, 0, 0, 0.2);
-      border-radius: 8px;
-      margin-bottom: 12px;
-      border: 1px solid #2d2d2d;
+      flex-wrap: wrap;
+      gap: 14px;
+      padding: 16px 16px 16px 18px;
+      margin-bottom: 10px;
+      background: rgba(0, 0, 0, 0.28);
+      border-radius: 2px 10px 10px 2px;
+      border: 1px solid rgba(255, 255, 255, 0.07);
+      border-left: 3px solid rgba(var(--theme-primary-rgb, 37, 99, 235), 0.65);
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.03);
 
       .map-info {
         display: flex;
-        align-items: center;
-        gap: 16px;
+        align-items: baseline;
+        gap: 12px;
+        flex: 1;
+        min-width: 0;
 
         .map-number {
-          color: rgba(255, 255, 255, 0.5);
-          font-size: 13px;
-          min-width: 50px;
+          font-family: 'DM Sans', sans-serif;
+          color: rgba(255, 255, 255, 0.38);
+          font-size: 10px;
+          font-weight: 700;
+          letter-spacing: 0.16em;
+          text-transform: uppercase;
+          min-width: 52px;
         }
 
         .map-name {
-          font-weight: 500;
+          font-family: 'DM Sans', sans-serif;
+          font-weight: 600;
           font-size: 15px;
-          color: white;
+          color: rgba(255, 255, 255, 0.94);
         }
       }
 
       .map-winner-select {
         display: flex;
-        gap: 24px;
+        flex-wrap: wrap;
+        gap: 16px 20px;
       }
     }
 
-    .calculated-winner, .match-winner {
+    .map-result-row ::ng-deep .mat-mdc-radio-button .mdc-label {
+      font-family: 'DM Sans', sans-serif;
+      font-size: 13px;
+      color: rgba(255, 255, 255, 0.75);
+    }
+
+    .calculated-winner,
+    .match-winner {
       display: flex;
       align-items: center;
       justify-content: center;
-      gap: 8px;
-      padding: 24px;
-      font-size: 20px;
-      color: white;
+      gap: 12px;
+      margin-top: 8px;
+      padding: 20px;
+      font-family: 'DM Sans', sans-serif;
+      font-size: 17px;
+      font-weight: 600;
+      color: rgba(255, 255, 255, 0.92);
+      background: rgba(251, 191, 36, 0.06);
+      border: 1px solid rgba(251, 191, 36, 0.2);
+      border-radius: 2px 12px 12px 2px;
 
       mat-icon {
-        color: #ffc107;
-        font-size: 32px;
-        width: 32px;
-        height: 32px;
-      }
-    }
-
-    .dispute-warning {
-      display: flex;
-      align-items: flex-start;
-      gap: 16px;
-      padding: 16px;
-      background: rgba(244, 67, 54, 0.1);
-      border-radius: 8px;
-      margin: 16px 0;
-      border-left: 4px solid #f44336;
-
-      mat-icon {
-        color: #f44336;
+        color: #fbbf24;
         font-size: 28px;
         width: 28px;
         height: 28px;
-        flex-shrink: 0;
+      }
+
+      strong {
+        font-weight: 700;
+        color: #fde68a;
+      }
+    }
+
+    .dispute-warning.detail-section--dispute {
+      gap: 14px;
+      padding: 18px 18px 18px 16px;
+      background: linear-gradient(135deg, rgba(239, 68, 68, 0.12) 0%, rgba(0, 0, 0, 0.35) 100%);
+      border-radius: 2px 12px 12px 2px;
+      margin: 0;
+      border: 1px solid rgba(248, 113, 113, 0.25);
+      border-left: 4px solid #ef4444;
+      box-shadow: 0 12px 32px rgba(0, 0, 0, 0.25);
+
+      mat-icon {
+        color: #f87171;
+        font-size: 26px;
+        width: 26px;
+        height: 26px;
       }
 
       .dispute-text {
+        font-family: 'DM Sans', sans-serif;
+
         strong {
-          color: #e57373;
-          font-size: 16px;
+          display: block;
+          color: #fecaca;
+          font-size: 15px;
+          font-weight: 700;
+          letter-spacing: 0.02em;
         }
 
         p {
-          margin: 4px 0 0 0;
-          color: rgba(255, 255, 255, 0.6);
-          font-size: 14px;
+          margin: 8px 0 0 0;
+          color: rgba(255, 255, 255, 0.62);
+          font-size: 13px;
+          line-height: 1.5;
         }
       }
     }
 
-    .reporting-status {
-      display: flex;
-      flex-direction: column;
-      gap: 12px;
-      padding: 16px;
-      background: rgba(0, 0, 0, 0.2);
-      border-radius: 8px;
-      margin: 16px 0;
+    .reporting-status.detail-section--reports {
+      gap: 10px;
+      padding: 14px;
+      margin: 0;
+      background: rgba(0, 0, 0, 0.22);
+      border-radius: 2px 12px 12px 2px;
+      border: 1px solid rgba(255, 255, 255, 0.06);
     }
 
     .reporter {
       display: flex;
       align-items: center;
       gap: 12px;
-      padding: 12px;
-      border-radius: 8px;
-      background: rgba(0, 0, 0, 0.2);
-      border: 1px solid rgba(255, 255, 255, 0.1);
+      padding: 14px 14px 14px 16px;
+      border-radius: 2px 10px 10px 2px;
+      background: rgba(0, 0, 0, 0.28);
+      border: 1px solid rgba(255, 255, 255, 0.07);
+      transition: border-color 0.2s ease, background 0.2s ease;
 
       mat-icon {
-        color: rgba(255, 255, 255, 0.3);
-        font-size: 20px;
-        width: 20px;
-        height: 20px;
+        color: rgba(255, 255, 255, 0.35);
+        font-size: 22px;
+        width: 22px;
+        height: 22px;
         flex-shrink: 0;
       }
 
       .reporter-name {
-        font-weight: 600;
-        min-width: 100px;
-        color: white;
+        font-family: 'DM Sans', sans-serif;
+        font-weight: 700;
+        min-width: 88px;
+        color: rgba(255, 255, 255, 0.95);
+        font-size: 14px;
       }
 
       .status-text {
-        color: rgba(255, 255, 255, 0.6);
+        flex: 1;
+        font-family: 'DM Sans', sans-serif;
+        color: rgba(255, 255, 255, 0.55);
         font-size: 13px;
+        line-height: 1.4;
       }
 
       &.reported {
-        border-color: #4caf50;
-        background: rgba(76, 175, 80, 0.1);
+        border-color: rgba(34, 197, 94, 0.45);
+        background: rgba(34, 197, 94, 0.08);
 
         mat-icon {
-          color: #4caf50;
+          color: #4ade80;
         }
       }
     }
@@ -677,19 +1039,49 @@ import { LeaderboardsService } from '../leaderboard/leaderboards.service';
     }
 
     .ref-dispute-actions {
-      margin-top: 12px;
+      margin-top: 16px;
+      padding: 16px;
+      border-radius: 2px 12px 12px 2px;
+      border: 1px solid rgba(248, 113, 113, 0.2);
+      background: rgba(0, 0, 0, 0.25);
+
       p {
-        font-size: 14px;
-        color: rgba(255, 255, 255, 0.65);
+        font-family: 'DM Sans', sans-serif;
+        font-size: 13px;
+        line-height: 1.5;
+        color: rgba(255, 255, 255, 0.62);
         margin-bottom: 12px;
       }
+    }
+
+    .detail-match-card ::ng-deep .mat-mdc-card-content {
+      padding: 0 20px 20px !important;
+    }
+
+    .detail-match-card ::ng-deep .mat-mdc-card-header {
+      padding: 20px 20px 4px !important;
+    }
+
+    .detail-match-card ::ng-deep .mat-mdc-card-actions {
+      padding: 16px 20px 20px !important;
+      margin: 0 !important;
+      border-top: 1px solid rgba(255, 255, 255, 0.06);
+      background: linear-gradient(180deg, rgba(0, 0, 0, 0.15) 0%, rgba(0, 0, 0, 0.35) 100%);
+    }
+
+    .detail-inset-panel ::ng-deep .mat-mdc-text-field-wrapper {
+      background: rgba(0, 0, 0, 0.4);
+      border-radius: 10px;
+    }
+
+    .detail-match-card ::ng-deep mat-divider.mat-divider {
+      border-top-color: rgba(255, 255, 255, 0.08);
     }
 
     mat-card-actions {
       display: flex;
       align-items: center;
       gap: 12px;
-      padding: 16px;
       flex-wrap: wrap;
 
       .submit-result-btn-content {
@@ -701,16 +1093,43 @@ import { LeaderboardsService } from '../leaderboard/leaderboards.service';
       .waiting-message {
         display: flex;
         align-items: center;
-        gap: 4px;
-        color: rgba(255, 255, 255, 0.5);
-        font-size: 13px;
+        gap: 6px;
+        font-family: 'DM Sans', sans-serif;
+        color: rgba(255, 255, 255, 0.45);
+        font-size: 12px;
         margin-left: auto;
 
         mat-icon {
           font-size: 18px;
           width: 18px;
           height: 18px;
+          opacity: 0.7;
         }
+      }
+    }
+
+    @media (max-width: 540px) {
+      .detail-scoreboard.score-display {
+        grid-template-columns: 1fr;
+        gap: 16px;
+      }
+
+      .detail-scoreboard .score {
+        order: -1;
+      }
+
+      .detail-scoreboard .player-score:first-of-type,
+      .detail-scoreboard .player-score:last-of-type {
+        text-align: center;
+      }
+
+      .map-result-row {
+        flex-direction: column;
+        align-items: stretch;
+      }
+
+      .map-result-row .map-winner-select {
+        justify-content: flex-start;
       }
     }
   `]
@@ -718,6 +1137,9 @@ import { LeaderboardsService } from '../leaderboard/leaderboards.service';
 export class ChallengeDetailComponent implements OnInit {
   match: Match | null = null;
   mapResults: ('challenger' | 'challengee' | null)[] = [];
+  /** Challenger edits while PENDING */
+  pendingMapDrafts: string[] = [];
+  mapOptions: string[] = [];
   loading = true;
   submitting = false;
 
@@ -729,36 +1151,52 @@ export class ChallengeDetailComponent implements OnInit {
     private snackBar: MatSnackBar,
     private clipboard: Clipboard,
     private leaderboardsService: LeaderboardsService,
+    private gamesService: GamesService,
   ) {}
 
+  /** Profile uses `id`; JWT fallback may only set `userId` — both must work for participant checks. */
   get currentUserId(): string | null {
-    return this.authService.currentUser()?.id ?? null;
+    const u = this.authService.currentUser();
+    if (!u) return null;
+    const v = u as User & { userId?: string };
+    const raw = v.id ?? v.userId;
+    return raw != null && String(raw) !== '' ? String(raw) : null;
   }
 
   get isChallenger(): boolean {
-    return this.match?.challengerId === this.currentUserId;
+    if (!this.match || !this.currentUserId) return false;
+    return String(this.match.challengerId) === String(this.currentUserId);
   }
 
   get isOpenMatchPending(): boolean {
     return !!this.match && this.match.status === 'PENDING' && this.match.challengeeId == null;
   }
 
+  firstMapHeroUrl(): string {
+    if (!this.match?.selectedMaps?.length) return '';
+    return mapImageUrl(this.match.leaderboard.game.name, this.match.selectedMaps[0]);
+  }
+
   get canReport(): boolean {
     if (!this.match) return false;
-    if (this.match.type === 'XP' && this.match.disputePhase === 'AWAITING_ADMIN') {
+    if (
+      (this.match.type === 'XP' || this.match.type === 'RANKED') &&
+      this.match.disputePhase === 'AWAITING_ADMIN'
+    ) {
       return false;
     }
+    const uid = this.currentUserId;
     return (
       (this.match.status === 'ACCEPTED' || this.match.status === 'DISPUTED') &&
-      (this.match.challengerId === this.currentUserId ||
-       this.match.challengeeId === this.currentUserId)
+      !!uid &&
+      (String(this.match.challengerId) === uid || String(this.match.challengeeId) === uid)
     );
   }
 
   get canDisputeRefDecision(): boolean {
     if (!this.match || !this.currentUserId) return false;
     const m = this.match;
-    if (m.type !== 'XP' || m.status !== 'COMPLETED') {
+    if ((m.type !== 'XP' && m.type !== 'RANKED') || m.status !== 'COMPLETED') {
       return false;
     }
     if (m.adminResolvedByUserId || m.disputePhase === 'AWAITING_ADMIN') {
@@ -770,7 +1208,8 @@ export class ChallengeDetailComponent implements OnInit {
     if (!refRulingAppealable) {
       return false;
     }
-    return m.challengerId === this.currentUserId || m.challengeeId === this.currentUserId;
+    const uid = this.currentUserId;
+    return !!uid && (String(m.challengerId) === uid || String(m.challengeeId) === uid);
   }
 
   get hasAlreadyReported(): boolean {
@@ -801,6 +1240,14 @@ export class ChallengeDetailComponent implements OnInit {
     return null;
   }
 
+  get pendingMapDraftsValid(): boolean {
+    if (!this.match) return false;
+    return (
+      this.pendingMapDrafts.length === this.match.bestOf &&
+      this.pendingMapDrafts.every((m) => !!m && String(m).trim().length > 0)
+    );
+  }
+
   get calculatedWinnerId(): string | null {
     if (!this.match) return null;
     const winsNeeded = Math.ceil(this.match.bestOf / 2);
@@ -827,6 +1274,21 @@ export class ChallengeDetailComponent implements OnInit {
     this.challengesService.getChallenge(id).subscribe({
       next: (match) => {
         this.match = match;
+        this.pendingMapDrafts = [...(match.selectedMaps || [])];
+        const uid = this.authService.currentUser()?.id;
+        if (match.status === 'PENDING' && uid === match.challengerId && match.challengeeId) {
+          this.gamesService.getMapsByGame(match.leaderboard.game.name).subscribe({
+            next: (maps) => {
+              this.mapOptions = ['Random', ...maps.map((x) => x.mapName)];
+            },
+            error: () => {
+              this.mapOptions = ['Random'];
+            },
+          });
+        } else {
+          this.mapOptions = [];
+        }
+
         // Initialize map results array
         this.mapResults = new Array(match.selectedMaps.length).fill(null);
 
@@ -874,6 +1336,45 @@ export class ChallengeDetailComponent implements OnInit {
       return this.match.challenger.username;
     }
     return this.match.challengee?.username ?? '';
+  }
+
+  savePendingMaps(): void {
+    if (!this.match || !this.pendingMapDraftsValid) return;
+    this.submitting = true;
+    this.challengesService
+      .updatePendingMatch(this.match.id, {
+        bestOf: this.match.bestOf,
+        selectedMaps: [...this.pendingMapDrafts],
+      })
+      .subscribe({
+        next: (m) => {
+          this.match = m;
+          this.pendingMapDrafts = [...(m.selectedMaps || [])];
+          this.mapResults = new Array(m.selectedMaps.length).fill(null);
+          this.submitting = false;
+          this.snackBar.open('Maps updated', 'Close', { duration: 3000 });
+        },
+        error: (err) => {
+          this.snackBar.open(err.error?.message || 'Failed to update maps', 'Close', { duration: 4000 });
+          this.submitting = false;
+        },
+      });
+  }
+
+  cancelPendingChallenge(): void {
+    if (!this.match) return;
+    this.submitting = true;
+    this.challengesService.cancelChallenge(this.match.id).subscribe({
+      next: (m) => {
+        this.match = m;
+        this.submitting = false;
+        this.snackBar.open('Challenge cancelled', 'Close', { duration: 3000 });
+      },
+      error: (err) => {
+        this.snackBar.open(err.error?.message || 'Failed to cancel', 'Close', { duration: 3000 });
+        this.submitting = false;
+      },
+    });
   }
 
   cancelOpenListing(): void {

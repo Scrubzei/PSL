@@ -1,5 +1,5 @@
-const BACKEND_URL = process.env.BACKEND_URL || 'http://localhost:3000';
-const API_KEY = process.env.BOT_API_KEY;
+function getBackendUrl() { return process.env.BACKEND_URL || 'http://localhost:3000'; }
+function getApiKey() { return process.env.BOT_API_KEY || ''; }
 
 interface FetchOptions extends RequestInit {
   authenticated?: boolean;
@@ -13,11 +13,12 @@ export async function apiFetch<T>(endpoint: string, options: FetchOptions = {}):
     ...(fetchOptions.headers as Record<string, string>),
   };
 
-  if (authenticated && API_KEY) {
-    headers['x-api-key'] = API_KEY;
+  const apiKey = getApiKey();
+  if (authenticated && apiKey) {
+    headers['x-api-key'] = apiKey;
   }
 
-  const response = await fetch(`${BACKEND_URL}${endpoint}`, {
+  const response = await fetch(`${getBackendUrl()}${endpoint}`, {
     ...fetchOptions,
     headers,
   });
@@ -88,5 +89,61 @@ export const api = {
       method: 'PATCH',
       body: JSON.stringify({ discordId }),
       authenticated: true,
+    }),
+
+  completeMatch: (data: {
+    challengerDiscordId: string;
+    challengeeDiscordId: string;
+    winnerDiscordId: string;
+    leaderboardId: string;
+    map: string;
+  }) => apiFetch<any>('/matches/bot/complete-match', {
+    method: 'POST',
+    body: JSON.stringify(data),
+    authenticated: true,
+  }),
+
+  updateUserProfile: (discordId: string, data: { xboxGamertag?: string; ps3Username?: string; plutoniumUsername?: string; activisionId?: string }) =>
+    apiFetch<any>(`/users/by-discord/${discordId}/profile`, {
+      method: 'PATCH',
+      body: JSON.stringify(data),
+    }),
+
+  resolvePlutoId: async (plutoUsername: string): Promise<string | null> => {
+    try {
+      const res = await fetch(`https://forum.plutonium.pw/api/user/${encodeURIComponent(plutoUsername)}`);
+      if (!res.ok) return null;
+      const data = await res.json() as any;
+      return data.uid?.toString() ?? null;
+    } catch {
+      return null;
+    }
+  },
+
+  setPlutoId: (userId: string, plutoId: string) =>
+    apiFetch<any>(`/users/${userId}/pluto-id`, {
+      method: 'PATCH',
+      body: JSON.stringify({ plutoId }),
+    }),
+
+  getAvailableServer: (queueId: string) =>
+    apiFetch<any>(`/botzei/game-servers/${queueId}/available`, {
+      authenticated: true,
+    }),
+
+  setServerAvailability: (serverId: string, available: boolean) =>
+    apiFetch<any>(`/botzei/game-servers/${serverId}/available`, {
+      method: 'PATCH',
+      body: JSON.stringify({ available }),
+      authenticated: true,
+    }),
+
+  getMapsByGame: (gameName: string) =>
+    apiFetch<{ id: string; mapName: string }[]>(`/games/${encodeURIComponent(gameName)}/maps`),
+
+  createUser: (data: { discordId: string; username: string; xboxGamertag?: string }) =>
+    apiFetch<any>('/users', {
+      method: 'POST',
+      body: JSON.stringify(data),
     }),
 };

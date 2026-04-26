@@ -36,7 +36,7 @@ export interface TournamentDetail extends Tournament {
     id: string;
     seed: number | null;
     eliminated: boolean;
-    user: { id: string; username: string };
+    user: { id: string; username: string; discordId?: string | null; discordUsername?: string | null; xboxGamertag?: string | null; plutoniumUsername?: string | null };
   }[];
 }
 
@@ -144,6 +144,10 @@ export class TournamentsService {
     return this.http.delete(`${this.API_URL}/${tournamentId}/signup`);
   }
 
+  kickParticipant(tournamentId: string, userId: string): Observable<any> {
+    return this.http.delete(`${this.API_URL}/${tournamentId}/participants/${userId}`);
+  }
+
   getBracket(tournamentId: string): Observable<BracketResponse> {
     return this.http.get<BracketResponse>(`${this.API_URL}/${tournamentId}/bracket`);
   }
@@ -170,6 +174,10 @@ export class TournamentsService {
     return this.http.patch<TournamentMatch>(`${this.API_URL}/matches/${matchId}/result`, {
       winnerId,
     });
+  }
+
+  revertMatchResult(matchId: string): Observable<TournamentMatch> {
+    return this.http.patch<TournamentMatch>(`${this.API_URL}/matches/${matchId}/revert`, {});
   }
 
   getMyMatch(tournamentId: string): Observable<MyMatchResponse> {

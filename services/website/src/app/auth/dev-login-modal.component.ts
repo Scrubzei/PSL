@@ -1,14 +1,14 @@
-import { Component, OnInit } from '@angular/core';
-import { CommonModule } from '@angular/common';
-import { FormsModule } from '@angular/forms';
-import { MatDialogRef } from '@angular/material/dialog';
-import { MatIconModule } from '@angular/material/icon';
-import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
-import { UsersService, UserProfile } from '../users/users.service';
-import { AuthService } from './auth.service';
+import { Component, OnInit } from "@angular/core";
+import { CommonModule } from "@angular/common";
+import { FormsModule } from "@angular/forms";
+import { MatDialogRef } from "@angular/material/dialog";
+import { MatIconModule } from "@angular/material/icon";
+import { MatProgressSpinnerModule } from "@angular/material/progress-spinner";
+import { UsersService, UserProfile } from "../users/users.service";
+import { AuthService } from "./auth.service";
 
 @Component({
-  selector: 'app-dev-login-modal',
+  selector: "app-dev-login-modal",
   standalone: true,
   imports: [CommonModule, MatIconModule, MatProgressSpinnerModule, FormsModule],
   template: `
@@ -27,11 +27,13 @@ import { AuthService } from './auth.service';
           [(ngModel)]="newUsername"
           placeholder="Create new user..."
           (keyup.enter)="createAndLogin()"
-          [disabled]="!!loggingInAs" />
+          [disabled]="!!loggingInAs"
+        />
         <button
           class="create-btn"
           (click)="createAndLogin()"
-          [disabled]="!newUsername.trim() || !!loggingInAs">
+          [disabled]="!newUsername.trim() || !!loggingInAs"
+        >
           @if (loggingInAs === newUsername.trim() && !isExistingUser) {
             <mat-spinner diameter="16"></mat-spinner>
           } @else {
@@ -82,109 +84,110 @@ import { AuthService } from './auth.service';
       }
     </div>
   `,
-  styles: [`
-    .dev-login-modal {
-      background: #1a1a1a;
-      border-radius: 12px;
-      overflow: hidden;
-      max-height: 70vh;
-      display: flex;
-      flex-direction: column;
-    }
+  styles: [
+    `
+      .dev-login-modal {
+        background: #1a1a1a;
+        border-radius: 12px;
+        overflow: hidden;
+        max-height: 70vh;
+        display: flex;
+        flex-direction: column;
+      }
 
-    .modal-header {
-      display: flex;
-      align-items: center;
-      gap: 10px;
-      padding: 16px 20px;
-      border-bottom: 1px solid #2a2a2a;
+      .modal-header {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding: 16px 20px;
+        border-bottom: 1px solid #2a2a2a;
 
-      h2 {
-        margin: 0;
-        font-size: 16px;
-        font-weight: 700;
-        color: white;
+        h2 {
+          margin: 0;
+          font-size: 16px;
+          font-weight: 700;
+          color: white;
+          flex: 1;
+        }
+      }
+
+      .dev-icon {
+        color: #ff9800;
+        font-size: 22px;
+        width: 22px;
+        height: 22px;
+      }
+
+      .close-btn {
+        background: none;
+        border: none;
+        color: rgba(255, 255, 255, 0.4);
+        cursor: pointer;
+        padding: 4px;
+        display: flex;
+        border-radius: 4px;
+
+        &:hover {
+          color: white;
+          background: rgba(255, 255, 255, 0.1);
+        }
+      }
+
+      .create-section {
+        display: flex;
+        gap: 8px;
+        padding: 12px 16px;
+        border-bottom: 1px solid #2a2a2a;
+      }
+
+      .create-input {
         flex: 1;
-      }
-    }
-
-    .dev-icon {
-      color: #ff9800;
-      font-size: 22px;
-      width: 22px;
-      height: 22px;
-    }
-
-    .close-btn {
-      background: none;
-      border: none;
-      color: rgba(255, 255, 255, 0.4);
-      cursor: pointer;
-      padding: 4px;
-      display: flex;
-      border-radius: 4px;
-
-      &:hover {
+        padding: 8px 12px;
+        background: rgba(255, 255, 255, 0.06);
+        border: 1px solid #333;
+        border-radius: 6px;
         color: white;
-        background: rgba(255, 255, 255, 0.1);
-      }
-    }
+        font-size: 13px;
+        font-family: inherit;
 
-    .create-section {
-      display: flex;
-      gap: 8px;
-      padding: 12px 16px;
-      border-bottom: 1px solid #2a2a2a;
-    }
+        &::placeholder {
+          color: rgba(255, 255, 255, 0.3);
+        }
 
-    .create-input {
-      flex: 1;
-      padding: 8px 12px;
-      background: rgba(255, 255, 255, 0.06);
-      border: 1px solid #333;
-      border-radius: 6px;
-      color: white;
-      font-size: 13px;
-      font-family: inherit;
-
-      &::placeholder {
-        color: rgba(255, 255, 255, 0.3);
+        &:focus {
+          outline: none;
+          border-color: #ff9800;
+        }
       }
 
-      &:focus {
-        outline: none;
-        border-color: #ff9800;
-      }
-    }
+      .create-btn {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        width: 36px;
+        height: 36px;
+        background: rgba(255, 152, 0, 0.15);
+        border: 1px solid rgba(255, 152, 0, 0.3);
+        border-radius: 6px;
+        color: #ff9800;
+        cursor: pointer;
+        flex-shrink: 0;
 
-    .create-btn {
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      width: 36px;
-      height: 36px;
-      background: rgba(255, 152, 0, 0.15);
-      border: 1px solid rgba(255, 152, 0, 0.3);
-      border-radius: 6px;
-      color: #ff9800;
-      cursor: pointer;
-      flex-shrink: 0;
+        mat-icon {
+          font-size: 20px;
+          width: 20px;
+          height: 20px;
+        }
 
-      mat-icon {
-        font-size: 20px;
-        width: 20px;
-        height: 20px;
-      }
+        &:hover:not(:disabled) {
+          background: rgba(255, 152, 0, 0.25);
+        }
 
-      &:hover:not(:disabled) {
-        background: rgba(255, 152, 0, 0.25);
+        &:disabled {
+          opacity: 0.3;
+          cursor: default;
+        }
       }
-
-      &:disabled {
-        opacity: 0.3;
-        cursor: default;
-      }
-    }
 
     .loading {
       display: flex;
@@ -310,7 +313,7 @@ export class DevLoginModalComponent implements OnInit {
   users: UserProfile[] = [];
   loading = true;
   loggingInAs: string | null = null;
-  newUsername = '';
+  newUsername = "";
   isExistingUser = false;
 
   constructor(
@@ -335,7 +338,7 @@ export class DevLoginModalComponent implements OnInit {
       },
       error: () => {
         this.loading = false;
-      }
+      },
     });
   }
 
@@ -350,7 +353,7 @@ export class DevLoginModalComponent implements OnInit {
       },
       error: () => {
         this.loggingInAs = null;
-      }
+      },
     });
   }
 
@@ -375,7 +378,7 @@ export class DevLoginModalComponent implements OnInit {
       },
       error: () => {
         this.loggingInAs = null;
-      }
+      },
     });
   }
 }

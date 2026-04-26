@@ -14,6 +14,7 @@ import {
   LeaderboardEntry,
 } from "../leaderboard/leaderboards.service";
 import { environment } from "../../environments/environment";
+import { mapImageUrl } from "../games/map-assets";
 
 @Component({
   selector: "app-matchfinder-detail",
@@ -185,24 +186,28 @@ import { environment } from "../../environments/environment";
                     [class.own]="match.challengerId === currentUserId"
                     (click)="openMatchCard(match)"
                   >
-                    <div class="map-strip">
-                      @for (map of match.selectedMaps; track $index) {
-                        <div
-                          class="map-thumb"
-                          [style.background-image]="
-                            'url(' + getMapImage(map) + ')'
-                          "
-                        >
-                          <div class="map-overlay"></div>
-                          <span class="map-name">{{ map }}</span>
-                          @if (match.bestOf > 1) {
-                            <span class="map-game-num">G{{ $index + 1 }}</span>
-                          }
-                        </div>
-                      }
-                    </div>
+                    @if (match.selectedMaps.length > 0) {
+                      <div
+                        class="map-header"
+                        [style.background-image]="
+                          'url(' + getMapImage(match.selectedMaps[0]) + ')'
+                        "
+                      >
+                        <div class="map-overlay"></div>
+                        <span class="map-name">{{
+                          match.selectedMaps[0]
+                        }}</span>
+                      </div>
+                    }
                     <div class="listing-body">
                       <div class="listing-left">
+                        @if (match.selectedMaps.length > 1) {
+                          <div class="map-chips">
+                            @for (map of match.selectedMaps; track $index) {
+                              <span class="map-chip">{{ map }}</span>
+                            }
+                          </div>
+                        }
                         <div class="listing-player">
                           <span class="player-name">{{
                             match.challenger.username
@@ -280,24 +285,26 @@ import { environment } from "../../environments/environment";
                   class="listing-card match-card"
                   (click)="openMatchCard(match)"
                 >
-                  <div class="map-strip">
-                    @for (map of match.selectedMaps; track $index) {
-                      <div
-                        class="map-thumb"
-                        [style.background-image]="
-                          'url(' + getMapImage(map) + ')'
-                        "
-                      >
-                        <div class="map-overlay"></div>
-                        <span class="map-name">{{ map }}</span>
-                        @if (match.bestOf > 1) {
-                          <span class="map-game-num">G{{ $index + 1 }}</span>
-                        }
-                      </div>
-                    }
-                  </div>
+                  @if (match.selectedMaps.length > 0) {
+                    <div
+                      class="map-header"
+                      [style.background-image]="
+                        'url(' + getMapImage(match.selectedMaps[0]) + ')'
+                      "
+                    >
+                      <div class="map-overlay"></div>
+                      <span class="map-name">{{ match.selectedMaps[0] }}</span>
+                    </div>
+                  }
                   <div class="listing-body">
                     <div class="listing-left">
+                      @if (match.selectedMaps.length > 1) {
+                        <div class="map-chips">
+                          @for (map of match.selectedMaps; track $index) {
+                            <span class="map-chip">{{ map }}</span>
+                          }
+                        </div>
+                      }
                       <div class="listing-player">
                         <span class="player-name"
                           >vs {{ getOpponentName(match) }}</span
@@ -720,22 +727,34 @@ import { environment } from "../../environments/environment";
         }
       }
 
-      /* Map thumbnails */
-      .map-strip {
-        display: flex;
+      /* First-map header */
+      .map-header {
         height: 140px;
-        gap: 2px;
-        padding: 10px 10px 0;
-      }
-
-      .map-thumb {
-        flex: 1;
         position: relative;
         background-size: cover;
         background-position: center;
-        overflow: hidden;
+        margin: 10px 10px 0;
         border-radius: 8px;
-        min-width: 0;
+        overflow: hidden;
+      }
+
+      .map-chips {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px;
+        margin-bottom: 4px;
+      }
+
+      .map-chip {
+        font-size: 10px;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+        padding: 4px 8px;
+        border-radius: 6px;
+        background: rgba(255, 255, 255, 0.06);
+        color: rgba(255, 255, 255, 0.65);
+        border: 1px solid rgba(255, 255, 255, 0.08);
       }
 
       .map-overlay {
@@ -758,20 +777,6 @@ import { environment } from "../../environments/environment";
         text-transform: uppercase;
         letter-spacing: 0.5px;
         text-shadow: 0 1px 6px rgba(0, 0, 0, 0.9);
-      }
-
-      .map-game-num {
-        position: absolute;
-        top: 8px;
-        right: 8px;
-        font-size: 10px;
-        font-weight: 700;
-        color: rgba(255, 255, 255, 0.6);
-        background: rgba(0, 0, 0, 0.45);
-        backdrop-filter: blur(4px);
-        padding: 2px 7px;
-        border-radius: 4px;
-        letter-spacing: 0.5px;
       }
 
       /* Listing body */
@@ -954,26 +959,15 @@ import { environment } from "../../environments/environment";
           }
         }
 
-        .map-strip {
+        .map-header {
           height: 100px;
-          padding: 8px 8px 0;
-        }
-
-        .map-thumb {
-          border-radius: 6px;
+          margin: 8px 8px 0;
         }
 
         .map-name {
           font-size: 10px;
           bottom: 6px;
           left: 8px;
-        }
-
-        .map-game-num {
-          font-size: 9px;
-          top: 6px;
-          right: 6px;
-          padding: 1px 5px;
         }
 
         .listing-body {
@@ -1069,6 +1063,11 @@ export class MatchfinderDetailComponent implements OnInit {
     this.game = this.route.snapshot.paramMap.get("game") || "";
     this.platform = this.route.snapshot.paramMap.get("platform") || "";
 
+    const tab = this.route.snapshot.queryParamMap.get("tab");
+    if (tab === "matches" || tab === "browse") {
+      this.activeTab = tab;
+    }
+
     this.boardLoading = true;
     this.matchfinderService.getLeaderboard(this.game, this.platform).subscribe({
       next: (lb) => {
@@ -1119,11 +1118,12 @@ export class MatchfinderDetailComponent implements OnInit {
     this.myMatchesLoading = true;
     this.challengesService.getMyChallenges().subscribe({
       next: (matches) => {
-        this.myMatches = matches.filter((m) =>
-          m.type === "XP" &&
-          m.leaderboardId === this.leaderboardId &&
-          m.status !== "CANCELLED" &&
-          m.status !== "DECLINED"
+        this.myMatches = matches.filter(
+          (m) =>
+            m.type === "XP" &&
+            m.leaderboardId === this.leaderboardId &&
+            m.status !== "CANCELLED" &&
+            m.status !== "DECLINED",
         );
         this.myMatchesLoading = false;
         this.myMatchesLoaded = true;
@@ -1137,6 +1137,12 @@ export class MatchfinderDetailComponent implements OnInit {
 
   switchTab(tab: "browse" | "matches"): void {
     this.activeTab = tab;
+    this.router.navigate([], {
+      relativeTo: this.route,
+      queryParams: { tab },
+      queryParamsHandling: "merge",
+      replaceUrl: true,
+    });
   }
 
   openSignIn(): void {
@@ -1300,8 +1306,7 @@ export class MatchfinderDetailComponent implements OnInit {
   }
 
   getMapImage(mapName: string): string {
-    const slug = mapName.toLowerCase().replace(/\s+/g, "-").replace(/'/g, "");
-    return `assets/maps/${slug}.webp`;
+    return mapImageUrl(this.game, mapName);
   }
 
   getTimeAgo(dateStr: string): string {

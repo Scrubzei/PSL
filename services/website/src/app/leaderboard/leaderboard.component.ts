@@ -27,6 +27,7 @@ interface Game {
 export class LeaderboardComponent {
   selectedGame: string | null = null;
   hoveredGame: string | null = null;
+  hoveredImage: string | null = null;
 
   games: Game[] = [
     {
@@ -52,7 +53,7 @@ export class LeaderboardComponent {
     {
       name: 'MW 2019',
       slug: 'mw 2019',
-      image: 'assets/games/mw 2019.webp',
+      image: 'assets/games/mw2019.webp',
       platforms: [
         { name: 'Cross-Platform', slug: 'cross-platform', color: '#3b1578', hoverColor: '#4c1d95', icon: 'fa-solid fa-globe' }
       ]

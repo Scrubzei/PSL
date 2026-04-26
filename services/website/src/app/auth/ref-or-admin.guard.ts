@@ -6,7 +6,7 @@ export const refOrAdminGuard: CanActivateFn = () => {
   const authService = inject(AuthService);
   const router = inject(Router);
   const role = authService.currentUser()?.role;
-  if (role === 'ref' || role === 'admin') {
+  if (role === 'ref' || role === 'admin' || role === 'owner') {
     return true;
   }
   router.navigate(['/leaderboards']);

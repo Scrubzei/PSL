@@ -9,6 +9,8 @@ import { MatChipsModule } from '@angular/material/chips';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { ChallengesService, Match } from './challenges.service';
 import { AuthService } from '../auth/auth.service';
+import { mapImageUrl } from '../games/map-assets';
+import gsap from 'gsap';
 
 @Component({
   selector: 'app-challenges',
@@ -23,8 +25,19 @@ import { AuthService } from '../auth/auth.service';
     MatSnackBarModule
   ],
   template: `
-    <div class="challenges-container">
-      <h1>My Challenges</h1>
+    <div class="arena-matches-page">
+      <div class="arena-bg" aria-hidden="true"></div>
+      <div class="arena-inner challenges-container">
+      <header class="arena-hero" aria-labelledby="challenges-hero-title">
+        <div class="arena-hero-inner">
+          <p class="arena-kicker">
+            <span class="arena-kicker-mark" aria-hidden="true"></span>
+            Queue
+          </p>
+          <h1 id="challenges-hero-title">My matches</h1>
+          <p class="arena-sub">Incoming, outgoing, disputes — one screen.</p>
+        </div>
+      </header>
 
       <mat-tab-group [selectedIndex]="currentTab" (selectedIndexChange)="onTabChange($event)">
         <mat-tab label="Incoming">
@@ -37,6 +50,13 @@ import { AuthService } from '../auth/auth.service';
             } @else {
               @for (challenge of incomingChallenges; track challenge.id) {
                 <mat-card class="challenge-card" [class.highlighted]="challenge.id === highlightedChallengeId">
+                  @if (challenge.selectedMaps.length > 0) {
+                    <div
+                      class="challenge-card-hero"
+                      [style.background-image]="'url(' + firstMapHeroUrl(challenge) + ')'"
+                      role="img"
+                      [attr.aria-label]="'Map: ' + challenge.selectedMaps[0]"></div>
+                  }
                   <mat-card-header>
                     <mat-card-title>{{ challenge.challenger.username }}</mat-card-title>
                     <mat-card-subtitle>challenged you</mat-card-subtitle>
@@ -88,6 +108,13 @@ import { AuthService } from '../auth/auth.service';
             } @else {
               @for (challenge of outgoingChallenges; track challenge.id) {
                 <mat-card class="challenge-card" [class.highlighted]="challenge.id === highlightedChallengeId">
+                  @if (challenge.selectedMaps.length > 0) {
+                    <div
+                      class="challenge-card-hero"
+                      [style.background-image]="'url(' + firstMapHeroUrl(challenge) + ')'"
+                      role="img"
+                      [attr.aria-label]="'Map: ' + challenge.selectedMaps[0]"></div>
+                  }
                   <mat-card-header>
                     <mat-card-title>{{ challenge.challengee?.username ?? 'Open listing' }}</mat-card-title>
                     <mat-card-subtitle>you challenged</mat-card-subtitle>
@@ -148,6 +175,13 @@ import { AuthService } from '../auth/auth.service';
               </div>
               @for (challenge of disputedChallenges; track challenge.id) {
                 <mat-card class="challenge-card disputed clickable" [class.highlighted]="challenge.id === highlightedChallengeId" (click)="viewChallenge(challenge)">
+                  @if (challenge.selectedMaps.length > 0) {
+                    <div
+                      class="challenge-card-hero"
+                      [style.background-image]="'url(' + firstMapHeroUrl(challenge) + ')'"
+                      role="img"
+                      [attr.aria-label]="'Map: ' + challenge.selectedMaps[0]"></div>
+                  }
                   <mat-card-header>
                     <mat-card-title>vs {{ challenge.challengerId === currentUserId ? (challenge.challengee?.username ?? 'Open listing') : challenge.challenger.username }}</mat-card-title>
                     <mat-card-subtitle>{{ challenge.challengerId === currentUserId ? 'You challenged' : 'Challenged you' }}</mat-card-subtitle>
@@ -196,6 +230,13 @@ import { AuthService } from '../auth/auth.service';
             } @else {
               @for (challenge of allChallenges; track challenge.id) {
                 <mat-card class="challenge-card clickable" [class.highlighted]="challenge.id === highlightedChallengeId" (click)="viewChallenge(challenge)">
+                  @if (challenge.selectedMaps.length > 0) {
+                    <div
+                      class="challenge-card-hero"
+                      [style.background-image]="'url(' + firstMapHeroUrl(challenge) + ')'"
+                      role="img"
+                      [attr.aria-label]="'Map: ' + challenge.selectedMaps[0]"></div>
+                  }
                   <mat-card-header>
                     <mat-card-title>vs {{ challenge.challengerId === currentUserId ? (challenge.challengee?.username ?? 'Open listing') : challenge.challenger.username }}</mat-card-title>
                     <mat-card-subtitle>{{ challenge.challengerId === currentUserId ? 'You challenged' : 'Challenged you' }}</mat-card-subtitle>
@@ -230,18 +271,186 @@ import { AuthService } from '../auth/auth.service';
           </div>
         </mat-tab>
       </mat-tab-group>
+      </div>
     </div>
   `,
   styles: [`
-    .challenges-container {
-      padding: 24px;
-      max-width: 800px;
-      margin: 0 auto;
+    .arena-matches-page {
+      position: relative;
+      min-height: 100%;
+      margin: -24px -16px 0;
+      padding-bottom: 48px;
+    }
 
-      h1 {
-        margin-bottom: 24px;
-        color: white;
+    .arena-bg {
+      position: absolute;
+      inset: 0;
+      z-index: 0;
+      pointer-events: none;
+      background:
+        radial-gradient(ellipse 80% 55% at 100% 0%, rgba(var(--theme-primary-rgb, 37, 99, 235), 0.14), transparent 52%),
+        linear-gradient(168deg, #0c0c10 0%, #141418 40%, #0a0a0f 100%);
+    }
+
+    .arena-bg::after {
+      content: '';
+      position: absolute;
+      inset: 0;
+      opacity: 0.035;
+      background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+    }
+
+    .arena-inner.challenges-container {
+      position: relative;
+      z-index: 1;
+      max-width: 880px;
+      margin: 0 auto;
+      padding: clamp(3rem, 8vw, 4.25rem) 24px 48px;
+    }
+
+    .arena-hero {
+      position: relative;
+      margin-bottom: 36px;
+      margin-top: 0;
+    }
+
+    .arena-hero-inner {
+      position: relative;
+      padding: 1.75rem 1.5rem 1.85rem 1.65rem;
+      border-radius: 14px;
+      border: 1px solid rgba(255, 255, 255, 0.07);
+      background:
+        linear-gradient(
+          125deg,
+          rgba(255, 255, 255, 0.055) 0%,
+          rgba(255, 255, 255, 0.02) 42%,
+          transparent 72%
+        ),
+        linear-gradient(180deg, rgba(12, 14, 22, 0.85) 0%, rgba(8, 9, 14, 0.65) 100%);
+      box-shadow:
+        0 28px 56px rgba(0, 0, 0, 0.42),
+        inset 0 1px 0 rgba(255, 255, 255, 0.05);
+      overflow: hidden;
+    }
+
+    .arena-hero-inner::before {
+      content: '';
+      position: absolute;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      height: 3px;
+      background: var(--theme-primary, #2563eb);
+      pointer-events: none;
+    }
+
+    .arena-hero-inner::after {
+      content: '';
+      position: absolute;
+      top: -40%;
+      right: -15%;
+      width: min(55%, 280px);
+      aspect-ratio: 1;
+      border-radius: 50%;
+      background: radial-gradient(
+        circle,
+        rgba(var(--theme-primary-rgb, 37, 99, 235), 0.12) 0%,
+        transparent 68%
+      );
+      pointer-events: none;
+    }
+
+    .arena-kicker {
+      position: relative;
+      z-index: 1;
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      margin: 0 0 14px 0;
+      font-family: 'DM Sans', sans-serif;
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: 0.28em;
+      text-transform: uppercase;
+      color: rgba(255, 255, 255, 0.45);
+    }
+
+    .arena-kicker-mark {
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background: var(--theme-primary-bright, #93c5fd);
+      box-shadow:
+        0 0 0 3px rgba(var(--theme-primary-rgb, 37, 99, 235), 0.35),
+        0 0 18px rgba(var(--theme-primary-rgb, 37, 99, 235), 0.55);
+      animation: arena-kicker-pulse 2.4s ease-in-out infinite;
+    }
+
+    @keyframes arena-kicker-pulse {
+      0%,
+      100% {
+        opacity: 1;
+        transform: scale(1);
       }
+      50% {
+        opacity: 0.75;
+        transform: scale(0.92);
+      }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      .arena-kicker-mark {
+        animation: none;
+      }
+    }
+
+    .arena-hero h1 {
+      position: relative;
+      z-index: 1;
+      margin: 0 0 12px 0;
+      font-family: 'Bebas Neue', sans-serif;
+      font-size: clamp(2.65rem, 6.5vw, 3.75rem);
+      font-weight: 400;
+      letter-spacing: 0.1em;
+      line-height: 0.98;
+      text-transform: uppercase;
+      color: rgba(255, 255, 255, 0.98);
+      text-shadow:
+        0 2px 3px rgba(0, 0, 0, 0.45),
+        0 12px 40px rgba(0, 0, 0, 0.35);
+    }
+
+    .arena-sub {
+      position: relative;
+      z-index: 1;
+      margin: 0;
+      font-family: 'DM Sans', sans-serif;
+      font-size: 14px;
+      line-height: 1.55;
+      color: rgba(255, 255, 255, 0.48);
+      max-width: 26rem;
+    }
+
+    .challenge-card-hero {
+      height: 132px;
+      background-size: cover;
+      background-position: center;
+      position: relative;
+      margin: -16px -16px 0 -16px;
+    }
+
+    .challenge-card-hero::after {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(180deg, transparent 0%, rgba(10, 10, 15, 0.65) 100%);
+      pointer-events: none;
+    }
+
+    .challenges-container {
+      padding: 0;
+      max-width: 880px;
+      margin: 0 auto;
     }
 
     .challenges-list {
@@ -273,16 +482,25 @@ import { AuthService } from '../auth/auth.service';
     }
 
     .challenge-card {
+      border-radius: 14px !important;
+      border: 1px solid rgba(255, 255, 255, 0.07) !important;
+      background: rgba(255, 255, 255, 0.03) !important;
+      backdrop-filter: blur(10px);
+      overflow: hidden;
+
       mat-card-header {
         margin-bottom: 16px;
       }
 
       mat-card-title {
         color: white !important;
+        font-family: 'DM Sans', sans-serif;
+        font-weight: 600;
       }
 
       mat-card-subtitle {
-        color: rgba(255, 255, 255, 0.6) !important;
+        color: rgba(255, 255, 255, 0.55) !important;
+        font-family: 'DM Sans', sans-serif;
       }
     }
 
@@ -549,6 +767,30 @@ export class ChallengesComponent implements OnInit {
           });
         }, 3000);
       }
+      setTimeout(() => this.runCardStagger(), 0);
+    });
+  }
+
+  firstMapHeroUrl(challenge: Match): string {
+    const first = challenge.selectedMaps[0];
+    return mapImageUrl(challenge.leaderboard.game.name, first);
+  }
+
+  private runCardStagger(): void {
+    if (typeof window === 'undefined' || window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+      return;
+    }
+    const tab = document.querySelector('.arena-matches-page .mat-mdc-tab-body-active .challenges-list')
+      ?? document.querySelector('.arena-matches-page .challenges-list');
+    if (!tab) return;
+    const cards = tab.querySelectorAll('.challenge-card');
+    if (!cards.length) return;
+    gsap.from(cards, {
+      opacity: 0,
+      y: 20,
+      duration: 0.42,
+      stagger: 0.04,
+      ease: 'power2.out',
     });
   }
 
@@ -556,6 +798,7 @@ export class ChallengesComponent implements OnInit {
     this.currentTab = index;
     // Clear highlight when user manually switches tabs
     this.highlightedChallengeId = null;
+    setTimeout(() => this.runCardStagger(), 0);
   }
 
   acceptChallenge(challenge: Match): void {
@@ -598,9 +841,9 @@ export class ChallengesComponent implements OnInit {
     this.router.navigate(['/challenges', challenge.id]);
   }
 
-  /** XP match: ref ruled, players can still escalate to admin (same rules as challenge detail). */
+  /** XP / Ranked: ref ruled, players can still escalate to admin (same rules as challenge detail). */
   refAppealAvailable(challenge: Match): boolean {
-    if (challenge.type !== 'XP' || challenge.status !== 'COMPLETED') {
+    if ((challenge.type !== 'XP' && challenge.type !== 'RANKED') || challenge.status !== 'COMPLETED') {
       return false;
     }
     if (challenge.adminResolvedByUserId || challenge.disputePhase === 'AWAITING_ADMIN') {

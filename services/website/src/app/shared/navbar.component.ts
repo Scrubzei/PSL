@@ -45,6 +45,9 @@ import { environment } from '../../environments/environment';
         @if (!isProduction && isStaff) {
           <a routerLink="/disputes" routerLinkActive="active">Disputes</a>
         }
+        @if (isAdmin) {
+          <a routerLink="/admin" routerLinkActive="active">Admin</a>
+        }
         <a routerLink="/rules" routerLinkActive="active">Rules</a>
       </nav>
 
@@ -158,6 +161,12 @@ import { environment } from '../../environments/environment';
           <a routerLink="/disputes" routerLinkActive="active" (click)="closeMobileMenu()">
             <mat-icon>gavel</mat-icon>
             Disputes
+          </a>
+        }
+        @if (isAdmin) {
+          <a routerLink="/admin" routerLinkActive="active" (click)="closeMobileMenu()">
+            <mat-icon>admin_panel_settings</mat-icon>
+            Admin
           </a>
         }
         <a routerLink="/rules" routerLinkActive="active" (click)="closeMobileMenu()">
@@ -661,7 +670,12 @@ export class NavbarComponent {
 
   get isStaff(): boolean {
     const r = this.authService.currentUser()?.role;
-    return r === 'ref' || r === 'admin';
+    return r === 'ref' || r === 'admin' || r === 'owner';
+  }
+
+  get isAdmin(): boolean {
+    const r = this.authService.currentUser()?.role;
+    return r === 'admin' || r === 'owner';
   }
 
   constructor(

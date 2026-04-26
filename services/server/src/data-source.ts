@@ -38,6 +38,14 @@ import { AddPlutoId1740100000000 } from './migrations/1740100000000-AddPlutoId';
 import { AddCrossPlatform1740200000000 } from './migrations/1740200000000-AddCrossPlatform';
 import { AddMW20191740300000000 } from './migrations/1740300000000-AddMW2019';
 import { AddDiscordUsername1741200000000 } from './migrations/1741200000000-AddDiscordUsername';
+import { AddMW2019Shipment1741800000000 } from './migrations/1741800000000-AddMW2019Shipment';
+import { AddPs3AndActivisionId1741900000000 } from './migrations/1741900000000-AddPs3AndActivisionId';
+import { AddQueueState1742000000000 } from './migrations/1742000000000-AddQueueState';
+import { AddGuildSettings1742100000000 } from './migrations/1742100000000-AddGuildSettings';
+import { AddMatchCompletedAt1742200000000 } from './migrations/1742200000000-AddMatchCompletedAt';
+import { AddServerInfoTargets1742300000000 } from './migrations/1742300000000-AddServerInfoTargets';
+import { AddGameServers1742400000000 } from './migrations/1742400000000-AddGameServers';
+import { AllowMultipleQueueStates1742500000000 } from './migrations/1742500000000-AllowMultipleQueueStates';
 
 export const AppDataSource = new DataSource({
   type: 'postgres',
@@ -75,6 +83,14 @@ export const AppDataSource = new DataSource({
     AddCrossPlatform1740200000000,
     AddMW20191740300000000,
     AddDiscordUsername1741200000000,
+    AddMW2019Shipment1741800000000,
+    AddPs3AndActivisionId1741900000000,
+    AddQueueState1742000000000,
+    AddGuildSettings1742100000000,
+    AddMatchCompletedAt1742200000000,
+    AddServerInfoTargets1742300000000,
+    AddGameServers1742400000000,
+    AllowMultipleQueueStates1742500000000,
   ],
   synchronize: false,
 });

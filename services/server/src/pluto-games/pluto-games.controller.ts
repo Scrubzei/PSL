@@ -1,10 +1,14 @@
-import { Controller, Post, Body, UseGuards } from '@nestjs/common';
+import { Controller, Post, Body, UseGuards, BadRequestException } from '@nestjs/common';
 import { PlutoGamesService } from './pluto-games.service';
 import { ApiKeyGuard } from '../auth/guards/api-key.guard';
+import { BotzeiService } from '../botzei/botzei.service';
 
 @Controller()
 export class PlutoGamesController {
-  constructor(private readonly plutoGamesService: PlutoGamesService) {}
+  constructor(
+    private readonly plutoGamesService: PlutoGamesService,
+    private readonly botzeiService: BotzeiService,
+  ) {}
 
   @Post('pluto-game-result')
   @UseGuards(ApiKeyGuard)
@@ -16,7 +20,26 @@ export class PlutoGamesController {
     player1Score: number;
     player2Score: number;
     mapName: string;
+    platform?: string;
   }) {
     return this.plutoGamesService.recordResult(body);
+  }
+
+  @Post('server-info')
+  @UseGuards(ApiKeyGuard)
+  async serverInfo(@Body() body: {
+    player1Name: string;
+    player2Name: string;
+    player1Score: number;
+    player2Score: number;
+    map: string;
+    server: string;
+    spectatorNames?: string[];
+  }) {
+    if (!body.server?.trim()) {
+      throw new BadRequestException('server name is required');
+    }
+    await this.botzeiService.sendServerInfo(body);
+    return { received: true };
   }
 }

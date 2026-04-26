@@ -79,6 +79,14 @@ export class Match {
   @Column({ default: false })
   eloApplied: boolean;
 
+  /** Idempotent guard for ranked ladder reorder (mirrors eloApplied for XP). */
+  @Column({ default: false })
+  rankedLadderApplied: boolean;
+
+  /** Full ranked ladder snapshot before applyRankedLadderAfterMatchCompletion mutates (for ref-appeal rollback). */
+  @Column({ type: 'jsonb', nullable: true })
+  rankedSnapshotBefore: { userId: string; rankScore: number }[] | null;
+
   @Column({ type: 'varchar', length: 32, default: 'NONE' })
   disputePhase: DisputePhase;
 
@@ -127,4 +135,12 @@ export class Match {
 
   @UpdateDateColumn()
   updatedAt: Date;
+
+  /** Set when the match becomes ACCEPTED (used for report deadlines). */
+  @Column({ type: 'timestamptz', nullable: true })
+  acceptedAt: Date | null;
+
+  @Column({ type: 'timestamptz', nullable: true })
+  completedAt: Date | null;
 }
+

@@ -12,6 +12,7 @@ interface PlutoGameResultDto {
   player1Score: number;
   player2Score: number;
   mapName: string;
+  platform?: string;
 }
 
 @Injectable()
@@ -48,6 +49,7 @@ export class PlutoGamesService {
       loserScore: isP1Winner ? dto.player2Score : dto.player1Score,
       mapName: dto.mapName,
       winnerRecord: `${winnerH2HWins}-${loserH2HWins}`,
+      platform: dto.platform || 'plutonium',
     };
 
     await this.botzeiService.sendPlutoGameResult(payload);

@@ -3,7 +3,7 @@
   <div
     class="bg-image"
     [class.active]="hoveredGame"
-    [style.background-image]="hoveredGame ? 'url(assets/games/' + hoveredGame + '.webp)' : 'none'">
+    [style.background-image]="hoveredImage ? 'url(' + hoveredImage + ')' : 'none'">
   </div>
 
   <!-- Background decorations -->
@@ -37,8 +37,8 @@
             <div
               class="card-face card-front"
               (click)="selectGame(game.slug)"
-              (mouseenter)="hoveredGame = game.slug"
-              (mouseleave)="hoveredGame = null">
+              (mouseenter)="hoveredGame = game.slug; hoveredImage = game.image"
+              (mouseleave)="hoveredGame = null; hoveredImage = null">
               <div class="game-image">
                 <img [src]="game.image" [alt]="game.name" />
                 <div class="image-overlay"></div>

@@ -188,21 +188,52 @@ import { MatIconModule } from '@angular/material/icon';
         <!-- MW 2019 Rules -->
         @if (activeGame === 'mw2019') {
           <section>
-            <h2>Class Setup</h2>
+            <h2>Loadout</h2>
             <div class="settings-grid">
-              <div class="setting"><span class="setting-label">Weapon</span><span class="setting-value">Kar98k</span></div>
+              <div class="setting"><span class="setting-label">Primary</span><span class="setting-value">Kar98k or AX-50 (see attachments below)</span></div>
+              <div class="setting"><span class="setting-label">Secondary</span><span class="setting-value">Kali Sticks</span></div>
+              <div class="setting"><span class="setting-label">Lethal</span><span class="setting-value">C4</span></div>
+              <div class="setting"><span class="setting-label">Tactical</span><span class="setting-value">Heartbeat Sensor</span></div>
+              <div class="setting"><span class="setting-label">Perk 1</span><span class="setting-value">Double Time or Scavenger</span></div>
+              <div class="setting"><span class="setting-label">Perk 2</span><span class="setting-value">Restock</span></div>
+              <div class="setting"><span class="setting-label">Perk 3</span><span class="setting-value">Amped</span></div>
+            </div>
+            <p class="note"><strong>Example loadout</strong> — Scavenger is also allowed for Perk 1</p>
+            <img src="assets/rules/loadout.png" alt="Example loadout" class="attachment-img" (click)="openImage('assets/rules/loadout.png')" />
+          </section>
+
+          <section>
+            <h2>Kar98k Attachments</h2>
+            <div class="settings-grid">
               <div class="setting"><span class="setting-label">Muzzle</span><span class="setting-value">None</span></div>
               <div class="setting"><span class="setting-label">Barrel</span><span class="setting-value">None</span></div>
               <div class="setting"><span class="setting-label">Laser</span><span class="setting-value">Tac Laser</span></div>
               <div class="setting"><span class="setting-label">Optic</span><span class="setting-value">Sniper Scope (default reticle)</span></div>
               <div class="setting"><span class="setting-label">Stock</span><span class="setting-value">FTAC Sport Comb</span></div>
               <div class="setting"><span class="setting-label">Underbarrel</span><span class="setting-value">None</span></div>
+              <div class="setting"><span class="setting-label">Magazine</span><span class="setting-value">None</span></div>
               <div class="setting"><span class="setting-label">Rear Grip</span><span class="setting-value">Stippled Grip Tape</span></div>
               <div class="setting"><span class="setting-label">Perk</span><span class="setting-value">FMJ or Sleight of Hand</span></div>
-              <div class="setting"><span class="setting-label">Perk 1</span><span class="setting-value">Double Time or Scavenger</span></div>
-              <div class="setting"><span class="setting-label">Perk 2</span><span class="setting-value">Restock</span></div>
-              <div class="setting"><span class="setting-label">Perk 3</span><span class="setting-value">Amped</span></div>
             </div>
+            <p class="note"><strong>Example setup</strong> — FMJ is also allowed in the Perk slot</p>
+            <img src="assets/rules/kar98k-attachments.png" alt="Kar98k Gunsmith attachments" class="attachment-img" (click)="openImage('assets/rules/kar98k-attachments.png')" />
+          </section>
+
+          <section>
+            <h2>AX-50 Attachments</h2>
+            <div class="settings-grid">
+              <div class="setting"><span class="setting-label">Muzzle</span><span class="setting-value">None</span></div>
+              <div class="setting"><span class="setting-label">Barrel</span><span class="setting-value">17.0" Factory Barrel</span></div>
+              <div class="setting"><span class="setting-label">Laser</span><span class="setting-value">Tac Laser</span></div>
+              <div class="setting"><span class="setting-label">Optic</span><span class="setting-value">None (default scope)</span></div>
+              <div class="setting"><span class="setting-label">Stock</span><span class="setting-value">Singuard Arms Assassin</span></div>
+              <div class="setting"><span class="setting-label">Underbarrel</span><span class="setting-value">None</span></div>
+              <div class="setting"><span class="setting-label">Magazine</span><span class="setting-value">None</span></div>
+              <div class="setting"><span class="setting-label">Rear Grip</span><span class="setting-value">Stippled Grip Tape</span></div>
+              <div class="setting"><span class="setting-label">Perk</span><span class="setting-value">FMJ or Sleight of Hand</span></div>
+            </div>
+            <p class="note"><strong>Example setup</strong> — FMJ is also allowed in the Perk slot</p>
+            <img src="assets/rules/ax50-attachments.webp" alt="AX-50 Gunsmith attachments" class="attachment-img" (click)="openImage('assets/rules/ax50-attachments.webp')" />
           </section>
 
           <section>
@@ -219,33 +250,46 @@ import { MatIconModule } from '@angular/material/icon';
               <div class="setting"><span class="setting-label">CODcaster</span><span class="setting-value">Disabled</span></div>
             </div>
 
-            <h3>Advanced</h3>
-            <div class="settings-grid">
-            </div>
-
             <h3>Player</h3>
             <div class="settings-grid">
               <div class="setting"><span class="setting-label">Number of Lives</span><span class="setting-value">Unlimited</span></div>
               <div class="setting changed"><span class="setting-label">Max Health</span><span class="setting-value">1</span></div>
               <div class="setting"><span class="setting-label">Health Regeneration</span><span class="setting-value">Normal</span></div>
               <div class="setting"><span class="setting-label">Tactical Sprint</span><span class="setting-value">Enabled</span></div>
-              <div class="setting"><span class="setting-label">Weapon Mounting</span><span class="setting-value">Enabled</span></div>
+              <div class="setting changed"><span class="setting-label">Weapon Mounting</span><span class="setting-value">Disabled</span></div>
             </div>
 
             <h3>Team</h3>
             <div class="settings-grid">
               <div class="setting"><span class="setting-label">Spectating</span><span class="setting-value">Team Only</span></div>
-              <div class="setting"><span class="setting-label">3rd Person Spectating</span><span class="setting-value">Enabled</span></div>
+              <div class="setting changed"><span class="setting-label">3rd Person Spectating</span><span class="setting-value">Disabled</span></div>
               <div class="setting changed"><span class="setting-label">Killcam</span><span class="setting-value">Disabled</span></div>
               <div class="setting"><span class="setting-label">Final Killcam</span><span class="setting-value">PotG</span></div>
               <div class="setting"><span class="setting-label">Enable Minimap</span><span class="setting-value">Yes</span></div>
+              <div class="setting"><span class="setting-label">Compass</span><span class="setting-value">Enabled</span></div>
               <div class="setting changed"><span class="setting-label">Radar Always On</span><span class="setting-value">Constant</span></div>
               <div class="setting"><span class="setting-label">Weapon Pings on Minimap</span><span class="setting-value">Only When UAV Active</span></div>
               <div class="setting"><span class="setting-label">Weapon Pings on Compass</span><span class="setting-value">Enabled</span></div>
-              <div class="setting changed"><span class="setting-label">Enemy on Compass</span><span class="setting-value">Disabled</span></div>
+              <div class="setting"><span class="setting-label">Enemy on Compass</span><span class="setting-value">Enabled</span></div>
               <div class="setting changed"><span class="setting-label">Respawn Delay</span><span class="setting-value">0.5 Seconds</span></div>
               <div class="setting"><span class="setting-label">Wave Spawn Delay</span><span class="setting-value">None</span></div>
               <div class="setting"><span class="setting-label">Suicide Spawn Delay</span><span class="setting-value">None</span></div>
+            </div>
+
+            <h3>Gameplay</h3>
+            <div class="settings-grid">
+              <div class="setting"><span class="setting-label">Spawn Camera</span><span class="setting-value">Disabled</span></div>
+              <div class="setting"><span class="setting-label">Hardcore Mode</span><span class="setting-value">Disabled</span></div>
+              <div class="setting"><span class="setting-label">Realism Mode</span><span class="setting-value">Disabled</span></div>
+              <div class="setting changed"><span class="setting-label">Spawn Ammo Mags</span><span class="setting-value">5</span></div>
+              <div class="setting"><span class="setting-label">Headshots Only</span><span class="setting-value">Disabled</span></div>
+              <div class="setting"><span class="setting-label">Health Steal</span><span class="setting-value">Disabled</span></div>
+              <div class="setting"><span class="setting-label">Cranked Timer</span><span class="setting-value">Disabled</span></div>
+              <div class="setting changed"><span class="setting-label">Allow Field Upgrades</span><span class="setting-value">Disabled</span></div>
+              <div class="setting"><span class="setting-label">Field Upgrade Charge Rate</span><span class="setting-value">Normal</span></div>
+              <div class="setting"><span class="setting-label">Field Upgrade Score Modifier</span><span class="setting-value">Normal</span></div>
+              <div class="setting"><span class="setting-label">Perks</span><span class="setting-value">Enabled</span></div>
+              <div class="setting changed"><span class="setting-label">Killstreaks</span><span class="setting-value">Disabled</span></div>
             </div>
 
           </section>
@@ -257,7 +301,8 @@ import { MatIconModule } from '@angular/material/icon';
               <li>Incorrect rules and setup</li>
               <li>Illegal class setup</li>
               <li>Spawning out and spawning back in / killing yourself with ammo</li>
-              <li>Using or throwing equipment that corrupts the game</li>
+              <li>Picking up opponent's sniper to use</li>
+              <li>Using or throwing equipment that corrupts the game (e.g. throwing a C4 into a spawn to prevent a player from spawning there)</li>
             </ul>
           </section>
 
@@ -267,6 +312,7 @@ import { MatIconModule } from '@angular/material/icon';
             <ul>
               <li>Killing with an illegal setup, rules, or class</li>
               <li>Killing a player not participating in the match</li>
+              <li>Killing with C4</li>
               <li>Hardscoping, relapse shots</li>
               <li>Killing a player with explosive objects on the map (barrels, cars, tanks) is legal, but only if the explosion was caused by a sniper</li>
               <li>Any form of cheating that gives you an unfair advantage — hacking/mods, IP flooding/DDoS, manipulating in-game mechanics/glitching, or assistance from a non-competing player</li>
@@ -288,19 +334,22 @@ import { MatIconModule } from '@angular/material/icon';
         }
       </div>
     </div>
+
+    @if (expandedImage) {
+      <div class="image-modal-overlay" (click)="closeImage()">
+        <img [src]="expandedImage" class="image-modal-img" (click)="$event.stopPropagation()" />
+      </div>
+    }
   `,
   styles: [`
     .page-wrapper {
       background: #0a0a0f;
-      min-height: 100%;
     }
 
     .rules-container {
       max-width: 720px;
       margin: 0 auto;
       padding: 48px 24px;
-      height: 100%;
-      overflow-y: auto;
     }
 
     h1 {
@@ -405,10 +454,66 @@ import { MatIconModule } from '@angular/material/icon';
       color: rgba(255, 255, 255, 0.9);
     }
 
+    .image-modal-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.85);
+      backdrop-filter: blur(4px);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 9999;
+      cursor: pointer;
+      padding: 24px;
+    }
+
+    .image-modal-img {
+      max-width: 95vw;
+      max-height: 90vh;
+      border-radius: 8px;
+      box-shadow: 0 16px 64px rgba(0, 0, 0, 0.5);
+      cursor: default;
+    }
+
+    .attachment-preview {
+      margin-top: 16px;
+      cursor: pointer;
+      user-select: none;
+    }
+
+    .preview-toggle {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 13px;
+      font-weight: 500;
+      color: rgba(255, 255, 255, 0.35);
+      transition: color 0.15s ease;
+
+      i { font-size: 11px; }
+
+      &:hover { color: rgba(255, 255, 255, 0.6); }
+    }
+
+    .attachment-img {
+      display: block;
+      width: 100%;
+      max-width: 700px;
+      margin-top: 12px;
+      border-radius: 8px;
+      border: 1px solid rgba(255, 255, 255, 0.06);
+      cursor: pointer;
+      transition: opacity 0.15s ease;
+
+      &:hover {
+        opacity: 0.85;
+      }
+    }
+
     .note {
       margin: 12px 0 0;
       font-size: 13px;
-      color: rgba(255, 255, 255, 0.4);
+      color: rgba(255, 255, 255, 0.85);
       font-style: italic;
     }
 
@@ -506,6 +611,17 @@ import { MatIconModule } from '@angular/material/icon';
 })
 export class RulesComponent implements OnInit {
   activeGame: 'bo2' | 'mw2' | 'mw2019' = 'bo2';
+  kar98kImageExpanded = false;
+  ax50ImageExpanded = false;
+  expandedImage: string | null = null;
+
+  openImage(src: string): void {
+    this.expandedImage = src;
+  }
+
+  closeImage(): void {
+    this.expandedImage = null;
+  }
 
   constructor(
     private route: ActivatedRoute,

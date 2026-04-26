@@ -36,7 +36,32 @@ import { forkJoin } from 'rxjs';
               <span class="level-badge">{{ dashboardStats?.level || 1 }}</span>
             </div>
             <div class="profile-text">
-              <h1>{{ user?.username }}</h1>
+              @if (!editingUsername) {
+                <h1 class="username-display" (click)="startEditUsername()">
+                  {{ user?.username }}
+                  <i class="fa-solid fa-pen edit-icon"></i>
+                </h1>
+              } @else {
+                <div class="username-edit">
+                  <input
+                    type="text"
+                    [(ngModel)]="newUsername"
+                    class="username-input"
+                    (keydown.enter)="saveUsername()"
+                    (keydown.escape)="cancelEditUsername()"
+                    maxlength="20"
+                    #usernameInput
+                  />
+                  <button class="username-save" (click)="saveUsername()" [disabled]="savingUsername || !newUsername.trim()">
+                    @if (savingUsername) {
+                      <mat-spinner diameter="16"></mat-spinner>
+                    } @else {
+                      Save
+                    }
+                  </button>
+                  <button class="username-cancel" (click)="cancelEditUsername()">Cancel</button>
+                </div>
+              }
               <div class="xp-row">
                 <span class="xp-label">Level {{ dashboardStats?.level || 1 }}</span>
                 <div class="xp-track">
@@ -356,6 +381,75 @@ import { forkJoin } from 'rxjs';
       font-size: 28px;
       font-weight: 700;
       color: white;
+    }
+
+    .username-display {
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+
+      .edit-icon {
+        font-size: 14px;
+        color: rgba(255, 255, 255, 0.15);
+        transition: color 0.15s;
+      }
+
+      &:hover .edit-icon {
+        color: rgba(255, 255, 255, 0.5);
+      }
+    }
+
+    .username-edit {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 10px;
+    }
+
+    .username-input {
+      padding: 8px 12px;
+      background: rgba(255, 255, 255, 0.06);
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      border-radius: 8px;
+      color: white;
+      font-size: 18px;
+      font-weight: 600;
+      font-family: inherit;
+      width: 200px;
+
+      &:focus {
+        outline: none;
+        border-color: rgba(37, 99, 235, 0.5);
+      }
+    }
+
+    .username-save {
+      padding: 8px 16px;
+      background: #2563eb;
+      border: none;
+      border-radius: 8px;
+      color: white;
+      font-size: 13px;
+      font-weight: 600;
+      font-family: inherit;
+      cursor: pointer;
+
+      &:disabled { opacity: 0.4; cursor: default; }
+      &:hover:not(:disabled) { background: #1d4ed8; }
+    }
+
+    .username-cancel {
+      padding: 8px 12px;
+      background: none;
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 8px;
+      color: rgba(255, 255, 255, 0.5);
+      font-size: 13px;
+      font-family: inherit;
+      cursor: pointer;
+
+      &:hover { color: white; border-color: rgba(255, 255, 255, 0.2); }
     }
 
     .xp-row {
@@ -733,6 +827,9 @@ export class DashboardComponent implements OnInit {
   loading = true;
   plutoniumUsername = '';
   savingPluto = false;
+  editingUsername = false;
+  newUsername = '';
+  savingUsername = false;
 
   private dataLoaded = false;
 
@@ -795,6 +892,39 @@ export class DashboardComponent implements OnInit {
       return match.challengee ?? null;
     }
     return match.challenger;
+  }
+
+  startEditUsername(): void {
+    this.editingUsername = true;
+    this.newUsername = this.user?.username || '';
+  }
+
+  cancelEditUsername(): void {
+    this.editingUsername = false;
+    this.newUsername = '';
+  }
+
+  saveUsername(): void {
+    const username = this.newUsername.trim();
+    if (!username || this.savingUsername) return;
+    if (username === this.user?.username) {
+      this.cancelEditUsername();
+      return;
+    }
+    this.savingUsername = true;
+    this.authService.setUsername(username).subscribe({
+      next: (result) => {
+        this.user = { ...this.user, username: result.user.username };
+        this.authService.currentUser.set(this.user);
+        this.snackBar.open('Username updated', 'Close', { duration: 3000 });
+        this.savingUsername = false;
+        this.editingUsername = false;
+      },
+      error: (err) => {
+        this.snackBar.open(err.error?.message || 'Failed to update username', 'Close', { duration: 3000 });
+        this.savingUsername = false;
+      },
+    });
   }
 
   savePlutoniumUsername(): void {

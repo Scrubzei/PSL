@@ -1,6 +1,6 @@
 import { Entity, Column, PrimaryGeneratedColumn, CreateDateColumn, UpdateDateColumn } from 'typeorm';
 
-export type UserRole = 'player' | 'ref' | 'admin';
+export type UserRole = 'player' | 'ref' | 'admin' | 'owner';
 
 @Entity('users')
 export class User {
@@ -30,6 +30,12 @@ export class User {
 
   @Column({ nullable: true })
   xboxGamertag: string;
+
+  @Column({ nullable: true })
+  ps3Username: string;
+
+  @Column({ nullable: true })
+  activisionId: string;
 
   @Column({ nullable: true })
   emblem: string;

@@ -62,6 +62,9 @@ export class TournamentsController {
           id: p.user.id,
           username: p.user.username,
           discordId: p.user.discordId,
+          discordUsername: p.user.discordUsername || null,
+          xboxGamertag: p.user.xboxGamertag || null,
+          plutoniumUsername: p.user.plutoniumUsername || null,
         },
       })),
     };
@@ -80,6 +83,18 @@ export class TournamentsController {
     const tournament = await this.tournamentsService.findOne(id);
     await this.tournamentsService.withdraw(tournament.id, req.user.userId);
     return { message: 'Successfully withdrawn from tournament' };
+  }
+
+  @Delete(':id/participants/:userId')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('admin')
+  async kickParticipant(
+    @Param('id') id: string,
+    @Param('userId') userId: string,
+  ) {
+    const tournament = await this.tournamentsService.findOne(id);
+    await this.tournamentsService.withdraw(tournament.id, userId);
+    return { message: 'Participant removed from tournament' };
   }
 
   @Get(':id/bracket')
@@ -174,6 +189,13 @@ export class TournamentsController {
   async startTournament(@Param('id') id: string) {
     const tournament = await this.tournamentsService.findOne(id);
     return this.tournamentsService.startTournament(tournament.id);
+  }
+
+  @Patch('matches/:matchId/revert')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('admin')
+  async revertMatchResult(@Param('matchId') matchId: string) {
+    return this.tournamentsService.revertMatchResult(matchId);
   }
 
   @Patch('matches/:matchId/result')

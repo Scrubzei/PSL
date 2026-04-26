@@ -12,7 +12,7 @@ export class UsersController {
   }
 
   @Post()
-  async create(@Body() body: { discordId: string; username: string }) {
+  async create(@Body() body: { discordId: string; username: string; xboxGamertag?: string }) {
     if (!body.discordId || !body.username) {
       throw new BadRequestException('discordId and username are required');
     }
@@ -24,6 +24,9 @@ export class UsersController {
 
     const user = await this.usersService.createFromDiscord(body.discordId);
     await this.usersService.setUsername(user.id, body.username);
+    if (body.xboxGamertag) {
+      await this.usersService.updateProfile(user.id, { xboxGamertag: body.xboxGamertag });
+    }
     return this.usersService.findById(user.id);
   }
 
@@ -57,6 +60,16 @@ export class UsersController {
   @Get('by-discord/:discordId')
   async findByDiscordId(@Param('discordId') discordId: string) {
     return this.usersService.findByDiscordId(discordId) ?? null;
+  }
+
+  @Patch('by-discord/:discordId/profile')
+  async updateProfileByDiscordId(
+    @Param('discordId') discordId: string,
+    @Body() body: { xboxGamertag?: string; ps3Username?: string; plutoniumUsername?: string; activisionId?: string },
+  ) {
+    const user = await this.usersService.findByDiscordId(discordId);
+    if (!user) throw new BadRequestException('User not found');
+    return this.usersService.updateProfile(user.id, body);
   }
 
   @Get('by-discord/:discordId/stats')

@@ -1,4 +1,5 @@
-import { Component, OnInit } from '@angular/core';
+import { Component } from '@angular/core';
+import { takeUntilDestroyed, toObservable } from '@angular/core/rxjs-interop';
 import { CommonModule } from '@angular/common';
 import { ActivatedRoute, Router, RouterModule } from '@angular/router';
 import { MatCardModule } from '@angular/material/card';
@@ -12,11 +13,20 @@ import { MatIconModule } from '@angular/material/icon';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatDialog } from '@angular/material/dialog';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
-import { AuthService } from '../auth/auth.service';
+import { AuthService, User } from '../auth/auth.service';
 import { AuthModalComponent } from '../auth/auth-modal/auth-modal.component';
-import { LeaderboardsService, LeaderboardEntry, Leaderboard } from './leaderboards.service';
+import { LeaderboardsService, LeaderboardEntry, Leaderboard, MyEntryResponse } from './leaderboards.service';
 import { ThemeService, Platform } from '../shared/theme.service';
-import { forkJoin } from 'rxjs';
+import { catchError, combineLatest, distinctUntilChanged, forkJoin, map, of } from 'rxjs';
+import { ChallengesService } from '../challenges/challenges.service';
+import { LeaderboardChallengeModalComponent } from './leaderboard-challenge-modal.component';
+
+/** Compare user ids from API (UUID / string; profile may use `id` or JWT `userId`). */
+function normalizeUserId(raw: string | null | undefined): string {
+  return String(raw ?? '')
+    .trim()
+    .toLowerCase();
+}
 
 interface DisplayEntry {
   id: string;
@@ -28,6 +38,8 @@ interface DisplayEntry {
   wins: number;
   losses: number;
   placeholder?: boolean;
+  rankedOptIn: boolean;
+  xpOptIn: boolean;
 }
 
 @Component({
@@ -78,7 +90,7 @@ interface DisplayEntry {
         </div>
       } @else {
         <mat-card>
-          <mat-tab-group (selectedTabChange)="onTabChange($event)">
+          <mat-tab-group [selectedIndex]="selectedTabIndex" (selectedTabChange)="onTabChange($event)">
             <mat-tab label="Ranked">
               @if (podiumPlayers.length === 3) {
                 <div class="podium">
@@ -91,6 +103,16 @@ interface DisplayEntry {
                       <div class="podium-name">{{ podiumPlayers[1].username }}</div>
                       <div class="podium-record"><span class="wins">{{ podiumPlayers[1].wins }}</span><span class="podium-sep">-</span><span class="losses">{{ podiumPlayers[1].losses }}</span></div>
                       <div class="podium-winpct">{{ getWinPct(podiumPlayers[1]) }}%</div>
+                      @if (canRankedChallenge(podiumPlayers[1], authService.currentUser())) {
+                        <button
+                          type="button"
+                          mat-flat-button
+                          color="primary"
+                          class="challenge-btn podium-challenge-btn"
+                          (click)="openRankedChallenge(podiumPlayers[1])">
+                          Challenge
+                        </button>
+                      }
                     </div>
                     <div class="podium-bar podium-bar-2"></div>
                   </div>
@@ -103,6 +125,16 @@ interface DisplayEntry {
                       <div class="podium-name">{{ podiumPlayers[0].username }}</div>
                       <div class="podium-record"><span class="wins">{{ podiumPlayers[0].wins }}</span><span class="podium-sep">-</span><span class="losses">{{ podiumPlayers[0].losses }}</span></div>
                       <div class="podium-winpct">{{ getWinPct(podiumPlayers[0]) }}%</div>
+                      @if (canRankedChallenge(podiumPlayers[0], authService.currentUser())) {
+                        <button
+                          type="button"
+                          mat-flat-button
+                          color="primary"
+                          class="challenge-btn podium-challenge-btn"
+                          (click)="openRankedChallenge(podiumPlayers[0])">
+                          Challenge
+                        </button>
+                      }
                     </div>
                     <div class="podium-bar podium-bar-1"></div>
                   </div>
@@ -115,12 +147,22 @@ interface DisplayEntry {
                       <div class="podium-name">{{ podiumPlayers[2].username }}</div>
                       <div class="podium-record"><span class="wins">{{ podiumPlayers[2].wins }}</span><span class="podium-sep">-</span><span class="losses">{{ podiumPlayers[2].losses }}</span></div>
                       <div class="podium-winpct">{{ getWinPct(podiumPlayers[2]) }}%</div>
+                      @if (canRankedChallenge(podiumPlayers[2], authService.currentUser())) {
+                        <button
+                          type="button"
+                          mat-flat-button
+                          color="primary"
+                          class="challenge-btn podium-challenge-btn"
+                          (click)="openRankedChallenge(podiumPlayers[2])">
+                          Challenge
+                        </button>
+                      }
                     </div>
                     <div class="podium-bar podium-bar-3"></div>
                   </div>
                 </div>
               }
-              <div class="table-container">
+              <div class="table-container ranked-tab">
                 @if (isAdmin) {
                   <div class="admin-controls">
                     @if (!editingRanks) {
@@ -188,6 +230,22 @@ interface DisplayEntry {
                           <span class="winpct" [class.winpct-hot]="getWinPct(entry) >= 70" [class.winpct-good]="getWinPct(entry) >= 50 && getWinPct(entry) < 70" [class.winpct-cold]="getWinPct(entry) < 50 && (entry.wins + entry.losses) > 0" [class.winpct-none]="(entry.wins + entry.losses) === 0">{{ (entry.wins + entry.losses) === 0 ? '—' : (getWinPct(entry) + '%') }}</span>
                         } @else {
                           —
+                        }
+                      </td>
+                    </ng-container>
+
+                    <ng-container matColumnDef="actions">
+                      <th mat-header-cell *matHeaderCellDef class="actions-col-header">Challenge</th>
+                      <td mat-cell *matCellDef="let entry" class="actions-col">
+                        @if (!entry.placeholder && canRankedChallenge(entry, authService.currentUser())) {
+                          <button
+                            type="button"
+                            mat-flat-button
+                            color="primary"
+                            class="challenge-btn"
+                            (click)="openRankedChallenge(entry)">
+                            Challenge
+                          </button>
                         }
                       </td>
                     </ng-container>
@@ -309,6 +367,22 @@ interface DisplayEntry {
                           <span class="winpct" [class.winpct-hot]="getWinPct(entry) >= 70" [class.winpct-good]="getWinPct(entry) >= 50 && getWinPct(entry) < 70" [class.winpct-cold]="getWinPct(entry) < 50 && (entry.wins + entry.losses) > 0" [class.winpct-none]="(entry.wins + entry.losses) === 0">{{ (entry.wins + entry.losses) === 0 ? '—' : (getWinPct(entry) + '%') }}</span>
                         } @else {
                           —
+                        }
+                      </td>
+                    </ng-container>
+
+                    <ng-container matColumnDef="actions">
+                      <th mat-header-cell *matHeaderCellDef class="actions-col-header">Challenge</th>
+                      <td mat-cell *matCellDef="let entry" class="actions-col">
+                        @if (canXpChallenge(entry, authService.currentUser())) {
+                          <button
+                            type="button"
+                            mat-flat-button
+                            color="primary"
+                            class="challenge-btn"
+                            (click)="openXpChallenge(entry)">
+                            Challenge
+                          </button>
                         }
                       </td>
                     </ng-container>
@@ -548,6 +622,12 @@ interface DisplayEntry {
       color: rgba(255, 255, 255, 0.5);
     }
 
+    .podium-challenge-btn {
+      margin-top: 8px;
+      width: 100%;
+      max-width: 120px;
+    }
+
     .podium-bar {
       width: 100%;
       border-radius: 6px 6px 0 0;
@@ -613,6 +693,42 @@ interface DisplayEntry {
         color: var(--theme-primary-bright, #ff6b6b);
         border-bottom-color: var(--theme-primary-bright, #ff6b6b);
       }
+    }
+
+    .actions-col-header {
+      width: 1%;
+      white-space: nowrap;
+    }
+
+    .actions-col {
+      text-align: right;
+      vertical-align: middle;
+      white-space: nowrap;
+    }
+
+    /* Ranked + XP: sticky last column on small widths — no extra fill or shadow. */
+    .ranked-tab .mat-mdc-table .mat-mdc-header-cell.mat-column-actions,
+    .ranked-tab .mat-mdc-table .mat-mdc-cell.mat-column-actions,
+    .xp-tab .mat-mdc-table .mat-mdc-header-cell.mat-column-actions,
+    .xp-tab .mat-mdc-table .mat-mdc-cell.mat-column-actions {
+      position: sticky;
+      right: 0;
+      z-index: 1;
+      background: transparent;
+      box-shadow: none;
+    }
+
+    .challenge-btn {
+      flex-shrink: 0;
+      font-size: 11px;
+      min-height: 28px;
+      line-height: 28px;
+      padding: 0 12px;
+    }
+
+    .challenge-btn.mat-mdc-unelevated-button.mat-primary {
+      --mdc-filled-button-container-color: var(--theme-primary, #bf2120);
+      --mdc-filled-button-label-text-color: #fff;
     }
 
     .xp-tab .xp-actions {
@@ -1036,12 +1152,13 @@ interface DisplayEntry {
     }
   `]
 })
-export class LeaderboardDetailComponent implements OnInit {
+export class LeaderboardDetailComponent {
   game = '';
   platform = '';
   currentTab: 'RANKED' | 'XP' = 'RANKED';
-  rankedColumns = ['rank', 'username', 'record', 'winpct'];
-  xpColumns = ['rank', 'username', 'score', 'record', 'winpct'];
+  selectedTabIndex = 0;
+  rankedColumns = ['rank', 'username', 'record', 'winpct', 'actions'];
+  xpColumns = ['rank', 'username', 'score', 'record', 'winpct', 'actions'];
 
   leaderboard: Leaderboard | null = null;
   rankedData: DisplayEntry[] = [];
@@ -1061,8 +1178,47 @@ export class LeaderboardDetailComponent implements OnInit {
     private snackBar: MatSnackBar,
     public authService: AuthService,
     private leaderboardsService: LeaderboardsService,
-    private themeService: ThemeService
-  ) {}
+    private themeService: ThemeService,
+    private challengesService: ChallengesService
+  ) {
+    // Read tab query param (e.g. ?tab=xp)
+    const tab = this.route.snapshot.queryParamMap.get('tab');
+    if (tab?.toLowerCase() === 'xp' || tab?.toLowerCase() === 'elo') {
+      this.currentTab = 'XP';
+      this.selectedTabIndex = 1;
+    }
+
+    combineLatest([
+      this.route.paramMap.pipe(
+        map((p) => ({ game: p.get('game') ?? '', platform: p.get('platform') ?? '' })),
+        distinctUntilChanged((a, b) => a.game === b.game && a.platform === b.platform),
+      ),
+      toObservable(this.authService.currentUser).pipe(
+        map((u) => u?.id ?? null),
+        distinctUntilChanged(),
+      ),
+    ])
+      .pipe(takeUntilDestroyed())
+      .subscribe(([params]) => {
+        this.game = params.game;
+        this.platform = params.platform;
+        this.applyThemeForPlatform();
+        this.loadLeaderboardData();
+      });
+  }
+
+  /** Route slug (e.g. mw2) — games API matches DB names case-insensitively. */
+  private applyThemeForPlatform(): void {
+    const platformMap: Record<string, Platform> = {
+      plutonium: 'Plutonium',
+      xbox: 'Xbox',
+      ps3: 'PS3',
+    };
+    const themePlatform = platformMap[this.platform.toLowerCase()];
+    if (themePlatform) {
+      this.themeService.setPlatform(themePlatform);
+    }
+  }
 
   get podiumPlayers(): DisplayEntry[] {
     return this.rankedData.filter(e => !e.placeholder && e.rank <= 3);
@@ -1081,24 +1237,6 @@ export class LeaderboardDetailComponent implements OnInit {
     return `/assets/games/${gameLower}.webp`;
   }
 
-  ngOnInit(): void {
-    this.game = this.route.snapshot.paramMap.get('game') || '';
-    this.platform = this.route.snapshot.paramMap.get('platform') || '';
-
-    // Set theme based on platform
-    const platformMap: Record<string, Platform> = {
-      'plutonium': 'Plutonium',
-      'xbox': 'Xbox',
-      'ps3': 'PS3'
-    };
-    const themePlatform = platformMap[this.platform.toLowerCase()];
-    if (themePlatform) {
-      this.themeService.setPlatform(themePlatform);
-    }
-
-    this.loadLeaderboardData();
-  }
-
   private loadLeaderboardData(): void {
     this.loading = true;
 
@@ -1109,26 +1247,18 @@ export class LeaderboardDetailComponent implements OnInit {
         // Load entries (public)
         forkJoin({
           ranked: this.leaderboardsService.getEntries(leaderboard.id, 'ranked'),
-          xp: this.leaderboardsService.getEntries(leaderboard.id, 'xp')
+          xp: this.leaderboardsService.getEntries(leaderboard.id, 'xp'),
+          myEntry: this.authService.isAuthenticated()
+            ? this.leaderboardsService.getMyEntry(leaderboard.id).pipe(
+                catchError(() => of({ isSignedUp: false, entry: null } as MyEntryResponse)),
+              )
+            : of({ isSignedUp: false, entry: null } as MyEntryResponse),
         }).subscribe({
           next: (results) => {
-            this.rankedData = this.padToTen(results.ranked.map(e => this.mapToDisplayEntry(e, 'ranked')));
-            this.xpData = this.padToTen(results.xp.map(e => this.mapToDisplayEntry(e, 'xp')));
+            this.rankedData = this.padToTen(results.ranked.map((e) => this.mapToDisplayEntry(e, 'ranked')));
+            this.xpData = this.padToTen(results.xp.map((e) => this.mapToDisplayEntry(e, 'xp')));
+            this.xpOptIn = !!results.myEntry.entry?.xpOptIn;
             this.loading = false;
-
-            // Check if user is signed up (only if authenticated)
-            if (this.authService.isAuthenticated()) {
-              this.leaderboardsService.getMyEntry(leaderboard.id).subscribe({
-                next: (myEntry) => {
-                  this.xpOptIn = !!myEntry.entry?.xpOptIn;
-                },
-                error: () => {
-                  this.xpOptIn = false;
-                }
-              });
-            } else {
-              this.xpOptIn = false;
-            }
           },
           error: () => {
             this.snackBar.open('Failed to load leaderboard entries', 'Close', { duration: 3000 });
@@ -1160,7 +1290,10 @@ export class LeaderboardDetailComponent implements OnInit {
       emblem: entry.emblem,
       score: type === 'ranked' ? entry.rankScore : eloScore,
       wins: entry.wins,
-      losses: entry.losses
+      losses: entry.losses,
+      // Ranked entries endpoint only returns ranked participants; default missing to true.
+      rankedOptIn: type === 'ranked' ? entry.rankedOptIn !== false : !!entry.rankedOptIn,
+      xpOptIn: type === 'xp' ? entry.xpOptIn !== false : !!entry.xpOptIn,
     };
   }
 
@@ -1230,6 +1363,8 @@ export class LeaderboardDetailComponent implements OnInit {
         wins: 0,
         losses: 0,
         placeholder: true,
+        rankedOptIn: false,
+        xpOptIn: false,
       });
     }
     return padded;
@@ -1279,6 +1414,140 @@ export class LeaderboardDetailComponent implements OnInit {
   cancelEditRanks(): void {
     this.editingRanks = false;
     this.editedRanks = {};
+  }
+
+  /** True if the user appears on this leaderboard's XP list. */
+  private viewerOnXpList(userId: string | null | undefined): boolean {
+    if (!userId) return false;
+    const n = normalizeUserId(userId);
+    return this.xpData.some((e) => !e.placeholder && normalizeUserId(e.userId) === n);
+  }
+
+  /** Profile returns `id`; if profile fails, JWT payload may only populate `userId`. */
+  private viewerAccountId(viewer: User | null): string | null {
+    if (!viewer) return null;
+    const v = viewer as User & { userId?: string };
+    const raw = v.id ?? v.userId;
+    if (raw == null || raw === '') return null;
+    return String(raw);
+  }
+
+  /** Same row as the logged-in user. */
+  private isViewerRow(entry: DisplayEntry, viewer: User | null): boolean {
+    const vid = this.viewerAccountId(viewer);
+    if (!vid) return false;
+    return normalizeUserId(vid) === normalizeUserId(entry.userId);
+  }
+
+  /**
+   * Pass `authService.currentUser()` from the template so the signal is read each CD cycle.
+   * Show Challenge on every ranked row except the viewer's own; guests see buttons and are prompted to sign in on click.
+   * Match creation calls server `signup` for the challenger when needed so XP-only or new users can still challenge.
+   */
+  canRankedChallenge(entry: DisplayEntry, viewer: User | null): boolean {
+    if (entry.placeholder) return false;
+    if (entry.rankedOptIn === false) return false;
+    if (this.isViewerRow(entry, viewer)) return false;
+    return true;
+  }
+
+  canXpChallenge(entry: DisplayEntry, viewer: User | null): boolean {
+    if (entry.placeholder) return false;
+    if (entry.xpOptIn === false) return false;
+    if (this.isViewerRow(entry, viewer)) return false;
+    const accountId = this.viewerAccountId(viewer);
+    if (!accountId) {
+      return true;
+    }
+    return this.xpOptIn || this.viewerOnXpList(accountId);
+  }
+
+  openRankedChallenge(entry: DisplayEntry): void {
+    if (!this.leaderboard || entry.placeholder) return;
+    if (!this.authService.isAuthenticated()) {
+      this.dialog.open(AuthModalComponent, {
+        width: '400px',
+        data: { message: 'Sign in to send a ranked challenge' },
+      });
+      return;
+    }
+    this.dialog
+      .open(LeaderboardChallengeModalComponent, {
+        width: '500px',
+        panelClass: 'challenge-modal-panel',
+        data: {
+          opponent: { id: entry.userId, username: entry.username },
+          game: this.game,
+          platform: this.platform,
+          type: 'RANKED' as const,
+        },
+      })
+      .afterClosed()
+      .subscribe((result) => {
+        if (!result?.maps?.length || !this.leaderboard) return;
+        this.challengesService
+          .createChallenge({
+            challengeeId: result.opponent.id,
+            leaderboardId: this.leaderboard.id,
+            type: 'RANKED',
+            bestOf: 3,
+            selectedMaps: result.maps,
+          })
+          .subscribe({
+            next: () => {
+              this.snackBar.open('Ranked challenge sent!', 'Close', { duration: 3000 });
+            },
+            error: (err) => {
+              this.snackBar.open(err.error?.message || 'Failed to send challenge', 'Close', {
+                duration: 4000,
+              });
+            },
+          });
+      });
+  }
+
+  openXpChallenge(entry: DisplayEntry): void {
+    if (!this.leaderboard || entry.placeholder) return;
+    if (!this.authService.isAuthenticated()) {
+      this.dialog.open(AuthModalComponent, {
+        width: '400px',
+        data: { message: 'Sign in to send an XP challenge' },
+      });
+      return;
+    }
+    this.dialog
+      .open(LeaderboardChallengeModalComponent, {
+        width: '500px',
+        panelClass: 'challenge-modal-panel',
+        data: {
+          opponent: { id: entry.userId, username: entry.username },
+          game: this.game,
+          platform: this.platform,
+          type: 'XP' as const,
+        },
+      })
+      .afterClosed()
+      .subscribe((result) => {
+        if (!result || !this.leaderboard) return;
+        this.challengesService
+          .createChallenge({
+            challengeeId: entry.userId,
+            leaderboardId: this.leaderboard.id,
+            type: 'XP',
+            bestOf: result.bestOf,
+            selectedMaps: result.maps,
+          })
+          .subscribe({
+            next: () => {
+              this.snackBar.open('Challenge sent!', 'Close', { duration: 3000 });
+            },
+            error: (err) => {
+              this.snackBar.open(err.error?.message || 'Failed to send challenge', 'Close', {
+                duration: 4000,
+              });
+            },
+          });
+      });
   }
 
   saveRanks(): void {

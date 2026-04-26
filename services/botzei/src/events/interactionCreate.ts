@@ -7,13 +7,29 @@ import { handleBracketSelect, handleBracketRefresh } from '../commands/bracket.j
 import { handleScheduleSelect } from '../commands/schedule.js';
 import { handleLookupSelect } from '../commands/lookup.js';
 import { handleMatchTournamentSelect, handleMatchSelect } from '../commands/match.js';
-import { handleQueueJoinButton, handleQueueJoinModal, handleQueuePlutoModal, handleQueueLeaveButton, handleQueueAcceptButton, handleQueueDeclineButton } from '../commands/setup-queue.js';
 import { handlePugJoin, handlePugLeave, handlePugReady, handlePugMapPick, handlePugReport, handlePugConfirm, handlePugDispute, handlePugRematch } from '../commands/pug.js';
 import { handleSidebetSetupSelect } from '../commands/sidebet-setup.js';
 import { handleSelect as handleTourneyRoleSelect } from '../commands/tourney-role.js';
 import { handleSelect as handleTourneyThreadsSelect } from '../commands/tourney-threads.js';
 import { handleSidebetCreateButton, handleSidebetMatchSelect, handleSidebetPlayerPick, handleSidebetAmountModal, handleSidebetAccept, handleSidebetLock, handleSidebetCancel } from '../commands/sidebet.js';
 import { handleMatchfinderAccept, handleMatchfinderCancel } from '../commands/matchfinder.js';
+import { handleMapSelect as handleQueueSetupMapSelect } from '../commands/setup-queue.js';
+import { handleMapSelect as handlePlutoQueueMapSelect } from '../commands/plutonium-queue.js';
+import {
+  handleQueueJoin,
+  handleQueueLeave,
+  handleReadyUp,
+  handleMatchMapPick,
+  handleMatchResult,
+  handleDisputeResolve,
+  handleGamertagModal,
+} from '../queue/handlers.js';
+import {
+  handleQueueJoin as handlePlutoJoin,
+  handleQueueLeave as handlePlutoLeave,
+  handleReadyUp as handlePlutoReady,
+  handleGamertagModal as handlePlutoGamertagModal,
+} from '../plutonium-queue/handlers.js';
 
 export const name = Events.InteractionCreate;
 export const once = false;
@@ -48,8 +64,40 @@ export async function execute(interaction: Interaction) {
     return;
   }
 
+  // Handle autocomplete
+  if (interaction.isAutocomplete()) {
+    const command = interaction.client.commands.get(interaction.commandName);
+    if (command?.autocomplete) {
+      try {
+        await command.autocomplete(interaction);
+      } catch (error) {
+        console.error(`Error in autocomplete for ${interaction.commandName}:`, error);
+      }
+    }
+    return;
+  }
+
   // Handle select menu interactions
   if (interaction.isStringSelectMenu()) {
+    // Queue setup map selection
+    if (interaction.customId === 'queue_setup_maps') {
+      try {
+        await handleQueueSetupMapSelect(interaction);
+      } catch (error) {
+        console.error('Error handling queue setup map select:', error);
+      }
+      return;
+    }
+
+    if (interaction.customId === 'pluto_queue_setup_maps') {
+      try {
+        await handlePlutoQueueMapSelect(interaction);
+      } catch (error) {
+        console.error('Error handling plutonium queue map select:', error);
+      }
+      return;
+    }
+
     // Leaderboard menus
     if (interaction.customId === 'leaderboard_game' || interaction.customId === 'leaderboard_platform') {
       try {
@@ -257,6 +305,76 @@ export async function execute(interaction: Interaction) {
       return;
     }
 
+    // Plutonium queue system (pq: prefix)
+    if (interaction.customId.startsWith('pq:join:')) {
+      try { await handlePlutoJoin(interaction); } catch (e) { console.error('Error handling pluto join:', e); }
+      return;
+    }
+    if (interaction.customId.startsWith('pq:leave:')) {
+      try { await handlePlutoLeave(interaction); } catch (e) { console.error('Error handling pluto leave:', e); }
+      return;
+    }
+    if (interaction.customId.startsWith('pq:ready:')) {
+      try { await handlePlutoReady(interaction); } catch (e) { console.error('Error handling pluto ready:', e); }
+      return;
+    }
+
+    // Standard queue system
+    if (interaction.customId.startsWith('queue:join:')) {
+      try {
+        await handleQueueJoin(interaction);
+      } catch (error) {
+        console.error('Error handling queue join:', error);
+      }
+      return;
+    }
+
+    if (interaction.customId.startsWith('queue:leave:')) {
+      try {
+        await handleQueueLeave(interaction);
+      } catch (error) {
+        console.error('Error handling queue leave:', error);
+      }
+      return;
+    }
+
+    if (interaction.customId.startsWith('match:ready:')) {
+      try {
+        await handleReadyUp(interaction);
+      } catch (error) {
+        console.error('Error handling match ready:', error);
+      }
+      return;
+    }
+
+    if (interaction.customId.startsWith('match:map:')) {
+      try {
+        await handleMatchMapPick(interaction);
+      } catch (error) {
+        console.error('Error handling match map pick:', error);
+      }
+      return;
+    }
+
+    if (interaction.customId.startsWith('match:result:')) {
+      try {
+        await handleMatchResult(interaction);
+      } catch (error) {
+        console.error('Error handling match result:', error);
+      }
+      return;
+    }
+
+    if (interaction.customId.startsWith('match:concede:') ||
+        interaction.customId.startsWith('match:ref:')) {
+      try {
+        await handleDisputeResolve(interaction);
+      } catch (error) {
+        console.error('Error handling dispute resolve:', error);
+      }
+      return;
+    }
+
     // PUG join button
     if (interaction.customId === 'pug_join') {
       try {
@@ -327,46 +445,6 @@ export async function execute(interaction: Interaction) {
       return;
     }
 
-    // Queue join button
-    if (interaction.customId === 'queue_join') {
-      try {
-        await handleQueueJoinButton(interaction);
-      } catch (error) {
-        console.error('Error handling queue join:', error);
-      }
-      return;
-    }
-
-    // Queue leave button
-    if (interaction.customId === 'queue_leave') {
-      try {
-        await handleQueueLeaveButton(interaction);
-      } catch (error) {
-        console.error('Error handling queue leave:', error);
-      }
-      return;
-    }
-
-    // Queue accept button
-    if (interaction.customId.startsWith('queue_accept_')) {
-      try {
-        await handleQueueAcceptButton(interaction);
-      } catch (error) {
-        console.error('Error handling queue accept:', error);
-      }
-      return;
-    }
-
-    // Queue decline button
-    if (interaction.customId.startsWith('queue_decline_')) {
-      try {
-        await handleQueueDeclineButton(interaction);
-      } catch (error) {
-        console.error('Error handling queue decline:', error);
-      }
-      return;
-    }
-
     // Bracket refresh button
     if (interaction.customId.startsWith('bracket_refresh_')) {
       try {
@@ -432,20 +510,21 @@ export async function execute(interaction: Interaction) {
 
   // Handle modal submissions
   if (interaction.isModalSubmit()) {
-    if (interaction.customId === 'queue_join_modal') {
+    // Queue gamertag modal
+    if (interaction.customId === 'queue:gamertag_modal') {
       try {
-        await handleQueueJoinModal(interaction);
+        await handleGamertagModal(interaction);
       } catch (error) {
-        console.error('Error handling queue join modal:', error);
+        console.error('Error handling gamertag modal:', error);
       }
       return;
     }
 
-    if (interaction.customId === 'queue_pluto_modal') {
+    if (interaction.customId === 'pq:gamertag_modal') {
       try {
-        await handleQueuePlutoModal(interaction);
+        await handlePlutoGamertagModal(interaction);
       } catch (error) {
-        console.error('Error handling queue pluto modal:', error);
+        console.error('Error handling pluto gamertag modal:', error);
       }
       return;
     }

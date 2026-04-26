@@ -4,9 +4,13 @@ import { readdirSync } from 'fs';
 import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
 import express from 'express';
-import { initGameServers, releaseGameServer } from './queue/queue-manager.js';
-import { GAME_SERVERS } from './queue/game-servers.config.js';
-import { registerTimeoutHandler } from './commands/setup-queue.js';
+import { initTimers } from './queue/handlers.js';
+import { ensureLoaded as ensurePlutoLoaded } from './plutonium-queue/storage.js';
+import { initPlutoTimers } from './plutonium-queue/handlers.js';
+import { createQueue, setQueueMessageId, deleteQueue, updateQueue, findQueueById } from './queue/queue-service.js';
+import { buildQueueEmbed, buildQueueButtons } from './queue/ui.js';
+import { loadState, ensureLoaded } from './queue/storage.js';
+import { getGuildSettings, setGuildSettings, getAllGuildSettings, getGuildsWithChannel, ensureGuildSettingsLoaded } from './guild-settings.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -69,9 +73,15 @@ if (!token) {
 
 client.login(token);
 
-// Initialize queue system
-initGameServers(GAME_SERVERS);
-registerTimeoutHandler(client);
+// Load state from database, then resume timers
+client.once('ready', async () => {
+  await ensureLoaded();
+  await ensurePlutoLoaded();
+  await ensureGuildSettingsLoaded();
+  await loadServerInfoTargets();
+  initTimers(client);
+  initPlutoTimers(client);
+});
 
 // ============================================
 // HTTP API Server for backend communication
@@ -97,6 +107,215 @@ const authMiddleware = (req: express.Request, res: express.Response, next: expre
 // Health check
 app.get('/health', (_req: express.Request, res: express.Response) => {
   res.json({ status: 'ok', bot: client.isReady() ? 'connected' : 'disconnected' });
+});
+
+// Bot info
+app.get('/api/guilds', authMiddleware, (_req: express.Request, res: express.Response) => {
+  const guilds = client.guilds.cache.map((g) => ({
+    id: g.id,
+    name: g.name,
+    icon: g.iconURL({ size: 64 }),
+    memberCount: g.memberCount,
+    ownerId: g.ownerId,
+    joinedAt: g.joinedAt?.toISOString(),
+  }));
+  res.json({ guilds, botUser: client.user?.username, uptime: client.uptime });
+});
+
+// Guild settings
+app.get('/api/guild/:guildId/settings', authMiddleware, (req: express.Request, res: express.Response) => {
+  res.json(getGuildSettings(req.params.guildId));
+});
+
+app.patch('/api/guild/:guildId/settings', authMiddleware, (req: express.Request, res: express.Response) => {
+  const updated = setGuildSettings(req.params.guildId, req.body);
+  res.json(updated);
+});
+
+// List text channels in a guild
+app.get('/api/guild/:guildId/channels', authMiddleware, async (req: express.Request, res: express.Response) => {
+  try {
+    const guild = client.guilds.cache.get(req.params.guildId);
+    if (!guild) return res.status(404).json({ error: 'Guild not found' });
+
+    const channels = guild.channels.cache
+      .filter((c) => c.type === ChannelType.GuildText)
+      .map((c) => ({ id: c.id, name: c.name }))
+      .sort((a, b) => a.name.localeCompare(b.name));
+
+    res.json(channels);
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Server info embed updates
+import { getTargets, buildServerInfoEmbed, buildJoinServerRow, loadServerInfoTargets } from './commands/setup-server-info.js';
+
+app.post('/api/server-info', authMiddleware, async (req: express.Request, res: express.Response) => {
+  try {
+    const { player1Name, player2Name, player1Score, player2Score, map, spectatorNames, server } = req.body;
+
+    if (!server) {
+      return res.status(400).json({ error: 'server name is required' });
+    }
+
+    const targets = getTargets(server);
+
+    if (targets.length === 0) {
+      return res.json({ updated: 0, message: `No server info embeds for "${server}"` });
+    }
+
+    const { embed, files, components } = buildServerInfoEmbed({
+      server,
+      player1Name,
+      player2Name,
+      player1Score: player1Score ?? 0,
+      player2Score: player2Score ?? 0,
+      map: map || 'Unknown',
+      spectatorNames,
+    });
+
+    let updated = 0;
+    for (const target of targets) {
+      try {
+        const channel = await client.channels.fetch(target.channelId);
+        if (!channel || !('messages' in channel)) continue;
+        const msg = await (channel as any).messages.fetch(target.messageId).catch(() => null);
+        if (!msg) continue;
+        await msg.edit({ embeds: [embed], files, components });
+        updated++;
+      } catch (err) {
+        console.error(`[ServerInfo] Failed to update embed in ${target.channelId}:`, err);
+      }
+    }
+
+    res.json({ updated });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message || 'Failed to update server info' });
+  }
+});
+
+// Queue management (web panel)
+app.get('/api/queues', authMiddleware, (_req: express.Request, res: express.Response) => {
+  const state = loadState();
+  res.json(state.queues.map((q) => ({
+    id: q.id,
+    guildId: q.guildId,
+    channelId: q.channelId,
+    queueType: q.queueType || 'standard',
+    matchThreadChannelId: q.matchThreadChannelId,
+    resultChannelIds: q.resultChannelIds || [],
+    leaderboardId: q.leaderboardId,
+    title: q.title,
+    game: q.game,
+    platform: q.platform,
+    maps: q.maps,
+    playerCount: q.players.length,
+    createdAt: q.createdAt,
+  })));
+});
+
+app.post('/api/queues', authMiddleware, async (req: express.Request, res: express.Response) => {
+  try {
+    const { guildId, channelId, queueType, matchThreadChannelId, resultChannelIds, leaderboardId, title, game, platform, maps } = req.body;
+
+    if (!guildId || !channelId || !leaderboardId || !title || !game || !platform || !maps?.length) {
+      return res.status(400).json({ error: 'guildId, channelId, leaderboardId, title, game, platform, and maps are required' });
+    }
+
+    const queue = createQueue({
+      guildId,
+      channelId,
+      leaderboardId,
+      queueType: queueType || 'standard',
+      matchThreadChannelId: matchThreadChannelId || undefined,
+      resultChannelIds: resultChannelIds?.length ? resultChannelIds : undefined,
+      title,
+      game,
+      platform,
+      maps,
+    });
+
+    // Post the embed in the channel
+    const channel = await client.channels.fetch(channelId);
+    if (!channel || !channel.isTextBased() || !('send' in channel)) {
+      deleteQueue(queue.id);
+      return res.status(404).json({ error: 'Channel not found or not a text channel' });
+    }
+
+    const { embed, files } = buildQueueEmbed(queue);
+    const message = await channel.send({
+      embeds: [embed],
+      components: buildQueueButtons(queue),
+      files,
+    });
+    setQueueMessageId(queue.id, message.id);
+
+    res.json({ id: queue.id, messageId: message.id });
+  } catch (err: any) {
+    console.error('[Queue API] Failed to create queue:', err);
+    res.status(500).json({ error: err.message || 'Failed to create queue' });
+  }
+});
+
+app.patch('/api/queues/:queueId', authMiddleware, async (req: express.Request, res: express.Response) => {
+  try {
+    const queue = findQueueById(req.params.queueId);
+    if (!queue) return res.status(404).json({ error: 'Queue not found' });
+
+    const updated = updateQueue(queue.id, req.body);
+    if (!updated) return res.status(500).json({ error: 'Failed to update queue' });
+
+    // Re-post the embed in the (possibly new) channel
+    try {
+      // Delete old message
+      const oldChannel = await client.channels.fetch(queue.channelId).catch(() => null);
+      if (oldChannel && 'messages' in oldChannel) {
+        const oldMsg = await (oldChannel as any).messages.fetch(queue.messageId).catch(() => null);
+        if (oldMsg) await oldMsg.delete().catch(() => {});
+      }
+
+      // Post new embed
+      const newChannel = await client.channels.fetch(updated.channelId);
+      if (newChannel && 'send' in newChannel) {
+        const { embed, files } = buildQueueEmbed(updated);
+        const newMsg = await newChannel.send({
+          embeds: [embed],
+          components: buildQueueButtons(updated),
+          files,
+        });
+        setQueueMessageId(updated.id, newMsg.id);
+      }
+    } catch (err) {
+      console.error('[Queue API] Failed to re-post queue embed:', err);
+    }
+
+    res.json(updated);
+  } catch (err: any) {
+    res.status(500).json({ error: err.message || 'Failed to update queue' });
+  }
+});
+
+app.delete('/api/queues/:queueId', authMiddleware, async (req: express.Request, res: express.Response) => {
+  try {
+    const queue = findQueueById(req.params.queueId);
+    if (!queue) return res.status(404).json({ error: 'Queue not found' });
+
+    // Try to delete the Discord message
+    try {
+      const channel = await client.channels.fetch(queue.channelId);
+      if (channel && 'messages' in channel) {
+        const msg = await (channel as any).messages.fetch(queue.messageId).catch(() => null);
+        if (msg) await msg.delete().catch(() => {});
+      }
+    } catch {}
+
+    deleteQueue(queue.id);
+    res.json({ success: true });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message || 'Failed to delete queue' });
+  }
 });
 
 // Send DM endpoint
@@ -216,42 +435,49 @@ app.post('/api/tournament-match-result', authMiddleware, async (req: express.Req
     const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:4200';
     const bracketUrl = `${frontendUrl}/tournaments/${tournamentSlug}/bracket`;
 
-    // Find the general channel
-    let generalCh = null;
-    for (const guild of client.guilds.cache.values()) {
-      if (!generalCh) {
-        const found = guild.channels.cache.find(
-          (ch) => ch.name === '༝︱general' && ch.type === ChannelType.GuildText
-        );
-        if (found) generalCh = found;
-      }
-    }
-
-    if (!generalCh || !generalCh.isTextBased()) {
-      return res.status(404).json({ error: 'general channel not found' });
-    }
-
-    const { createCanvas } = await import('canvas');
-    const spacer = createCanvas(400, 1);
-    const spacerAttachment = new AttachmentBuilder(spacer.toBuffer('image/png'), { name: 'spacer.png' });
-
     const description = isFinal
       ? `### 🏆 ${winnerUsername} wins!\n\nDefeated **${loserUsername}** in the Grand Finals\n\n**${tournamentName}**\n[View Bracket](${bracketUrl})`
       : `### ${winnerUsername} defeated ${loserUsername}\n\nMatch ${matchNumber} · Round ${round} · **${tournamentName}**\n\n[View Bracket](${bracketUrl})`;
 
     const color = isFinal ? 0xFFD700 : 0x4caf50;
 
-    await generalCh.send({
-      embeds: [{
-        color,
-        author: {
-          name: '1v1 Leaderboards',
-        },
-        description,
-        image: { url: 'attachment://spacer.png' },
-      }],
-      files: [spacerAttachment],
-    });
+    // Collect all tournament channels from guild settings
+    const targets = getGuildsWithChannel('tournamentChannelId');
+    // Fallback: search for ༝︱general channel
+    if (targets.length === 0) {
+      for (const guild of client.guilds.cache.values()) {
+        const found = guild.channels.cache.find(
+          (ch) => ch.name === '༝︱general' && ch.type === ChannelType.GuildText
+        );
+        if (found) {
+          targets.push({ guildId: guild.id, channelId: found.id });
+          break;
+        }
+      }
+    }
+
+    for (const target of targets) {
+      try {
+        const ch = await client.channels.fetch(target.channelId);
+        if (!ch || !ch.isTextBased() || !('send' in ch)) continue;
+
+        const { createCanvas } = await import('canvas');
+        const spacer = createCanvas(400, 1);
+        const spacerAttachment = new AttachmentBuilder(spacer.toBuffer('image/png'), { name: 'spacer.png' });
+
+        await ch.send({
+          embeds: [{
+            color,
+            author: { name: '1v1 Leaderboards' },
+            description,
+            image: { url: 'attachment://spacer.png' },
+          }],
+          files: [spacerAttachment],
+        });
+      } catch (err) {
+        console.error(`[Tournament] Failed to post to channel ${target.channelId}:`, err);
+      }
+    }
 
     res.json({ success: true });
   } catch (error: any) {
@@ -290,45 +516,36 @@ app.post('/api/channel-message', authMiddleware, async (req: express.Request, re
   }
 });
 
-// Queue match result — called by game servers when a match ends
-app.post('/api/queue/match-result', authMiddleware, async (req: express.Request, res: express.Response) => {
-  try {
-    const { serverId } = req.body;
-
-    if (!serverId) {
-      return res.status(400).json({ error: 'serverId is required' });
-    }
-
-    const released = releaseGameServer(serverId);
-    if (!released) {
-      return res.status(404).json({ error: 'Server not found' });
-    }
-
-    // TODO: Record match result, update leaderboard, etc.
-    res.json({ success: true });
-  } catch (error: any) {
-    console.error('Error handling queue match result:', error);
-    res.status(500).json({ error: error.message || 'Failed to process match result' });
-  }
-});
-
 // Pluto game result — posts match result to Discord
 app.post('/api/pluto-game-result', authMiddleware, async (req: express.Request, res: express.Response) => {
   try {
-    const { winnerName, loserName, winnerScore, loserScore, mapName, winnerRecord } = req.body;
+    const { winnerName, loserName, winnerScore, loserScore, mapName, winnerRecord, platform } = req.body;
+    const plat = (platform || 'plutonium').toLowerCase();
 
     if (!winnerName || !loserName || winnerScore === undefined || loserScore === undefined || !mapName) {
       return res.status(400).json({ error: 'winnerName, loserName, winnerScore, loserScore, and mapName are required' });
     }
 
     const isNuke = loserScore === 0 && winnerScore >= 50;
-    const channelId = isNuke ? '1465077201954410557' : '1481570502521917562';
-    const channel = await client.channels.fetch(channelId);
-    if (!channel || !channel.isTextBased() || !('send' in channel)) {
-      return res.status(404).json({ error: 'Channel not found' });
+
+    // Collect all channels to post to from guild settings
+    const targets = getGuildsWithChannel('gameFeedChannelId');
+    // Fallback to hardcoded channel if no guilds configured
+    if (targets.length === 0) {
+      targets.push({ guildId: '', channelId: '1481570502521917562' });
     }
-    const plutoLogoAttachment = new AttachmentBuilder(join(__dirname, 'assets', 'plutonium.png'), { name: 'plutonium.png' });
-    const files: AttachmentBuilder[] = [plutoLogoAttachment];
+
+    const PLATFORM_COLORS: Record<string, number> = {
+      plutonium: 0xff4444,
+      iw4x: 0x4caf50,
+    };
+    const PLATFORM_LABELS: Record<string, string> = {
+      plutonium: 'Plutonium · Black Ops 2',
+      iw4x: 'IW4X · Modern Warfare 2',
+    };
+
+    const embedColor = PLATFORM_COLORS[plat] ?? 0xff4444;
+    const footerText = PLATFORM_LABELS[plat] ?? plat;
 
     let description: string;
     const [w, l] = winnerRecord.split('-').map(Number);
@@ -342,23 +559,38 @@ app.post('/api/pluto-game-result', authMiddleware, async (req: express.Request, 
     }
 
     if (isNuke) {
-      const nukeAttachment = new AttachmentBuilder(join(__dirname, 'assets', 'nuke.gif'), { name: 'nuke.gif' });
-      files.push(nukeAttachment);
       description = `**${winnerName} dropped a 50-0 on ${loserName}!** \`FF\`\n${seriesText}\n[Join Server](https://discord.com/channels/${process.env.DISCORD_GUILD_ID}/1481499199173300284)`;
     } else {
       description = `**${winnerName}** beat **${loserName}** on ${mapName} (${winnerScore}-${loserScore}) \`FF\`\n${seriesText}\n[Join Server](https://discord.com/channels/${process.env.DISCORD_GUILD_ID}/1481499199173300284)`;
     }
 
-    await channel.send({
-      embeds: [{
-        color: isNuke ? 0xFFD700 : 0xff4444,
-        thumbnail: isNuke ? { url: 'attachment://nuke.gif' } : undefined,
-        description,
-        footer: { text: 'Plutonium · Black Ops 2', icon_url: 'attachment://plutonium.png' },
-        timestamp: new Date().toISOString(),
-      }],
-      files,
-    });
+    for (const target of targets) {
+      try {
+        const channel = await client.channels.fetch(target.channelId);
+        if (!channel || !channel.isTextBased() || !('send' in channel)) continue;
+
+        const files: AttachmentBuilder[] = [];
+        if (plat !== 'iw4x') {
+          files.push(new AttachmentBuilder(join(__dirname, 'assets', 'plutonium.png'), { name: 'logo.png' }));
+        }
+        if (isNuke) {
+          files.push(new AttachmentBuilder(join(__dirname, 'assets', 'nuke.gif'), { name: 'nuke.gif' }));
+        }
+
+        await channel.send({
+          embeds: [{
+            color: isNuke ? 0xFFD700 : embedColor,
+            thumbnail: isNuke ? { url: 'attachment://nuke.gif' } : undefined,
+            description,
+            footer: { text: footerText, icon_url: plat !== 'iw4x' ? 'attachment://logo.png' : undefined },
+            timestamp: new Date().toISOString(),
+          }],
+          files,
+        });
+      } catch (err) {
+        console.error(`[GameFeed] Failed to post to channel ${target.channelId}:`, err);
+      }
+    }
 
     res.json({ success: true });
   } catch (error: any) {

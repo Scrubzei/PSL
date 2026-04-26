@@ -10,4 +10,5 @@ COPY . .
 
 EXPOSE 3000
 
-CMD ["npm", "run", "start:dev"]
+# Bind mount replaces /app but anonymous volume keeps node_modules; re-install so new deps in package.json appear without rebuilding the image.
+CMD ["sh", "-c", "npm install && npm run start:dev"]

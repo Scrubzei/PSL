@@ -45,6 +45,10 @@ export interface Match {
   challengeeEloBefore?: number | null;
   createdAt: string;
   updatedAt: string;
+  acceptedAt?: string | null;
+  rankedLadderApplied?: boolean;
+  /** Server-only snapshot for ranked rollback on ref appeal; optional on client. */
+  rankedSnapshotBefore?: { userId: string; rankScore: number }[] | null;
   challenger: {
     id: string;
     username: string;
@@ -151,6 +155,22 @@ export class ChallengesService {
 
   cancelChallenge(id: string): Observable<Match> {
     return this.http.patch<Match>(`${this.API_URL}/${id}/cancel`, {});
+  }
+
+  updatePendingMatch(id: string, body: { bestOf?: number; selectedMaps: string[] }): Observable<Match> {
+    return this.http.patch<Match>(`${this.API_URL}/${id}/pending`, body);
+  }
+
+  /** Cross-game PENDING / ACCEPTED feed for matchfinder home. */
+  getPublicFeed(params?: { limit?: number; statuses?: string }): Observable<Match[]> {
+    let httpParams = new HttpParams();
+    if (params?.limit != null) {
+      httpParams = httpParams.set('limit', String(params.limit));
+    }
+    if (params?.statuses) {
+      httpParams = httpParams.set('statuses', params.statuses);
+    }
+    return this.http.get<Match[]>(`${this.API_URL}/feed`, { params: httpParams });
   }
 
   reportResult(

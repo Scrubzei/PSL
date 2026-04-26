@@ -13,7 +13,7 @@
     "migration:revert": "npm run typeorm -- -d src/data-source.ts migration:revert",
     "seed": "ts-node src/seed.ts",
     "seed:tournaments": "ts-node src/seed-tournaments.ts",
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "jest --config jest.config.cjs"
   },
   "keywords": [],
   "author": "",
@@ -45,9 +45,13 @@
     "@nestjs/cli": "^11.0.16",
     "@nestjs/testing": "^11.1.12",
     "@types/bcrypt": "^6.0.0",
+    "@types/jest": "^30.0.0",
     "@types/node": "^25.0.9",
     "@types/passport-jwt": "^4.0.1",
     "@types/passport-local": "^1.0.38",
+    "jest": "^30.3.0",
+    "jest-environment-node": "^30.3.0",
+    "ts-jest": "^29.4.9",
     "ts-node": "^10.9.2",
     "typescript": "^5.9.3"
   }

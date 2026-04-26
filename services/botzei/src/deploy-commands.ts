@@ -23,7 +23,7 @@ for (const file of commandFiles) {
 
 const token = process.env.DISCORD_TOKEN;
 const clientId = process.env.DISCORD_CLIENT_ID;
-const guildId = process.env.DISCORD_GUILD_ID;
+const guildIds = process.env.DISCORD_GUILD_ID?.split(',').map(id => id.trim()).filter(Boolean) || [];
 
 if (!token || !clientId) {
   console.error('Missing DISCORD_TOKEN or DISCORD_CLIENT_ID');
@@ -36,13 +36,15 @@ const rest = new REST().setToken(token);
   try {
     console.log(`Refreshing ${commands.length} slash commands...`);
 
-    if (guildId) {
-      // Guild commands (instant update - for development)
-      await rest.put(
-        Routes.applicationGuildCommands(clientId, guildId),
-        { body: commands },
-      );
-      console.log(`Successfully registered commands to guild ${guildId}`);
+    if (guildIds.length > 0) {
+      // Guild commands (instant update)
+      for (const guildId of guildIds) {
+        await rest.put(
+          Routes.applicationGuildCommands(clientId, guildId),
+          { body: commands },
+        );
+        console.log(`Registered commands to guild ${guildId}`);
+      }
     } else {
       // Global commands (takes up to 1 hour to propagate)
       await rest.put(

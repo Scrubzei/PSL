@@ -327,6 +327,19 @@ import { CdkDragDrop, CdkDrag, CdkDropList, moveItemInArray } from '@angular/cdk
                             <span class="you-badge">You</span>
                           }
                         </span>
+                        <span class="participant-tags">
+                          @if (participant.user.xboxGamertag) {
+                            <span class="ptag xbox"><i class="fa-brands fa-xbox"></i> {{ participant.user.xboxGamertag }}</span>
+                          }
+                          @if (participant.user.discordUsername) {
+                            <span class="ptag discord"><i class="fa-brands fa-discord"></i> {{ participant.user.discordUsername }}</span>
+                          }
+                          @if (isAdmin && participant.user.discordId) {
+                            <span class="ptag acct-age" [title]="getDiscordCreatedDate(participant.user.discordId)">
+                              <i class="fa-solid fa-clock"></i> {{ getDiscordAccountAge(participant.user.discordId) }}
+                            </span>
+                          }
+                        </span>
                       </div>
                       @if (numByes > 0) {
                         <button class="bye-toggle"
@@ -336,6 +349,9 @@ import { CdkDragDrop, CdkDrag, CdkDropList, moveItemInArray } from '@angular/cdk
                           BYE
                         </button>
                       }
+                      <button class="kick-btn" (click)="kickParticipant(participant.user.id, participant.user.username); $event.stopPropagation()" title="Remove from tournament">
+                        <mat-icon>person_remove</mat-icon>
+                      </button>
                     </div>
                   }
                 </div>
@@ -369,6 +385,19 @@ import { CdkDragDrop, CdkDrag, CdkDropList, moveItemInArray } from '@angular/cdk
                           {{ participant.user.username }}
                           @if (isCurrentUser(participant.user.id)) {
                             <span class="you-badge">You</span>
+                          }
+                        </span>
+                        <span class="participant-tags">
+                          @if (participant.user.xboxGamertag) {
+                            <span class="ptag xbox"><i class="fa-brands fa-xbox"></i> {{ participant.user.xboxGamertag }}</span>
+                          }
+                          @if (participant.user.discordUsername) {
+                            <span class="ptag discord"><i class="fa-brands fa-discord"></i> {{ participant.user.discordUsername }}</span>
+                          }
+                          @if (isAdmin && participant.user.discordId) {
+                            <span class="ptag acct-age" [title]="getDiscordCreatedDate(participant.user.discordId)">
+                              <i class="fa-solid fa-clock"></i> {{ getDiscordAccountAge(participant.user.discordId) }}
+                            </span>
                           }
                         </span>
                       </div>
@@ -1387,6 +1416,33 @@ import { CdkDragDrop, CdkDrag, CdkDropList, moveItemInArray } from '@angular/cdk
       }
     }
 
+    .kick-btn {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 28px;
+      height: 28px;
+      border: none;
+      border-radius: 6px;
+      background: transparent;
+      color: rgba(255, 255, 255, 0.2);
+      cursor: pointer;
+      transition: all 0.15s ease;
+      flex-shrink: 0;
+      padding: 0;
+
+      mat-icon {
+        font-size: 18px;
+        width: 18px;
+        height: 18px;
+      }
+
+      &:hover {
+        background: rgba(239, 68, 68, 0.15);
+        color: #f87171;
+      }
+    }
+
     .seed-draggable {
       cursor: grab;
       transition: background 0.15s ease, box-shadow 0.15s ease;
@@ -1592,6 +1648,9 @@ import { CdkDragDrop, CdkDrag, CdkDropList, moveItemInArray } from '@angular/cdk
     .participant-info {
       flex: 1;
       min-width: 0;
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
     }
 
     .participant-name {
@@ -1601,6 +1660,27 @@ import { CdkDragDrop, CdkDrag, CdkDropList, moveItemInArray } from '@angular/cdk
       font-size: 13px;
       font-weight: 500;
       color: rgba(255, 255, 255, 0.85);
+    }
+
+    .participant-tags {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
+    .ptag {
+      font-size: 11px;
+      color: rgba(255, 255, 255, 0.35);
+      display: flex;
+      align-items: center;
+      gap: 4px;
+
+      i { font-size: 11px; }
+
+      &.xbox i { color: #107C10; }
+      &.discord i { color: #5865F2; }
+      &.acct-age i { color: rgba(255, 255, 255, 0.25); }
     }
 
     .you-badge {
@@ -1946,6 +2026,27 @@ export class TournamentDetailComponent implements OnInit, OnDestroy {
     return this.authService.currentUser()?.role === 'admin';
   }
 
+  getDiscordCreatedDate(discordId: string): string {
+    const snowflake = BigInt(discordId);
+    const timestamp = Number(snowflake >> 22n) + 1420070400000;
+    return new Date(timestamp).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
+  }
+
+  getDiscordAccountAge(discordId: string): string {
+    const snowflake = BigInt(discordId);
+    const timestamp = Number(snowflake >> 22n) + 1420070400000;
+    const created = new Date(timestamp);
+    const now = new Date();
+    const diffMs = now.getTime() - created.getTime();
+    const days = Math.floor(diffMs / 86400000);
+    if (days < 30) return `${days}d old`;
+    const months = Math.floor(days / 30);
+    if (months < 12) return `${months}mo old`;
+    const years = Math.floor(months / 12);
+    const remMonths = months % 12;
+    return remMonths > 0 ? `${years}y ${remMonths}mo old` : `${years}y old`;
+  }
+
   get numByes(): number {
     if (!this.tournament) return 0;
     const n = this.tournament.participants.length;
@@ -2230,6 +2331,20 @@ export class TournamentDetailComponent implements OnInit, OnDestroy {
       error: (err) => {
         this.snackBar.open(err.error?.message || 'Failed to withdraw', 'Close', { duration: 3000 });
         this.actionLoading = false;
+      }
+    });
+  }
+
+  kickParticipant(userId: string, username: string): void {
+    if (!this.tournament) return;
+    if (!confirm(`Remove ${username} from the tournament?`)) return;
+    this.tournamentsService.kickParticipant(this.tournament.id, userId).subscribe({
+      next: () => {
+        this.snackBar.open(`${username} removed from tournament`, 'Close', { duration: 3000 });
+        this.loadTournament(this.tournament!.id);
+      },
+      error: (err) => {
+        this.snackBar.open(err.error?.message || 'Failed to remove participant', 'Close', { duration: 4000 });
       }
     });
   }

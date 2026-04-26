@@ -5,17 +5,23 @@
   "scripts": {
     "dev": "docker-compose up",
     "dev:build": "docker-compose up --build",
-    "deploy": "bash deploy/push.sh",
+    "deploy": "bash deploy/push-website.sh && bash deploy/push-bot.sh",
+    "deploy:all": "bash deploy/push.sh",
+    "deploy:website": "bash deploy/push-website.sh",
+    "deploy:server": "bash deploy/push-server.sh",
+    "deploy:bot": "bash deploy/push-bot.sh",
     "deploy:ansible": "ansible-playbook deploy/playbook.yml -i deploy/inventory.ini",
     "docker:up": "docker-compose up --build",
     "docker:down": "docker-compose down",
     "docker:down:volumes": "docker-compose down -v",
+    "db:nuke": "docker compose down -v",
     "docker:logs": "docker-compose logs -f",
     "docker:restart": "docker-compose restart",
     "db:seed": "docker-compose exec server npm run seed",
     "db:seed:tournaments": "docker-compose exec server npm run seed:tournaments --",
     "start": "docker-compose up --build",
-    "bot:deploy-commands": "cd services/botzei && npm run deploy-commands"
+    "bot:deploy-commands": "cd services/botzei && npm run deploy-commands",
+    "docker:server-install": "docker-compose exec server npm install"
   },
   "keywords": [
     "angular",

@@ -399,18 +399,96 @@ export class TournamentsService {
     const winnerUser = winnerId === match.player1Id ? match.player1 : match.player2;
     const loserUser = winnerId === match.player1Id ? match.player2 : match.player1;
     if (winnerUser && loserUser) {
+      // Round numbers are inverted internally (highest = first round, 1 = finals).
+      // Compute display round so "Round 1" means the opening round.
+      const maxRoundResult = await this.matchRepository
+        .createQueryBuilder('m')
+        .select('MAX(m.round)', 'max')
+        .where('m.tournamentId = :tid', { tid: match.tournamentId })
+        .getRawOne();
+      const totalRounds = maxRoundResult?.max ?? match.round;
+      const displayRound = totalRounds - match.round + 1;
+
       this.botzeiService.sendTournamentMatchResult({
         tournamentName: match.tournament.name,
         tournamentSlug: match.tournament.slug,
         winnerUsername: winnerUser.username,
         loserUsername: loserUser.username,
-        round: match.round,
+        round: displayRound,
         matchNumber: match.matchNumber,
         isFinal,
       }).catch(err => this.logger.warn(`Failed to send match result to Discord: ${err}`));
     }
 
     return match;
+  }
+
+  async revertMatchResult(matchId: string): Promise<TournamentMatch> {
+    const match = await this.matchRepository.findOne({
+      where: { id: matchId },
+      relations: ['tournament', 'player1', 'player2'],
+    });
+
+    if (!match) {
+      throw new NotFoundException('Match not found');
+    }
+
+    if (match.status !== 'COMPLETED') {
+      throw new BadRequestException('Match is not completed');
+    }
+
+    const winnerId = match.winnerId;
+    const loserId = winnerId === match.player1Id ? match.player2Id : match.player1Id;
+
+    // If winner was advanced to next match, remove them
+    if (match.nextMatchId) {
+      const nextMatch = await this.matchRepository.findOne({
+        where: { id: match.nextMatchId },
+      });
+
+      if (nextMatch) {
+        if (nextMatch.status === 'COMPLETED') {
+          throw new BadRequestException(
+            'Cannot revert — the next round match has already been completed. Revert that one first.',
+          );
+        }
+
+        if (nextMatch.player1Id === winnerId) {
+          nextMatch.player1Id = null;
+        } else if (nextMatch.player2Id === winnerId) {
+          nextMatch.player2Id = null;
+        }
+
+        if (nextMatch.status === 'READY') {
+          nextMatch.status = 'PENDING';
+        }
+
+        await this.matchRepository.save(nextMatch);
+      }
+    } else {
+      // This was the final — revert tournament status
+      await this.tournamentRepository.update(match.tournamentId, {
+        status: 'IN_PROGRESS',
+      });
+    }
+
+    // Un-eliminate the loser
+    if (loserId) {
+      await this.participantRepository.update(
+        { tournamentId: match.tournamentId, userId: loserId },
+        { eliminated: false },
+      );
+    }
+
+    // Reset the match
+    match.winnerId = null;
+    match.status = 'READY';
+    await this.matchRepository.save(match);
+
+    return this.matchRepository.findOne({
+      where: { id: matchId },
+      relations: ['tournament', 'player1', 'player2'],
+    });
   }
 
   private async generateBracket(

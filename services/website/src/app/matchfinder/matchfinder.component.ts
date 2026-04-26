@@ -1,6 +1,8 @@
-import { Component } from '@angular/core';
+import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { Router } from '@angular/router';
+import { Router, RouterModule } from '@angular/router';
+import { ChallengesService, Match } from '../challenges/challenges.service';
+import { mapImageUrl } from '../games/map-assets';
 
 interface GamePlatform {
   name: string;
@@ -17,10 +19,17 @@ interface Game {
   platforms: GamePlatform[];
 }
 
+/** Same as matchfinder-all for resolving /matchfinder/:game/:platform */
+const GAME_SLUGS: { name: string; slug: string }[] = [
+  { name: 'Modern Warfare 2', slug: 'mw2' },
+  { name: 'Black Ops 2', slug: 'bo2' },
+  { name: 'MW 2019', slug: 'mw 2019' },
+];
+
 @Component({
   selector: 'app-matchfinder',
   standalone: true,
-  imports: [CommonModule],
+  imports: [CommonModule, RouterModule],
   template: `
     <div class="page-wrapper">
       <!-- Dynamic background -->
@@ -46,52 +55,93 @@ interface Game {
           <p class="subtitle">Select a game to find your opponent</p>
         </div>
 
-        <div class="games-grid">
-          @for (game of games; track game.slug) {
-            <div
-              class="game-card"
-              [class.expanded]="selectedGame === game.slug"
-              [style.animation-delay]="$index * 0.08 + 's'">
-
-              @if (selectedGame !== game.slug) {
-                <!-- Game Cover -->
+        <div class="mf-layout">
+          <div class="mf-main">
+            <div class="games-grid">
+              @for (game of games; track game.slug) {
                 <div
-                  class="card-face card-front"
-                  (click)="selectGame(game.slug)"
-                  (mouseenter)="hoveredGame = game.slug"
-                  (mouseleave)="hoveredGame = null">
-                  <div class="game-image">
-                    <img [src]="game.image" [alt]="game.name" />
-                    <div class="image-overlay"></div>
-                  </div>
-                  <div class="game-info">
-                    <h3>{{ game.name }}</h3>
-                    <span class="arrow">&rarr;</span>
-                  </div>
-                </div>
-              } @else {
-                <!-- Platform Selection -->
-                <div class="card-face card-back">
-                  <button class="back-btn" (click)="selectGame(null)">
-                    <span class="back-arrow">&larr;</span>
-                    {{ game.name }}
-                  </button>
-                  <div class="platform-list">
-                    @for (platform of game.platforms; track platform.slug) {
-                      <button
-                        class="platform-btn"
-                        [style.--btn-color]="platform.color"
-                        [style.--btn-hover]="platform.hoverColor"
-                        (click)="selectPlatform(game, platform)">
-                        <i [class]="platform.icon" class="platform-icon"></i>
-                        <span class="platform-name">{{ platform.name }}</span>
+                  class="game-card"
+                  [class.expanded]="selectedGame === game.slug"
+                  [style.animation-delay]="$index * 0.08 + 's'">
+
+                  @if (selectedGame !== game.slug) {
+                    <div
+                      class="card-face card-front"
+                      (click)="selectGame(game.slug)"
+                      (mouseenter)="hoveredGame = game.slug"
+                      (mouseleave)="hoveredGame = null">
+                      <div class="game-image">
+                        <img [src]="game.image" [alt]="game.name" />
+                        <div class="image-overlay"></div>
+                      </div>
+                      <div class="game-info">
+                        <h3>{{ game.name }}</h3>
+                        <span class="arrow">&rarr;</span>
+                      </div>
+                    </div>
+                  } @else {
+                    <div class="card-face card-back">
+                      <button class="back-btn" (click)="selectGame(null)">
+                        <span class="back-arrow">&larr;</span>
+                        {{ game.name }}
                       </button>
-                    }
-                  </div>
+                      <div class="platform-list">
+                        @for (platform of game.platforms; track platform.slug) {
+                          <button
+                            class="platform-btn"
+                            [style.--btn-color]="platform.color"
+                            [style.--btn-hover]="platform.hoverColor"
+                            (click)="selectPlatform(game, platform)">
+                            <i [class]="platform.icon" class="platform-icon"></i>
+                            <span class="platform-name">{{ platform.name }}</span>
+                          </button>
+                        }
+                      </div>
+                    </div>
+                  }
                 </div>
               }
             </div>
-          }
+          </div>
+
+          <aside class="mf-browse-aside" aria-label="Open XP listings">
+            <section class="mf-browse-card">
+              <header class="mf-browse-header">
+                <h2 class="mf-browse-title">Open listings</h2>
+                <a routerLink="/matchfinder/all" class="mf-browse-view-all">View All</a>
+              </header>
+              @if (browseLoading) {
+                <p class="mf-browse-empty">Loading…</p>
+              } @else if (browseFeed.length === 0) {
+                <p class="mf-browse-empty">No open XP listings right now.</p>
+              } @else {
+                <ul class="mf-browse-list">
+                  @for (m of browseFeed; track m.id) {
+                    <li class="mf-browse-row">
+                      @if (m.selectedMaps.length > 0) {
+                        <div
+                          class="mf-browse-thumb"
+                          [style.background-image]="'url(' + mapThumbUrl(m) + ')'"
+                          role="img"
+                          [attr.aria-label]="'Map: ' + m.selectedMaps[0]"></div>
+                      } @else {
+                        <div class="mf-browse-thumb mf-browse-thumb--empty" aria-hidden="true"></div>
+                      }
+                      <div class="mf-browse-meta">
+                        <div class="mf-browse-line">{{ browseRowSubline(m) }}</div>
+                      </div>
+                      <button
+                        type="button"
+                        class="mf-browse-btn"
+                        (click)="goToBrowseMatch(m)">
+                        View
+                      </button>
+                    </li>
+                  }
+                </ul>
+              }
+            </section>
+          </aside>
         </div>
       </div>
     </div>
@@ -179,7 +229,7 @@ interface Game {
     /* Hero */
     .hero {
       text-align: center;
-      margin-bottom: 56px;
+      margin-bottom: 48px;
 
       h1 {
         margin: 0 0 16px;
@@ -230,13 +280,26 @@ interface Game {
       }
     }
 
+    .mf-layout {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) minmax(260px, 320px);
+      gap: 28px;
+      align-items: start;
+    }
+
+    .mf-main {
+      display: flex;
+      justify-content: center;
+      min-width: 0;
+    }
+
     /* Grid */
     .games-grid {
       display: grid;
       grid-template-columns: repeat(3, 1fr);
       gap: 20px;
       max-width: 750px;
-      margin: 0 auto;
+      width: 100%;
     }
 
     .game-card {
@@ -285,7 +348,6 @@ interface Game {
       border-color: rgba(255, 255, 255, 0.12);
     }
 
-    /* Game image */
     .game-image {
       position: relative;
       aspect-ratio: 3 / 4;
@@ -337,7 +399,6 @@ interface Game {
       }
     }
 
-    /* Platform selection */
     .card-back {
       display: flex;
       flex-direction: column;
@@ -418,6 +479,128 @@ interface Game {
       }
     }
 
+    /* Browse sidebar */
+    .mf-browse-aside {
+      min-width: 0;
+    }
+
+    .mf-browse-card {
+      background: rgba(255, 255, 255, 0.03);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: 16px;
+      overflow: hidden;
+      box-shadow: 0 16px 40px rgba(0, 0, 0, 0.35);
+    }
+
+    .mf-browse-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 14px 16px;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+      background: rgba(0, 0, 0, 0.25);
+    }
+
+    .mf-browse-title {
+      margin: 0;
+      font-size: 13px;
+      font-weight: 700;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: rgba(255, 255, 255, 0.85);
+    }
+
+    .mf-browse-view-all {
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--theme-primary-bright, #fcd34d);
+      text-decoration: none;
+      white-space: nowrap;
+      transition: opacity 0.2s ease;
+
+      &:hover {
+        opacity: 0.85;
+        text-decoration: underline;
+      }
+    }
+
+    .mf-browse-empty {
+      margin: 0;
+      padding: 20px 16px;
+      font-size: 13px;
+      color: rgba(255, 255, 255, 0.45);
+      text-align: center;
+    }
+
+    .mf-browse-list {
+      list-style: none;
+      margin: 0;
+      padding: 0;
+    }
+
+    .mf-browse-row {
+      display: grid;
+      grid-template-columns: 52px minmax(0, 1fr) auto;
+      gap: 10px;
+      align-items: center;
+      padding: 10px 12px;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+
+      &:last-child {
+        border-bottom: none;
+      }
+    }
+
+    .mf-browse-thumb {
+      width: 52px;
+      height: 40px;
+      border-radius: 6px;
+      background-size: cover;
+      background-position: center;
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      flex-shrink: 0;
+    }
+
+    .mf-browse-thumb--empty {
+      background: rgba(255, 255, 255, 0.06);
+    }
+
+    .mf-browse-meta {
+      min-width: 0;
+    }
+
+    .mf-browse-line {
+      font-size: 12px;
+      font-weight: 600;
+      color: rgba(255, 255, 255, 0.82);
+      line-height: 1.35;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .mf-browse-btn {
+      flex-shrink: 0;
+      padding: 6px 12px;
+      border-radius: 8px;
+      border: 1px solid rgba(251, 191, 36, 0.45);
+      background: rgba(0, 0, 0, 0.35);
+      color: #fcd34d;
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      cursor: pointer;
+      font-family: inherit;
+      transition: background 0.2s ease, border-color 0.2s ease;
+
+      &:hover {
+        background: rgba(251, 191, 36, 0.1);
+        border-color: rgba(251, 191, 36, 0.65);
+      }
+    }
+
     @keyframes fadeInUp {
       from {
         opacity: 0;
@@ -429,7 +612,19 @@ interface Game {
       }
     }
 
-    /* Responsive */
+    @media (max-width: 1024px) {
+      .mf-layout {
+        grid-template-columns: 1fr;
+        gap: 32px;
+      }
+
+      .mf-browse-aside {
+        max-width: 520px;
+        margin: 0 auto;
+        width: 100%;
+      }
+    }
+
     @media (max-width: 900px) {
       .games-grid {
         grid-template-columns: repeat(3, 1fr);
@@ -497,12 +692,29 @@ interface Game {
           letter-spacing: 1px;
         }
       }
+
+      .mf-browse-row {
+        grid-template-columns: 44px minmax(0, 1fr) auto;
+        gap: 8px;
+        padding: 8px 10px;
+      }
+
+      .mf-browse-thumb {
+        width: 44px;
+        height: 34px;
+      }
+
+      .mf-browse-line {
+        font-size: 11px;
+      }
     }
   `]
 })
-export class MatchfinderComponent {
+export class MatchfinderComponent implements OnInit {
   selectedGame: string | null = null;
   hoveredGame: string | null = null;
+  browseFeed: Match[] = [];
+  browseLoading = true;
 
   games: Game[] = [
     {
@@ -528,18 +740,60 @@ export class MatchfinderComponent {
     {
       name: 'MW 2019',
       slug: 'mw 2019',
-      image: 'assets/games/mw 2019.webp',
+      image: 'assets/games/mw2019.webp',
       platforms: [
         { name: 'Cross-Platform', slug: 'cross-platform', color: '#3b1578', hoverColor: '#4c1d95', icon: 'fa-solid fa-globe' }
       ]
     }
   ];
 
+  constructor(
+    private router: Router,
+    private challengesService: ChallengesService,
+  ) {}
+
+  ngOnInit(): void {
+    this.challengesService.getPublicFeed({ limit: 40, statuses: 'PENDING' }).subscribe({
+      next: (list) => {
+        this.browseFeed = list
+          .filter(
+            (m) =>
+              m.type === 'XP' &&
+              m.status === 'PENDING' &&
+              !m.challengeeId,
+          )
+          .slice(0, 8);
+        this.browseLoading = false;
+      },
+      error: () => {
+        this.browseLoading = false;
+      },
+    });
+  }
+
+  mapThumbUrl(m: Match): string {
+    const first = m.selectedMaps[0];
+    return mapImageUrl(m.leaderboard.game.name, first);
+  }
+
+  browseRowSubline(m: Match): string {
+    const mapName = m.selectedMaps[0] ?? '—';
+    return `${mapName} · ${m.leaderboard.game.name} · ${m.leaderboard.platform.name}`;
+  }
+
+  goToBrowseMatch(m: Match): void {
+    const g = GAME_SLUGS.find((x) => x.name === m.leaderboard.game.name);
+    const gameSlug =
+      g?.slug ?? m.leaderboard.game.name.toLowerCase().replace(/\s+/g, '-');
+    const platSlug = m.leaderboard.platform.name.toLowerCase().replace(/\s+/g, '-');
+    this.router.navigate(['/matchfinder', gameSlug, platSlug], {
+      queryParams: { tab: 'browse' },
+    });
+  }
+
   selectGame(slug: string | null): void {
     this.selectedGame = slug;
   }
-
-  constructor(private router: Router) {}
 
   selectPlatform(game: Game, platform: GamePlatform): void {
     this.router.navigate(['/matchfinder', game.slug, platform.slug]);

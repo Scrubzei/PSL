@@ -195,7 +195,19 @@ interface RoundData {
                                 <div class="player-avatar">
                                   <span>{{ match.player1.username.charAt(0).toUpperCase() }}</span>
                                 </div>
-                                <span class="player-name clickable" (click)="openPlayerDetails(match.player1); $event.stopPropagation()">{{ match.player1.username }}</span>
+                                <div class="player-details">
+                                  <span class="player-name clickable" (click)="openPlayerDetails(match.player1); $event.stopPropagation()">{{ match.player1.username }}</span>
+                                  @if (match.player1.xboxGamertag || match.player1.discordUsername) {
+                                    <span class="player-subtags">
+                                      @if (match.player1.xboxGamertag) {
+                                        <span class="ptag xbox"><i class="fa-brands fa-xbox"></i> {{ match.player1.xboxGamertag }}</span>
+                                      }
+                                      @if (match.player1.discordUsername) {
+                                        <span class="ptag discord"><i class="fa-brands fa-discord"></i> {{ match.player1.discordUsername }}</span>
+                                      }
+                                    </span>
+                                  }
+                                </div>
                                 @if (match.status === 'COMPLETED' && !match.isBye && match.winner && match.winner.id === match.player1.id) {
                                   <mat-icon class="winner-icon">emoji_events</mat-icon>
                                 }
@@ -224,7 +236,19 @@ interface RoundData {
                                 <div class="player-avatar">
                                   <span>{{ match.player2.username.charAt(0).toUpperCase() }}</span>
                                 </div>
-                                <span class="player-name clickable" (click)="openPlayerDetails(match.player2); $event.stopPropagation()">{{ match.player2.username }}</span>
+                                <div class="player-details">
+                                  <span class="player-name clickable" (click)="openPlayerDetails(match.player2); $event.stopPropagation()">{{ match.player2.username }}</span>
+                                  @if (match.player2.xboxGamertag || match.player2.discordUsername) {
+                                    <span class="player-subtags">
+                                      @if (match.player2.xboxGamertag) {
+                                        <span class="ptag xbox"><i class="fa-brands fa-xbox"></i> {{ match.player2.xboxGamertag }}</span>
+                                      }
+                                      @if (match.player2.discordUsername) {
+                                        <span class="ptag discord"><i class="fa-brands fa-discord"></i> {{ match.player2.discordUsername }}</span>
+                                      }
+                                    </span>
+                                  }
+                                </div>
                                 @if (match.status === 'COMPLETED' && !match.isBye && match.winner && match.winner.id === match.player2.id) {
                                   <mat-icon class="winner-icon">emoji_events</mat-icon>
                                 }
@@ -246,6 +270,12 @@ interface RoundData {
                             <button class="report-btn" (click)="openReportDialog(match)">
                               <mat-icon>sports_score</mat-icon>
                               Report Winner
+                            </button>
+                          }
+                          @if (!match.isBye && isAdmin && match.status === 'COMPLETED') {
+                            <button class="revert-btn" (click)="revertMatch(match)">
+                              <mat-icon>undo</mat-icon>
+                              Revert
                             </button>
                           }
                         </div>
@@ -996,6 +1026,14 @@ interface RoundData {
       }
     }
 
+    .player-details {
+      flex: 1;
+      min-width: 0;
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+
     .player-name {
       flex: 1;
       font-size: 14px;
@@ -1011,6 +1049,25 @@ interface RoundData {
         color: var(--color-steel);
         font-style: italic;
       }
+    }
+
+    .player-subtags {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
+    .ptag {
+      font-size: 10px;
+      color: rgba(255, 255, 255, 0.3);
+      display: flex;
+      align-items: center;
+      gap: 3px;
+
+      i { font-size: 10px; }
+      &.xbox i { color: #107C10; }
+      &.discord i { color: #5865F2; }
     }
 
     /* Winner Trophy - Platinum */
@@ -1099,6 +1156,37 @@ interface RoundData {
       &:hover {
         transform: translateY(-2px);
         box-shadow: 0 4px 20px rgba(var(--color-primary-rgb), 0.4);
+      }
+    }
+
+    .revert-btn {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      width: 100%;
+      margin-top: 8px;
+      padding: 8px 12px;
+      background: rgba(255, 255, 255, 0.04);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: 8px;
+      color: rgba(255, 255, 255, 0.4);
+      font-size: 12px;
+      font-weight: 600;
+      font-family: inherit;
+      cursor: pointer;
+      transition: all 0.2s ease;
+
+      mat-icon {
+        font-size: 16px;
+        width: 16px;
+        height: 16px;
+      }
+
+      &:hover {
+        background: rgba(239, 68, 68, 0.1);
+        border-color: rgba(239, 68, 68, 0.25);
+        color: #f87171;
       }
     }
 
@@ -1365,6 +1453,21 @@ export class TournamentBracketComponent implements OnInit, OnDestroy {
             this.snackBar.open(err.error?.message || 'Failed to swap player', 'Close', { duration: 3000 });
           }
         });
+      }
+    });
+  }
+
+  revertMatch(match: TournamentMatch): void {
+    const winner = match.winner?.username || 'winner';
+    if (!confirm(`Revert this match result? (${winner} won)`)) return;
+
+    this.tournamentsService.revertMatchResult(match.id).subscribe({
+      next: () => {
+        this.snackBar.open('Match result reverted', 'Close', { duration: 3000 });
+        this.loadBracket(this.bracketData!.tournament.id);
+      },
+      error: (err) => {
+        this.snackBar.open(err.error?.message || 'Failed to revert match', 'Close', { duration: 4000 });
       }
     });
   }

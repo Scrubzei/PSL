@@ -7,6 +7,7 @@ import { Match } from '../matches/match.entity';
 import { TournamentMatch } from '../tournaments/tournament-match.entity';
 import { UsersService } from '../users/users.service';
 import { calculateEloChange, initialEloRating } from './elo.util';
+import { rankScoreForLadderRank, reorderRankedUserIdsAfterUpset } from './ladder-reorder.util';
 
 export interface LeaderboardEntryWithRank {
   id: string;
@@ -267,6 +268,68 @@ export class LeaderboardsService {
     return this.leaderboardEntriesRepository.save(entry);
   }
 
+  /**
+   * After a completed RANKED match, reorder rankScore when the winner was lower on the ladder (upset).
+   * If the winner was already ranked above the loser (favorite wins), rankScore is unchanged.
+   * Uses {@link reorderRankedUserIdsAfterUpset} — see ladder-reorder.util.ts for spec examples.
+   * Idempotent via match.rankedLadderApplied.
+   */
+  async applyRankedLadderAfterMatchCompletion(matchId: string): Promise<void> {
+    await this.dataSource.transaction(async (manager) => {
+      const match = await manager.findOne(Match, { where: { id: matchId } });
+      if (
+        !match ||
+        match.type !== 'RANKED' ||
+        match.status !== 'COMPLETED' ||
+        !match.winnerId ||
+        !match.challengeeId ||
+        match.rankedLadderApplied
+      ) {
+        return;
+      }
+
+      const loserId =
+        match.winnerId === match.challengerId ? match.challengeeId! : match.challengerId;
+
+      const entries = await manager
+        .getRepository(LeaderboardEntry)
+        .createQueryBuilder('entry')
+        .where('entry.leaderboardId = :leaderboardId', { leaderboardId: match.leaderboardId })
+        .andWhere('entry.rankedOptIn = :r', { r: true })
+        .orderBy('entry.rankScore', 'DESC')
+        .addOrderBy('entry.createdAt', 'ASC')
+        .getMany();
+
+      const userIds = entries.map((e) => e.userId);
+      const reordered = reorderRankedUserIdsAfterUpset(userIds, match.winnerId, loserId);
+
+      if (reordered === null) {
+        match.rankedLadderApplied = true;
+        match.rankedSnapshotBefore = null;
+        await manager.save(match);
+        return;
+      }
+
+      match.rankedSnapshotBefore = entries.map((e) => ({
+        userId: e.userId,
+        rankScore: Number(e.rankScore),
+      }));
+
+      const entryByUser = new Map(entries.map((e) => [e.userId, e]));
+      for (let i = 0; i < reordered.length; i++) {
+        const uid = reordered[i];
+        const rank = i + 1;
+        const entry = entryByUser.get(uid);
+        if (!entry) continue;
+        entry.rankScore = rankScoreForLadderRank(rank);
+        await manager.save(entry);
+      }
+
+      match.rankedLadderApplied = true;
+      await manager.save(match);
+    });
+  }
+
   /** Apply Elo deltas from frozen snapshots on match (XP ladder only). Idempotent via eloApplied. */
   async applyXpEloAfterMatchCompletion(matchId: string): Promise<void> {
     await this.dataSource.transaction(async (manager) => {
@@ -291,6 +354,30 @@ export class LeaderboardsService {
         challengerWon,
       );
 
+      // Anti-boost: decay ELO gains when the same two players play repeatedly.
+      // Count completed XP matches between these two in the last 24 hours
+      // (excluding the current match).
+      const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
+      const recentH2HCount: number = await manager
+        .createQueryBuilder(Match, 'm')
+        .where('m.id != :matchId', { matchId: match.id })
+        .andWhere('m.type = :type', { type: 'XP' })
+        .andWhere('m.status = :status', { status: 'COMPLETED' })
+        .andWhere('m.leaderboardId = :lbId', { lbId: match.leaderboardId })
+        .andWhere('m.completedAt >= :since', { since: oneDayAgo })
+        .andWhere(
+          '((m.challengerId = :p1 AND m.challengeeId = :p2) OR (m.challengerId = :p2 AND m.challengeeId = :p1))',
+          { p1: match.challengerId, p2: match.challengeeId },
+        )
+        .getCount();
+
+      // Decay: 1.0x, 0.5x, 0.25x, 0.1x (floor)
+      const DECAY_MULTIPLIERS = [1.0, 0.5, 0.25, 0.1];
+      const decayMultiplier = DECAY_MULTIPLIERS[Math.min(recentH2HCount, DECAY_MULTIPLIERS.length - 1)];
+
+      const adjustedChallengerEloChange = Math.round(challengerEloChange * decayMultiplier);
+      const adjustedOpponentEloChange = Math.round(opponentEloChange * decayMultiplier);
+
       const chEntry = await manager.findOne(LeaderboardEntry, {
         where: { userId: match.challengerId, leaderboardId: match.leaderboardId },
       });
@@ -301,11 +388,11 @@ export class LeaderboardsService {
         return;
       }
 
-      chEntry.elo = match.challengerEloBefore + challengerEloChange;
-      ceEntry.elo = match.challengeeEloBefore + opponentEloChange;
+      chEntry.elo = match.challengerEloBefore + adjustedChallengerEloChange;
+      ceEntry.elo = match.challengeeEloBefore + adjustedOpponentEloChange;
 
-      match.lastChallengerEloDelta = challengerEloChange;
-      match.lastChallengeeEloDelta = opponentEloChange;
+      match.lastChallengerEloDelta = adjustedChallengerEloChange;
+      match.lastChallengeeEloDelta = adjustedOpponentEloChange;
       match.eloApplied = true;
 
       await manager.save([chEntry, ceEntry]);
@@ -342,6 +429,35 @@ export class LeaderboardsService {
     });
   }
 
+  /**
+   * Restore rankScore from snapshot when players dispute a ref ruling (before admin re-decides).
+   * Clears rankedLadderApplied; favorite-win matches only flip the flag (no snapshot rows).
+   */
+  async rollbackRankedLadderForMatch(matchId: string): Promise<void> {
+    await this.dataSource.transaction(async (manager) => {
+      const match = await manager.findOne(Match, { where: { id: matchId } });
+      if (!match || !match.rankedLadderApplied) {
+        return;
+      }
+
+      if (match.rankedSnapshotBefore && match.rankedSnapshotBefore.length > 0) {
+        for (const snap of match.rankedSnapshotBefore) {
+          const entry = await manager.findOne(LeaderboardEntry, {
+            where: { userId: snap.userId, leaderboardId: match.leaderboardId },
+          });
+          if (entry) {
+            entry.rankScore = Number(snap.rankScore);
+            await manager.save(entry);
+          }
+        }
+      }
+
+      match.rankedLadderApplied = false;
+      match.rankedSnapshotBefore = null;
+      await manager.save(match);
+    });
+  }
+
   async getUserEntry(userId: string, leaderboardId: string): Promise<LeaderboardEntry | null> {
     return this.leaderboardEntriesRepository.findOne({
       where: { userId, leaderboardId },
@@ -364,6 +480,7 @@ export class LeaderboardsService {
         where: { userId, leaderboardId },
       });
       if (!entry) continue;
+      if (!entry.rankedOptIn) continue;
 
       // Higher rank position (1st) gets higher rankScore
       // e.g., rank 1 = 100000, rank 2 = 99000, etc.
