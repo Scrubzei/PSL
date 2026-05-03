@@ -126,6 +126,11 @@ export const api = {
       body: JSON.stringify({ plutoId }),
     }),
 
+  getGameServerByName: (name: string) =>
+    apiFetch<any>(`/botzei/game-servers/by-name/${encodeURIComponent(name)}`, {
+      authenticated: true,
+    }),
+
   getAvailableServer: (queueId: string) =>
     apiFetch<any>(`/botzei/game-servers/${queueId}/available`, {
       authenticated: true,
@@ -135,6 +140,28 @@ export const api = {
     apiFetch<any>(`/botzei/game-servers/${serverId}/available`, {
       method: 'PATCH',
       body: JSON.stringify({ available }),
+      authenticated: true,
+    }),
+
+  assignServerMatch: (serverId: string, data: {
+    player1PlutoId: string;
+    player2PlutoId: string;
+    player1DiscordId: string;
+    player2DiscordId: string;
+    player1PlutoUsername: string;
+    player2PlutoUsername: string;
+    threadId?: string;
+    leaderboardId?: string;
+  }) =>
+    apiFetch<any>(`/botzei/game-servers/${serverId}/match`, {
+      method: 'PATCH',
+      body: JSON.stringify(data),
+      authenticated: true,
+    }),
+
+  clearServerMatch: (serverId: string) =>
+    apiFetch<any>(`/botzei/game-servers/${serverId}/match`, {
+      method: 'DELETE',
       authenticated: true,
     }),
 

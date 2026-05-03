@@ -1,15 +1,11 @@
 /**
  * Plutonium queue data model.
  *
- * Lifecycle: ready_check -> connected | cancelled
+ * The game server IS the match. Its lifecycle:
+ *   idle → ready_check → connected → idle
  *
- * No map selection, no result reporting, no disputes.
- * The game server handles everything after players connect.
+ * No separate match entity needed.
  */
-
-export type PlutoMatchState = 'ready_check' | 'connected' | 'cancelled';
-
-export type PlutoCompletionType = 'connected' | 'ready_forfeit' | 'cancelled';
 
 export interface PlutoQueuePlayer {
   discordId: string;
@@ -31,34 +27,36 @@ export interface PlutoQueue {
   createdAt: number;
 }
 
-export interface PlutoMatchPlayer {
+export type PlutoServerState = 'idle' | 'ready_check' | 'connected';
+
+export interface PlutoServerPlayer {
   discordId: string;
   username: string;
   ready?: boolean;
 }
 
-export interface PlutoMatch {
+export interface PlutoGameServer {
   id: string;
   queueId: string;
-  guildId: string;
-  threadId: string;
-  title: string;
-  game: string;
-  platform: string;
-  player1: PlutoMatchPlayer;
-  player2: PlutoMatchPlayer;
-  state: PlutoMatchState;
-  completionType?: PlutoCompletionType;
-  readyUpExpiresAt?: number;
+  name: string;
+  ip: string;
+  port: number;
+
+  // Match state (populated when not idle)
+  state: PlutoServerState;
+  player1?: PlutoServerPlayer;
+  player2?: PlutoServerPlayer;
+  threadId?: string;
   readyMessageId?: string;
-  gameServerId?: string;
-  gameServerIp?: string;
-  gameServerPort?: number;
-  createdAt: number;
-  completedAt?: number;
+  readyUpExpiresAt?: number;
+  title?: string;
+  game?: string;
+  platform?: string;
+  assignedAt?: number;
+  connectedAt?: number;
 }
 
 export interface PlutoQueueState {
   queues: PlutoQueue[];
-  matches: PlutoMatch[];
+  servers: PlutoGameServer[];
 }

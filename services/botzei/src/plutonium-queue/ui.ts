@@ -11,8 +11,7 @@ import {
 } from 'discord.js';
 import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
-import { PlutoMatch, PlutoQueue } from './types.js';
-import { getState } from './storage.js';
+import { PlutoGameServer, PlutoQueue } from './types.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -49,13 +48,6 @@ function getBannerAttachment(game: string): AttachmentBuilder {
 // ---------------------------------------------------------------------------
 
 export function buildQueueEmbed(queue: PlutoQueue): { embed: EmbedBuilder; files: AttachmentBuilder[] } {
-  const state = getState();
-  const matchesToday = state.matches.filter((m) => {
-    if (!m.completedAt) return false;
-    const start = new Date(); start.setHours(0, 0, 0, 0);
-    return m.completedAt >= start.getTime();
-  }).length;
-
   const queueStatus =
     queue.players.length === 0
       ? '_No one in queue. Be the first!_'
@@ -75,11 +67,7 @@ export function buildQueueEmbed(queue: PlutoQueue): { embed: EmbedBuilder; files
       { name: 'Status', value: queueStatus },
     );
 
-  const footerParts = ['Click Join Queue to play'];
-  if (matchesToday > 0) {
-    footerParts.push(`${matchesToday} match${matchesToday === 1 ? '' : 'es'} today`);
-  }
-  embed.setFooter({ text: footerParts.join('  ·  ') });
+  embed.setFooter({ text: 'Click Join Queue to play' });
 
   return { embed, files: [getBannerAttachment(queue.game)] };
 }
@@ -110,70 +98,70 @@ export function buildQueueButtons(queue: PlutoQueue): ActionRowBuilder<ButtonBui
 // Ready-up
 // ---------------------------------------------------------------------------
 
-export function buildReadyUpEmbed(match: PlutoMatch): EmbedBuilder {
-  const expiresEpoch = Math.floor((match.readyUpExpiresAt ?? 0) / 1000);
-  const p1Status = match.player1.ready ? '✅ Ready' : '⏳ Waiting';
-  const p2Status = match.player2.ready ? '✅ Ready' : '⏳ Waiting';
+export function buildReadyUpEmbed(server: PlutoGameServer): EmbedBuilder {
+  const expiresEpoch = Math.floor((server.readyUpExpiresAt ?? 0) / 1000);
+  const p1Status = server.player1?.ready ? '✅ Ready' : '⏳ Waiting';
+  const p2Status = server.player2?.ready ? '✅ Ready' : '⏳ Waiting';
 
   return new EmbedBuilder()
-    .setTitle(`Match Found — ${match.title}`)
-    .setColor(platformColor(match.platform))
+    .setTitle(`Match Found — ${server.title}`)
+    .setColor(platformColor(server.platform ?? ''))
     .setDescription(
-      `<@${match.player1.discordId}>  **vs**  <@${match.player2.discordId}>\n\n` +
+      `<@${server.player1?.discordId}>  **vs**  <@${server.player2?.discordId}>\n\n` +
       `Both players must ready up before the timer runs out.`,
     )
     .addFields(
-      { name: match.player1.username, value: p1Status, inline: true },
-      { name: match.player2.username, value: p2Status, inline: true },
+      { name: server.player1?.username ?? 'Player 1', value: p1Status, inline: true },
+      { name: server.player2?.username ?? 'Player 2', value: p2Status, inline: true },
       { name: '\u200b', value: '\u200b', inline: true },
-      { name: 'Game', value: match.game, inline: true },
-      { name: 'Platform', value: match.platform, inline: true },
+      { name: 'Game', value: server.game ?? '?', inline: true },
+      { name: 'Platform', value: server.platform ?? '?', inline: true },
       { name: 'Expires', value: `<t:${expiresEpoch}:R>`, inline: true },
     );
 }
 
-export function buildReadyUpRow(match: PlutoMatch): ActionRowBuilder<ButtonBuilder> {
+export function buildReadyUpRow(server: PlutoGameServer): ActionRowBuilder<ButtonBuilder> {
   return new ActionRowBuilder<ButtonBuilder>().addComponents(
     new ButtonBuilder()
-      .setCustomId(`pq:ready:${match.id}`)
+      .setCustomId(`pq:ready:${server.id}`)
       .setLabel('Ready Up')
       .setStyle(ButtonStyle.Success)
       .setEmoji('✅'),
   );
 }
 
-export function buildConnectEmbed(match: PlutoMatch): EmbedBuilder {
-  const connectCmd = `connect ${match.gameServerIp}:${match.gameServerPort}`;
+export function buildConnectEmbed(server: PlutoGameServer): EmbedBuilder {
+  const connectCmd = `connect ${server.ip}:${server.port}`;
   return new EmbedBuilder()
     .setTitle('Both Players Ready — Connect Now')
     .setColor(0x22c55e)
     .setDescription(
-      `<@${match.player1.discordId}> vs <@${match.player2.discordId}>\n\n` +
+      `<@${server.player1?.discordId}> vs <@${server.player2?.discordId}>\n\n` +
       `**Paste this in your console:**\n\`\`\`\n${connectCmd}\n\`\`\``,
     )
     .setFooter({ text: '1v1 Leaderboards' })
     .setTimestamp();
 }
 
-export function buildReadyCancelledEmbed(match: PlutoMatch): EmbedBuilder {
+export function buildReadyCancelledEmbed(server: PlutoGameServer): EmbedBuilder {
   return new EmbedBuilder()
     .setTitle('Match Cancelled')
     .setColor(0x6b7280)
     .setDescription(
       `Neither player readied up in time.\n\n` +
-      `**${match.player1.username}:** ⏳ Not Ready\n` +
-      `**${match.player2.username}:** ⏳ Not Ready`,
+      `**${server.player1?.username ?? 'Player 1'}:** ⏳ Not Ready\n` +
+      `**${server.player2?.username ?? 'Player 2'}:** ⏳ Not Ready`,
     );
 }
 
-export function buildReadyForfeitEmbed(match: PlutoMatch, winnerId: string): EmbedBuilder {
-  const winner = winnerId === match.player1.discordId ? match.player1 : match.player2;
-  const noShow = winnerId === match.player1.discordId ? match.player2 : match.player1;
+export function buildReadyForfeitEmbed(server: PlutoGameServer, winnerId: string): EmbedBuilder {
+  const winner = winnerId === server.player1?.discordId ? server.player1 : server.player2;
+  const noShow = winnerId === server.player1?.discordId ? server.player2 : server.player1;
   return new EmbedBuilder()
     .setTitle('Match Forfeited — No-show')
     .setColor(0x22c55e)
     .setDescription(
-      `**${noShow.username}** failed to ready up in time.\n\n` +
-      `🏆 **${winner.username}** wins by forfeit.`,
+      `**${noShow?.username ?? '?'}** failed to ready up in time.\n\n` +
+      `🏆 **${winner?.username ?? '?'}** wins by forfeit.`,
     );
 }

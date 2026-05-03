@@ -619,9 +619,6 @@ async function doQueueJoin(
       // No server available — put players back
       restorePlayers(result.queue.id, result.player1, result.player2);
       await refreshQueueMessageByQueue(interaction.client, result.queue);
-      await interaction.editReply({
-        content: 'No game servers are available right now. You\'ve been returned to the queue.',
-      });
       return;
     }
 

@@ -113,6 +113,8 @@ export class BotzeiService {
     loserScore: number;
     mapName: string;
     winnerRecord: string;
+    platform?: string;
+    eloChanges?: any;
   }): Promise<boolean> {
     this.logger.log(`Sending pluto game result: ${payload.winnerName} beat ${payload.loserName}`);
     return this.makeRequest('/api/pluto-game-result', payload);
@@ -403,11 +405,71 @@ export class BotzeiService {
     } catch { return null; }
   }
 
+  async getGameServerByName(name: string): Promise<any> {
+    try {
+      const result = await this.dataSource.query(
+        `SELECT * FROM game_servers WHERE name = $1`,
+        [name],
+      );
+      return result[0] ?? null;
+    } catch { return null; }
+  }
+
   async getAvailableServer(queueId: string): Promise<any> {
     try {
       const result = await this.dataSource.query(
         `SELECT * FROM game_servers WHERE "queueId" = $1 AND available = true ORDER BY "updatedAt" ASC LIMIT 1`,
         [queueId],
+      );
+      return result[0] ?? null;
+    } catch { return null; }
+  }
+
+  async assignGameServerMatch(id: string, data: {
+    player1PlutoId: string;
+    player2PlutoId: string;
+    player1DiscordId: string;
+    player2DiscordId: string;
+    player1PlutoUsername: string;
+    player2PlutoUsername: string;
+    threadId?: string;
+    leaderboardId?: string;
+  }): Promise<any> {
+    try {
+      const result = await this.dataSource.query(
+        `UPDATE game_servers SET
+          "player1PlutoId" = $1,
+          "player2PlutoId" = $2,
+          "player1DiscordId" = $3,
+          "player2DiscordId" = $4,
+          "player1PlutoUsername" = $5,
+          "player2PlutoUsername" = $6,
+          "threadId" = $7,
+          "leaderboardId" = $8,
+          "updatedAt" = now()
+        WHERE id = $9 RETURNING *`,
+        [data.player1PlutoId, data.player2PlutoId, data.player1DiscordId, data.player2DiscordId, data.player1PlutoUsername, data.player2PlutoUsername, data.threadId ?? null, data.leaderboardId ?? null, id],
+      );
+      return result[0] ?? null;
+    } catch { return null; }
+  }
+
+  async clearGameServerMatch(id: string): Promise<any> {
+    try {
+      const result = await this.dataSource.query(
+        `UPDATE game_servers SET
+          "player1PlutoId" = NULL,
+          "player2PlutoId" = NULL,
+          "player1DiscordId" = NULL,
+          "player2DiscordId" = NULL,
+          "player1PlutoUsername" = NULL,
+          "player2PlutoUsername" = NULL,
+          "threadId" = NULL,
+          "leaderboardId" = NULL,
+          available = true,
+          "updatedAt" = now()
+        WHERE id = $1 RETURNING *`,
+        [id],
       );
       return result[0] ?? null;
     } catch { return null; }

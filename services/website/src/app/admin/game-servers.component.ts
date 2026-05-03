@@ -1,4 +1,4 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, OnInit, OnDestroy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { HttpClient } from '@angular/common/http';
@@ -16,6 +16,10 @@ interface GameServer {
   ip: string;
   port: number;
   available: boolean;
+  player1DiscordId?: string;
+  player2DiscordId?: string;
+  player1PlutoUsername?: string;
+  player2PlutoUsername?: string;
 }
 
 interface QueueInfo {
@@ -142,13 +146,22 @@ export class AddServerDialogComponent {
 
         <div class="servers-list">
           @for (server of servers; track server.id) {
-            <div class="server-card" [class.unavailable]="!server.available">
-              <div class="status-dot" [class.online]="server.available"></div>
+            <div class="server-card" [class.in-use]="!server.available">
+              <div class="status-indicator">
+                <div class="status-dot" [class.online]="server.available" [class.busy]="!server.available"></div>
+                <span class="status-label">{{ server.available ? 'Available' : 'In Use' }}</span>
+              </div>
               <div class="server-info">
                 <h3>{{ server.name }}</h3>
                 <span class="meta">{{ server.ip }}:{{ server.port }}</span>
-                <span class="meta">{{ getQueueTitle(server.queueId) }}</span>
+                <span class="meta queue-tag">{{ getQueueTitle(server.queueId) }}</span>
               </div>
+              @if (!server.available && (server.player1PlutoUsername || server.player2PlutoUsername)) {
+                <div class="match-info">
+                  <span class="match-label">Now Playing</span>
+                  <span class="match-players">{{ server.player1PlutoUsername || '?' }} vs {{ server.player2PlutoUsername || '?' }}</span>
+                </div>
+              }
               <div class="server-actions">
                 <button mat-stroked-button color="warn" (click)="deleteServer(server)">Delete</button>
               </div>
@@ -171,26 +184,45 @@ export class AddServerDialogComponent {
     .server-card {
       display: flex; align-items: center; gap: 14px; padding: 18px;
       background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.06); border-radius: 12px;
-      &.unavailable { opacity: 0.5; }
+      transition: border-color 0.2s;
+      &.in-use { border-color: rgba(234,179,8,0.25); }
     }
-    .status-dot { width: 10px; height: 10px; border-radius: 50%; background: #6b7280; flex-shrink: 0;
-      &.online { background: #22c55e; }
+    .status-indicator { display: flex; flex-direction: column; align-items: center; gap: 4px; min-width: 56px; }
+    .status-dot { width: 10px; height: 10px; border-radius: 50%; background: #6b7280;
+      &.online { background: #22c55e; box-shadow: 0 0 6px rgba(34,197,94,0.4); }
+      &.busy { background: #eab308; box-shadow: 0 0 6px rgba(234,179,8,0.4); }
     }
+    .status-label { font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; color: rgba(255,255,255,0.35); }
     .server-info { flex: 1; min-width: 0;
       h3 { margin: 0 0 4px; font-size: 15px; font-weight: 600; color: white; }
     }
     .meta { font-size: 12px; color: rgba(255,255,255,0.35); margin-right: 12px; }
+    .queue-tag { background: rgba(255,255,255,0.06); padding: 2px 8px; border-radius: 4px; }
+    .match-info {
+      display: flex; flex-direction: column; align-items: center; gap: 2px;
+      padding: 8px 16px; background: rgba(234,179,8,0.08); border: 1px solid rgba(234,179,8,0.15); border-radius: 8px;
+    }
+    .match-label { font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; color: rgba(234,179,8,0.7); }
+    .match-players { font-size: 13px; font-weight: 600; color: white; white-space: nowrap; }
     .server-actions { flex-shrink: 0; }
   `],
 })
-export class GameServersComponent implements OnInit {
+export class GameServersComponent implements OnInit, OnDestroy {
   servers: GameServer[] = [];
   queues: QueueInfo[] = [];
   loading = true;
+  private pollTimer: any;
 
   constructor(private http: HttpClient, private snackBar: MatSnackBar, private dialog: MatDialog) {}
 
-  ngOnInit(): void { this.loadData(); }
+  ngOnInit(): void {
+    this.loadData();
+    this.pollTimer = setInterval(() => this.refreshServers(), 10000);
+  }
+
+  ngOnDestroy(): void {
+    if (this.pollTimer) clearInterval(this.pollTimer);
+  }
 
   loadData(): void {
     this.loading = true;
@@ -204,6 +236,12 @@ export class GameServersComponent implements OnInit {
     }).catch(() => {
       this.loading = false;
       this.snackBar.open('Failed to load data', 'Close', { duration: 3000 });
+    });
+  }
+
+  refreshServers(): void {
+    this.http.get<GameServer[]>(`${environment.apiUrl}/botzei/game-servers`).subscribe({
+      next: (servers) => { this.servers = servers || []; },
     });
   }
 

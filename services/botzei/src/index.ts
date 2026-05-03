@@ -5,10 +5,12 @@ import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
 import express from 'express';
 import { initTimers } from './queue/handlers.js';
-import { ensureLoaded as ensurePlutoLoaded } from './plutonium-queue/storage.js';
-import { initPlutoTimers } from './plutonium-queue/handlers.js';
+import { ensureLoaded as ensurePlutoLoaded, getState as getPlutoState } from './plutonium-queue/storage.js';
+import { initPlutoTimers, startQueuePoller } from './plutonium-queue/handlers.js';
 import { createQueue, setQueueMessageId, deleteQueue, updateQueue, findQueueById } from './queue/queue-service.js';
 import { buildQueueEmbed, buildQueueButtons } from './queue/ui.js';
+import { createQueue as createPlutoQueue, setQueueMessageId as setPlutoQueueMessageId, deleteQueue as deletePlutoQueue, findQueueById as findPlutoQueueById } from './plutonium-queue/queue-service.js';
+import { buildQueueEmbed as buildPlutoQueueEmbed, buildQueueButtons as buildPlutoQueueButtons } from './plutonium-queue/ui.js';
 import { loadState, ensureLoaded } from './queue/storage.js';
 import { getGuildSettings, setGuildSettings, getAllGuildSettings, getGuildsWithChannel, ensureGuildSettingsLoaded } from './guild-settings.js';
 
@@ -81,6 +83,7 @@ client.once('ready', async () => {
   await loadServerInfoTargets();
   initTimers(client);
   initPlutoTimers(client);
+  startQueuePoller(client);
 });
 
 // ============================================
@@ -199,7 +202,7 @@ app.post('/api/server-info', authMiddleware, async (req: express.Request, res: e
 // Queue management (web panel)
 app.get('/api/queues', authMiddleware, (_req: express.Request, res: express.Response) => {
   const state = loadState();
-  res.json(state.queues.map((q) => ({
+  const standardQueues = state.queues.map((q) => ({
     id: q.id,
     guildId: q.guildId,
     channelId: q.channelId,
@@ -213,7 +216,24 @@ app.get('/api/queues', authMiddleware, (_req: express.Request, res: express.Resp
     maps: q.maps,
     playerCount: q.players.length,
     createdAt: q.createdAt,
-  })));
+  }));
+
+  const plutoState = getPlutoState();
+  const plutoQueues = plutoState.queues.map((q: any) => ({
+    id: q.id,
+    guildId: q.guildId,
+    channelId: q.channelId,
+    queueType: 'plutonium',
+    leaderboardId: q.leaderboardId,
+    title: q.title,
+    game: q.game,
+    platform: q.platform,
+    maps: q.maps,
+    playerCount: q.players.length,
+    createdAt: q.createdAt,
+  }));
+
+  res.json([...standardQueues, ...plutoQueues]);
 });
 
 app.post('/api/queues', authMiddleware, async (req: express.Request, res: express.Response) => {
@@ -224,6 +244,28 @@ app.post('/api/queues', authMiddleware, async (req: express.Request, res: expres
       return res.status(400).json({ error: 'guildId, channelId, leaderboardId, title, game, platform, and maps are required' });
     }
 
+    // Route to plutonium queue module
+    if (queueType === 'plutonium') {
+      const queue = createPlutoQueue({ guildId, channelId, leaderboardId, title, game, platform, maps });
+
+      const channel = await client.channels.fetch(channelId);
+      if (!channel || !channel.isTextBased() || !('send' in channel)) {
+        deletePlutoQueue(queue.id);
+        return res.status(404).json({ error: 'Channel not found or not a text channel' });
+      }
+
+      const { embed, files } = buildPlutoQueueEmbed(queue);
+      const message = await channel.send({
+        embeds: [embed],
+        components: buildPlutoQueueButtons(queue),
+        files,
+      });
+      setPlutoQueueMessageId(queue.id, message.id);
+
+      return res.json({ id: queue.id, messageId: message.id });
+    }
+
+    // Standard queue
     const queue = createQueue({
       guildId,
       channelId,
@@ -237,7 +279,6 @@ app.post('/api/queues', authMiddleware, async (req: express.Request, res: expres
       maps,
     });
 
-    // Post the embed in the channel
     const channel = await client.channels.fetch(channelId);
     if (!channel || !channel.isTextBased() || !('send' in channel)) {
       deleteQueue(queue.id);
@@ -299,19 +340,23 @@ app.patch('/api/queues/:queueId', authMiddleware, async (req: express.Request, r
 
 app.delete('/api/queues/:queueId', authMiddleware, async (req: express.Request, res: express.Response) => {
   try {
-    const queue = findQueueById(req.params.queueId);
-    if (!queue) return res.status(404).json({ error: 'Queue not found' });
+    const queueId = req.params.queueId;
+    const queue = findQueueById(queueId);
+    const plutoQueue = findPlutoQueueById(queueId);
+    const target = queue || plutoQueue;
+    if (!target) return res.status(404).json({ error: 'Queue not found' });
 
     // Try to delete the Discord message
     try {
-      const channel = await client.channels.fetch(queue.channelId);
+      const channel = await client.channels.fetch(target.channelId);
       if (channel && 'messages' in channel) {
-        const msg = await (channel as any).messages.fetch(queue.messageId).catch(() => null);
+        const msg = await (channel as any).messages.fetch(target.messageId).catch(() => null);
         if (msg) await msg.delete().catch(() => {});
       }
     } catch {}
 
-    deleteQueue(queue.id);
+    if (queue) deleteQueue(queue.id);
+    if (plutoQueue) deletePlutoQueue(plutoQueue.id);
     res.json({ success: true });
   } catch (err: any) {
     res.status(500).json({ error: err.message || 'Failed to delete queue' });
@@ -519,7 +564,7 @@ app.post('/api/channel-message', authMiddleware, async (req: express.Request, re
 // Pluto game result — posts match result to Discord
 app.post('/api/pluto-game-result', authMiddleware, async (req: express.Request, res: express.Response) => {
   try {
-    const { winnerName, loserName, winnerScore, loserScore, mapName, winnerRecord, platform } = req.body;
+    const { winnerName, loserName, winnerScore, loserScore, mapName, winnerRecord, platform, eloChanges } = req.body;
     const plat = (platform || 'plutonium').toLowerCase();
 
     if (!winnerName || !loserName || winnerScore === undefined || loserScore === undefined || !mapName) {
@@ -548,20 +593,34 @@ app.post('/api/pluto-game-result', authMiddleware, async (req: express.Request, 
     const footerText = PLATFORM_LABELS[plat] ?? plat;
 
     let description: string;
-    const [w, l] = winnerRecord.split('-').map(Number);
-    let seriesText: string;
-    if (w > l) {
-      seriesText = `Series: **${winnerName}** leads ${winnerRecord}`;
-    } else if (l > w) {
-      seriesText = `Series: **${loserName}** leads ${l}-${w}`;
-    } else {
-      seriesText = `Series: Tied ${winnerRecord}`;
+    let seriesText = '';
+    if (winnerRecord) {
+      const [w, l] = winnerRecord.split('-').map(Number);
+      if (w > l) {
+        seriesText = `Series: **${winnerName}** leads ${winnerRecord}`;
+      } else if (l > w) {
+        seriesText = `Series: **${loserName}** leads ${l}-${w}`;
+      } else {
+        seriesText = `Series: Tied ${winnerRecord}`;
+      }
     }
 
+    let eloText = '';
+    if (eloChanges) {
+      const wChange = eloChanges.winner?.change;
+      const lChange = eloChanges.loser?.change;
+      if (wChange != null && lChange != null) {
+        eloText = `ELO: **${winnerName}** ${wChange >= 0 ? '+' : ''}${wChange} (${eloChanges.winner.after}) · **${loserName}** ${lChange >= 0 ? '+' : ''}${lChange} (${eloChanges.loser.after})`;
+      }
+    }
+
+    const details = [seriesText, eloText].filter(Boolean).join('\n');
+    const joinLink = `[Join Server](https://discord.com/channels/${process.env.DISCORD_GUILD_ID}/1481499199173300284)`;
+
     if (isNuke) {
-      description = `**${winnerName} dropped a 50-0 on ${loserName}!** \`FF\`\n${seriesText}\n[Join Server](https://discord.com/channels/${process.env.DISCORD_GUILD_ID}/1481499199173300284)`;
+      description = `**${winnerName} dropped a 50-0 on ${loserName}!** \`FF\`\n${details}\n${joinLink}`;
     } else {
-      description = `**${winnerName}** beat **${loserName}** on ${mapName} (${winnerScore}-${loserScore}) \`FF\`\n${seriesText}\n[Join Server](https://discord.com/channels/${process.env.DISCORD_GUILD_ID}/1481499199173300284)`;
+      description = `**${winnerName}** beat **${loserName}** on ${mapName} (${winnerScore}-${loserScore}) \`FF\`\n${details}\n${joinLink}`;
     }
 
     for (const target of targets) {

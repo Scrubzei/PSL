@@ -156,6 +156,14 @@ export class BotzeiController {
     return this.botzeiService.setGameServerAvailability(id, body.available);
   }
 
+  @Get('game-servers/by-name/:name')
+  @UseGuards(ApiKeyGuard)
+  async getGameServerByName(@Param('name') name: string) {
+    const server = await this.botzeiService.getGameServerByName(name);
+    if (!server) return { error: 'Server not found' };
+    return server;
+  }
+
   @Patch('game-servers/by-name/:name/available')
   @UseGuards(ApiKeyGuard)
   async setServerAvailabilityByName(@Param('name') name: string, @Body() body: { available: boolean }) {
@@ -166,6 +174,21 @@ export class BotzeiController {
   @UseGuards(ApiKeyGuard)
   async getAvailableServer(@Param('queueId') queueId: string) {
     return this.botzeiService.getAvailableServer(queueId);
+  }
+
+  @Patch('game-servers/:id/match')
+  @UseGuards(ApiKeyGuard)
+  async assignGameServerMatch(
+    @Param('id') id: string,
+    @Body() body: { player1PlutoId: string; player2PlutoId: string; player1DiscordId: string; player2DiscordId: string; player1PlutoUsername: string; player2PlutoUsername: string; threadId?: string; leaderboardId?: string },
+  ) {
+    return this.botzeiService.assignGameServerMatch(id, body);
+  }
+
+  @Delete('game-servers/:id/match')
+  @UseGuards(ApiKeyGuard)
+  async clearGameServerMatch(@Param('id') id: string) {
+    return this.botzeiService.clearGameServerMatch(id);
   }
 
   @Get('pluto-queue-state')

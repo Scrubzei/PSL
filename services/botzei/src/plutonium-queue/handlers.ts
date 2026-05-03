@@ -4,7 +4,7 @@
  * Custom ID scheme (prefixed with pq: to avoid conflicts with standard queue):
  *   pq:join:<queueId>
  *   pq:leave:<queueId>
- *   pq:ready:<matchId>
+ *   pq:ready:<serverId>
  */
 
 import {
@@ -13,7 +13,6 @@ import {
   ModalBuilder,
   TextInputBuilder,
   TextInputStyle,
-  EmbedBuilder,
   ActionRowBuilder as ModalActionRowBuilder,
   ChannelType,
   Client,
@@ -27,16 +26,18 @@ import {
   joinQueue,
   leaveQueue,
   restorePlayers,
-} from './queue-service.js';
-import {
-  createMatch,
-  findMatchById,
+  getReadyQueues,
+  popQueue,
+  findServerById,
   findActiveReadyChecks,
+  assignPlayers,
+  setReadyMessageId,
   readyUp,
   resolveReadyTimeout,
-  setReadyMessageId,
-} from './match-service.js';
-import { PlutoMatch, PlutoQueue, PlutoQueuePlayer } from './types.js';
+  resetServer,
+  registerServer,
+} from './queue-service.js';
+import { PlutoGameServer, PlutoQueue } from './types.js';
 import {
   buildQueueEmbed,
   buildQueueButtons,
@@ -60,42 +61,49 @@ function clearTimer(key: string): void {
   if (timer) { clearTimeout(timer); activeTimers.delete(key); }
 }
 
-function startReadyTimer(client: Client, match: PlutoMatch): void {
-  const key = `pq:ready:${match.id}`;
+function startReadyTimer(client: Client, server: PlutoGameServer): void {
+  const key = `pq:ready:${server.id}`;
   clearTimer(key);
-  const delay = Math.max(0, (match.readyUpExpiresAt ?? 0) - Date.now());
+  const delay = Math.max(0, (server.readyUpExpiresAt ?? 0) - Date.now());
   const timer = setTimeout(() => {
     activeTimers.delete(key);
-    onReadyExpired(client, match.id).catch((err) =>
+    onReadyExpired(client, server.id).catch((err) =>
       console.error('[PlutoQueue] Ready timeout error:', err),
     );
   }, delay);
   activeTimers.set(key, timer);
 }
 
-async function onReadyExpired(client: Client, matchId: string): Promise<void> {
-  const match = findMatchById(matchId);
-  if (!match || match.state !== 'ready_check') return;
+async function onReadyExpired(client: Client, serverId: string): Promise<void> {
+  const server = findServerById(serverId);
+  if (!server || server.state !== 'ready_check') return;
 
-  // Release game server
-  if (match.gameServerId) {
-    try { await api.setServerAvailability(match.gameServerId, true); } catch {}
-  }
+  // Capture info before reset clears it
+  const threadId = server.threadId;
+  const readyMessageId = server.readyMessageId;
+  const p1 = server.player1 ? { ...server.player1 } : undefined;
+  const p2 = server.player2 ? { ...server.player2 } : undefined;
 
-  const result = resolveReadyTimeout(matchId);
+  // Release game server in DB (clear match + set available)
+  try { await api.clearServerMatch(server.id); } catch {}
+
+  const result = resolveReadyTimeout(serverId);
   if (!result) return;
 
   try {
-    const thread = await client.channels.fetch(result.match.threadId);
+    if (!threadId) return;
+    const thread = await client.channels.fetch(threadId);
     if (!thread || !('send' in thread)) return;
 
-    if (result.match.readyMessageId) {
+    if (readyMessageId) {
       try {
-        const msg = await (thread as any).messages.fetch(result.match.readyMessageId);
+        const msg = await (thread as any).messages.fetch(readyMessageId);
+        // Use captured player data since server is now reset
+        const snapshot = { ...server, player1: p1, player2: p2 } as PlutoGameServer;
         if (result.outcome === 'cancelled') {
-          await msg.edit({ embeds: [buildReadyCancelledEmbed(result.match)], components: [] });
+          await msg.edit({ embeds: [buildReadyCancelledEmbed(snapshot)], components: [] });
         } else {
-          await msg.edit({ embeds: [buildReadyForfeitEmbed(result.match, result.winnerId!)], components: [] });
+          await msg.edit({ embeds: [buildReadyForfeitEmbed(snapshot, result.winnerId!)], components: [] });
         }
       } catch {}
     }
@@ -103,16 +111,14 @@ async function onReadyExpired(client: Client, matchId: string): Promise<void> {
     if (result.outcome === 'cancelled') {
       await thread.send({ content: '❌ Match cancelled — neither player readied up.' });
     } else {
-      const winner = result.winnerId === result.match.player1.discordId
-        ? result.match.player1 : result.match.player2;
-      const noShow = result.winnerId === result.match.player1.discordId
-        ? result.match.player2 : result.match.player1;
+      const winner = result.winnerId === p1?.discordId ? p1 : p2;
+      const noShow = result.winnerId === p1?.discordId ? p2 : p1;
       await thread.send({
-        content: `🏆 **${winner.username}** wins by forfeit. **${noShow.username}** failed to ready up.`,
+        content: `🏆 **${winner?.username}** wins by forfeit. **${noShow?.username}** failed to ready up.`,
       });
     }
 
-    scheduleThreadDelete(client, result.match.threadId);
+    scheduleThreadDelete(client, threadId);
   } catch (err) {
     console.error('[PlutoQueue] Failed to resolve ready timeout:', err);
   }
@@ -122,8 +128,8 @@ export function initPlutoTimers(client: Client): void {
   const checks = findActiveReadyChecks();
   if (checks.length === 0) return;
   console.log(`[PlutoQueue] Resuming ${checks.length} ready-check timer(s)`);
-  for (const match of checks) {
-    startReadyTimer(client, match);
+  for (const server of checks) {
+    startReadyTimer(client, server);
   }
 }
 
@@ -321,7 +327,7 @@ export async function handleGamertagModal(interaction: ModalSubmitInteraction): 
 }
 
 // ---------------------------------------------------------------------------
-// Core join logic
+// Core join logic (just adds to queue — popping is handled by background loop)
 // ---------------------------------------------------------------------------
 
 async function doQueueJoin(
@@ -332,11 +338,9 @@ async function doQueueJoin(
     await interaction.deferReply({ ephemeral: true });
   }
 
-  const displayName = getDisplayName(interaction);
-
   const result = joinQueue(queueId, {
     discordId: interaction.user.id,
-    username: displayName,
+    username: getDisplayName(interaction),
     joinedAt: Date.now(),
   });
 
@@ -346,80 +350,98 @@ async function doQueueJoin(
   }
 
   await refreshQueueMessage(interaction.client, result.queue);
+  await interaction.editReply({
+    content: `You're in the queue for **${result.queue.title}**. You'll be matched when a server is available.`,
+  });
+}
 
-  if (!result.popped) {
-    await interaction.editReply({
-      content: `You're in the queue for **${result.queue.title}**. Waiting for one more player.`,
-    });
-    return;
-  }
+// ---------------------------------------------------------------------------
+// Background queue poller — checks every 5 seconds
+// ---------------------------------------------------------------------------
 
-  // Popped — find available server
-  let gameServer: any = null;
-  try { gameServer = await api.getAvailableServer(result.queue.id); } catch {}
+let pollerClient: Client | null = null;
+let pollerInterval: ReturnType<typeof setInterval> | null = null;
 
-  if (!gameServer) {
-    restorePlayers(result.queue.id, result.player1, result.player2);
-    await refreshQueueMessage(interaction.client, result.queue);
-    await interaction.editReply({
-      content: 'No game servers are available right now. You\'ve been returned to the queue.',
-    });
-    return;
-  }
+export function startQueuePoller(client: Client): void {
+  pollerClient = client;
+  if (pollerInterval) return;
+  pollerInterval = setInterval(() => {
+    processReadyQueues().catch((err) =>
+      console.error('[PlutoQueue] Poller error:', err),
+    );
+  }, 5000);
+  console.log('[PlutoQueue] Background poller started (5s interval)');
+}
 
-  // Mark server busy
-  try { await api.setServerAvailability(gameServer.id, false); } catch {}
+async function processReadyQueues(): Promise<void> {
+  if (!pollerClient) return;
+  const readyQueues = getReadyQueues();
 
-  // Create match thread
-  try {
-    const threadChannelId = result.queue.channelId;
-    const channel = await interaction.client.channels.fetch(threadChannelId);
-    if (!channel || channel.type !== ChannelType.GuildText) throw new Error('Channel not found');
+  for (const queue of readyQueues) {
+    // Ask the DB for an available server — it's the source of truth
+    let apiServer: any = null;
 
-    const thread = await (channel as TextChannel).threads.create({
-      name: `${result.player1.username} vs ${result.player2.username}`.slice(0, 100),
-      autoArchiveDuration: ThreadAutoArchiveDuration.OneDay,
-      type: ChannelType.PublicThread,
-    });
+    try { apiServer = await api.getAvailableServer(queue.id); } catch {}
 
-    const match = createMatch({
-      queue: result.queue,
-      threadId: thread.id,
-      player1: result.player1,
-      player2: result.player2,
-      gameServer: { id: gameServer.id, ip: gameServer.ip, port: gameServer.port },
-    });
+    if (!apiServer) continue;
 
-    const msg = await thread.send({
-      content: `<@${match.player1.discordId}> <@${match.player2.discordId}>`,
-      embeds: [buildReadyUpEmbed(match)],
-      components: [buildReadyUpRow(match)],
-      allowedMentions: { users: [match.player1.discordId, match.player2.discordId] },
+    const server = registerServer({
+      id: apiServer.id,
+      queueId: apiServer.queueId,
+      name: apiServer.name,
+      ip: apiServer.ip,
+      port: apiServer.port,
     });
 
-    setReadyMessageId(match.id, msg.id);
-    startReadyTimer(interaction.client, match);
+    // Pop the two longest-waiting players
+    const popped = popQueue(queue.id);
 
-    await refreshQueueMessage(interaction.client, result.queue);
-    await interaction.editReply({
-      content: `Match found! Head to <#${match.threadId}> and ready up.`,
-    });
-  } catch (err) {
-    console.error('[PlutoQueue] Failed to create match thread:', err);
-    try { await api.setServerAvailability(gameServer.id, true); } catch {}
-    restorePlayers(result.queue.id, result.player1, result.player2);
-    await refreshQueueMessage(interaction.client, result.queue);
-    await interaction.editReply({ content: 'Failed to create match. You\'ve been returned to the queue.' });
+    if (!popped) continue;
+
+    // Mark server busy in DB
+    try { await api.setServerAvailability(server.id, false); } catch {}
+
+    // Create match thread and assign players to server
+    try {
+      const channel = await pollerClient.channels.fetch(queue.channelId);
+      if (!channel || channel.type !== ChannelType.GuildText) throw new Error('Channel not found');
+
+      const thread = await (channel as TextChannel).threads.create({
+        name: `${popped.player1.username} vs ${popped.player2.username}`.slice(0, 100),
+        autoArchiveDuration: ThreadAutoArchiveDuration.OneDay,
+        type: ChannelType.PublicThread,
+      });
+
+      const assigned = assignPlayers(server.id, queue, popped.player1, popped.player2, thread.id);
+      if (!assigned) throw new Error('Failed to assign players to server');
+
+      const msg = await thread.send({
+        content: `<@${assigned.player1!.discordId}> <@${assigned.player2!.discordId}>`,
+        embeds: [buildReadyUpEmbed(assigned)],
+        components: [buildReadyUpRow(assigned)],
+        allowedMentions: { users: [assigned.player1!.discordId, assigned.player2!.discordId] },
+      });
+
+      setReadyMessageId(assigned.id, msg.id);
+      startReadyTimer(pollerClient, assigned);
+      await refreshQueueMessage(pollerClient, queue);
+    } catch (err) {
+      console.error('[PlutoQueue] Poller failed to create match:', err);
+      // Release server and restore players
+      try { await api.setServerAvailability(server.id, true); } catch {}
+      resetServer(server);
+      restorePlayers(queue.id, popped.player1, popped.player2);
+    }
   }
 }
 
 // ---------------------------------------------------------------------------
-// pq:ready:<matchId>
+// pq:ready:<serverId>
 // ---------------------------------------------------------------------------
 
 export async function handleReadyUp(interaction: ButtonInteraction): Promise<void> {
-  const matchId = interaction.customId.split(':')[2];
-  const result = readyUp(matchId, interaction.user.id);
+  const serverId = interaction.customId.split(':')[2];
+  const result = readyUp(serverId, interaction.user.id);
 
   if (!result.ok) {
     await interaction.reply({ content: result.error, ephemeral: true });
@@ -428,32 +450,53 @@ export async function handleReadyUp(interaction: ButtonInteraction): Promise<voi
 
   if (!result.bothReady) {
     await interaction.update({
-      embeds: [buildReadyUpEmbed(result.match)],
-      components: [buildReadyUpRow(result.match)],
+      embeds: [buildReadyUpEmbed(result.server)],
+      components: [buildReadyUpRow(result.server)],
     });
     return;
   }
 
   // Both ready — send connect info
-  clearTimer(`pq:ready:${matchId}`);
+  clearTimer(`pq:ready:${serverId}`);
 
-  const match = result.match;
+  const server = result.server;
   await interaction.update({
     content: '',
-    embeds: [buildConnectEmbed(match)],
+    embeds: [buildConnectEmbed(server)],
     components: [],
   });
 
+  // Push match data to the game server row in DB
+  try {
+    const [u1, u2] = await Promise.all([
+      api.getUserByDiscordId(server.player1!.discordId),
+      api.getUserByDiscordId(server.player2!.discordId),
+    ]);
+    const queue = findQueueById(server.queueId);
+    await api.assignServerMatch(server.id, {
+      player1PlutoId: u1?.plutoId ?? '',
+      player2PlutoId: u2?.plutoId ?? '',
+      player1DiscordId: server.player1!.discordId,
+      player2DiscordId: server.player2!.discordId,
+      player1PlutoUsername: u1?.plutoniumUsername ?? server.player1!.username,
+      player2PlutoUsername: u2?.plutoniumUsername ?? server.player2!.username,
+      threadId: server.threadId,
+      leaderboardId: queue?.leaderboardId,
+    });
+  } catch (err) {
+    console.error('[PlutoQueue] Failed to assign match to game server:', err);
+  }
+
   // Re-ping
   try {
-    const thread = await interaction.client.channels.fetch(match.threadId);
+    const thread = await interaction.client.channels.fetch(server.threadId!);
     if (thread && 'send' in thread) {
       await thread.send({
-        content: `<@${match.player1.discordId}> <@${match.player2.discordId}> — connect to the server!`,
-        allowedMentions: { users: [match.player1.discordId, match.player2.discordId] },
+        content: `<@${server.player1!.discordId}> <@${server.player2!.discordId}> — connect to the server!`,
+        allowedMentions: { users: [server.player1!.discordId, server.player2!.discordId] },
       });
     }
   } catch {}
 
-  scheduleThreadDelete(interaction.client, match.threadId);
+  scheduleThreadDelete(interaction.client, server.threadId!);
 }
