@@ -130,7 +130,7 @@ export class AdminComponent {
     },
     {
       title: 'Queues',
-      description: 'Create and manage 1v1 matchmaking queues',
+      description: 'Create and manage matchmaking queues',
       icon: 'fa-solid fa-users',
       route: '/admin/queues',
     },

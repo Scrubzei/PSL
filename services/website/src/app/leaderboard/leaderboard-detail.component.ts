@@ -1212,7 +1212,7 @@ export class LeaderboardDetailComponent {
     const platformMap: Record<string, Platform> = {
       plutonium: 'Plutonium',
       xbox: 'Xbox',
-      ps3: 'PS3',
+      ps3: 'PlayStation',
     };
     const themePlatform = platformMap[this.platform.toLowerCase()];
     if (themePlatform) {

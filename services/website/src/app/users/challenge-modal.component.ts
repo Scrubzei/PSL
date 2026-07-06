@@ -264,7 +264,7 @@ export class ChallengeModalComponent implements OnInit {
   selectedType: string | null = null;
   challengeForm: FormGroup;
 
-  platforms = ['Plutonium', 'Xbox', 'PS3'];
+  platforms = ['Plutonium', 'Xbox', 'PlayStation'];
   games = ['Bo2', 'Mw3', 'Mw2', 'Bo1'];
   bestOfOptions = [1, 3, 5, 7, 9];
   maps: string[] = [];

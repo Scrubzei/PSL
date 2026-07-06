@@ -10,7 +10,7 @@ import { MatIconModule } from '@angular/material/icon';
   template: `
     <div class="page-wrapper">
       <div class="rules-container">
-        <h1>1v1 Rules</h1>
+        <h1>PSL Rules</h1>
 
         <div class="game-tabs">
           <button

@@ -49,7 +49,7 @@ interface Guild { id: string; name: string; }
 
         <div class="field">
           <label>Title</label>
-          <input type="text" [(ngModel)]="title" placeholder="e.g. MW2 Snipers 1v1" />
+          <input type="text" [(ngModel)]="title" placeholder="e.g. MW2 Snipers" />
         </div>
 
         <div class="field">

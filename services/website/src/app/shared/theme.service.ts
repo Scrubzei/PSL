@@ -1,6 +1,6 @@
 import { Injectable, signal } from '@angular/core';
 
-export type Platform = 'Plutonium' | 'IW4X' | 'Xbox' | 'PS3' | 'Cross-Platform';
+export type Platform = 'Plutonium' | 'IW4X' | 'Xbox' | 'PlayStation' | 'Cross-Platform';
 
 const PLATFORM_KEY = 'selected_platform';
 
@@ -8,12 +8,11 @@ const PLATFORM_KEY = 'selected_platform';
   providedIn: 'root'
 })
 export class ThemeService {
-  currentPlatform = signal<Platform>('PS3');
+  currentPlatform = signal<Platform>('PlayStation');
 
   setPlatform(platform: Platform): void {
     this.currentPlatform.set(platform);
     localStorage.setItem(PLATFORM_KEY, platform);
-    // Always keep PS3 blue theme
   }
 
   applyGoldTheme(): void {
@@ -30,7 +29,7 @@ export class ThemeService {
     }
 
     const saved = localStorage.getItem(PLATFORM_KEY) as Platform | null;
-    if (saved && ['Plutonium', 'IW4X', 'Xbox', 'PS3', 'Cross-Platform'].includes(saved)) {
+    if (saved && ['Plutonium', 'IW4X', 'Xbox', 'PlayStation', 'Cross-Platform'].includes(saved)) {
       this.currentPlatform.set(saved);
     }
   }

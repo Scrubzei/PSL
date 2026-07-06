@@ -26,7 +26,7 @@ export interface AuthModalData {
 
       <div class="modal-content">
         <div class="icon-wrapper">
-          <img src="/assets/logo-v2.png" alt="1v1 Leaderboards" class="modal-logo" />
+          <img src="/assets/psl-logo.png" alt="Premier Sniping League" class="modal-logo" />
         </div>
 
         <h2>Sign in to continue</h2>

@@ -28,16 +28,13 @@ import { environment } from '../../environments/environment';
     <mat-toolbar class="navbar">
       <div class="nav-brand">
         <a routerLink="/dashboard" class="brand-link">
-          <img src="/assets/logo-v2.png" alt="1v1 Leaderboards" class="brand-logo" />
+          <img src="/assets/psl-logo.png" alt="Premier Sniping League" class="brand-logo" />
         </a>
       </div>
 
       <!-- Desktop Navigation -->
       <nav class="nav-links desktop-only">
         <a routerLink="/leaderboards" routerLinkActive="active">Leaderboards</a>
-        @if (!isProduction) {
-          <a routerLink="/matchfinder" routerLinkActive="active">Matchfinder</a>
-        }
         <a routerLink="/tournaments" routerLinkActive="active">Tournaments</a>
         @if (!isProduction && authService.currentUser()) {
           <a routerLink="/challenges" routerLinkActive="active">My Matches</a>
@@ -54,12 +51,6 @@ import { environment } from '../../environments/environment';
       <span class="spacer"></span>
 
       <div class="nav-actions">
-        @if (!isProduction) {
-          <button class="dev-login-btn" (click)="openDevLogin()">
-            <mat-icon>code</mat-icon>
-            <span class="desktop-only">Dev Login</span>
-          </button>
-        }
         @if (authService.currentUser(); as user) {
           <app-notification-panel></app-notification-panel>
           <button mat-button [matMenuTriggerFor]="userMenu" class="user-menu-trigger desktop-only">
@@ -141,12 +132,6 @@ import { environment } from '../../environments/environment';
           <mat-icon>leaderboard</mat-icon>
           Leaderboards
         </a>
-        @if (!isProduction) {
-          <a routerLink="/matchfinder" routerLinkActive="active" (click)="closeMobileMenu()">
-            <mat-icon>search</mat-icon>
-            Matchfinder
-          </a>
-        }
         <a routerLink="/tournaments" routerLinkActive="active" (click)="closeMobileMenu()">
           <mat-icon>emoji_events</mat-icon>
           Tournaments
@@ -190,7 +175,7 @@ import { environment } from '../../environments/environment';
       touch-action: manipulation;
       overscroll-behavior: contain;
       height: 72px;
-      box-shadow: 0 1px 0 rgba(37, 99, 235, 0.08);
+      box-shadow: 0 1px 0 rgba(124, 58, 237, 0.15);
     }
 
     .nav-brand {
@@ -250,7 +235,7 @@ import { environment } from '../../environments/environment';
           transform: translateX(-50%);
           width: 0;
           height: 2px;
-          background: #2563EB;
+          background: linear-gradient(90deg, #7C3AED, #DC2626);
           transition: width 0.2s ease;
         }
 
@@ -436,7 +421,7 @@ import { environment } from '../../environments/environment';
       font-size: 15px;
 
       mat-icon {
-        color: #3B82F6;
+        color: #A855F7;
         font-size: 28px;
         width: 28px;
         height: 28px;
@@ -590,11 +575,11 @@ import { environment } from '../../environments/environment';
         }
 
         &:hover, &.active {
-          background: rgba(37, 99, 235, 0.1);
-          color: #3B82F6;
+          background: rgba(124, 58, 237, 0.1);
+          color: #A855F7;
 
           mat-icon {
-            color: #2563EB;
+            color: #7C3AED;
           }
         }
 

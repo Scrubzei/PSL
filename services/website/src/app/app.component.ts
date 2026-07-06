@@ -40,7 +40,7 @@ import { filter } from "rxjs/operators";
         height: 100dvh;
         display: flex;
         flex-direction: column;
-        background: #121212;
+        background: #0a0a0f;
       }
 
       .page-content {
@@ -88,7 +88,16 @@ export class AppComponent implements OnInit {
 
   ngOnInit(): void {
     this.themeService.init();
+    this.hideLoader();
     this.showWelcomeModal();
+  }
+
+  private hideLoader(): void {
+    const loader = document.getElementById('psl-loader');
+    if (loader) {
+      loader.classList.add('hidden');
+      setTimeout(() => loader.remove(), 600);
+    }
   }
 
   private showWelcomeModal(): void {

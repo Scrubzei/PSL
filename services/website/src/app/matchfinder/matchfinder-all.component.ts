@@ -7,8 +7,9 @@ import { mapImageUrl } from '../games/map-assets';
 /** Same slugs as matchfinder home for resolving feed links to /matchfinder/:game/:platform */
 const GAME_SLUGS: { name: string; slug: string }[] = [
   { name: 'Modern Warfare 2', slug: 'mw2' },
+  { name: 'Black Ops 1', slug: 'bo1' },
+  { name: 'Modern Warfare 3', slug: 'mw3' },
   { name: 'Black Ops 2', slug: 'bo2' },
-  { name: 'MW 2019', slug: 'mw 2019' },
 ];
 
 @Component({

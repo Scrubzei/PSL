@@ -58,16 +58,18 @@ app-root {
 body {
   margin: 0;
   font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-  background: #121212;
+  background: #0a0a0f;
   color: #e0e0e0;
   min-height: 100dvh;
 
-  // Blue theme (PS3)
-  --theme-primary: #2563EB;
-  --theme-primary-bright: #3B82F6;
-  --theme-primary-dark: #1D4ED8;
-  --theme-primary-rgb: 37, 99, 235;
-  --theme-glow: rgba(37, 99, 235, 0.4);
+  // PSL purple/red theme
+  --theme-primary: #7C3AED;
+  --theme-primary-bright: #A855F7;
+  --theme-primary-dark: #6D28D9;
+  --theme-primary-rgb: 124, 58, 237;
+  --theme-glow: rgba(124, 58, 237, 0.4);
+  --theme-accent: #DC2626;
+  --theme-accent-rgb: 220, 38, 38;
 
   // Slow transition class (applied before gold theme)
   &.slow-transition {
@@ -169,7 +171,7 @@ body {
 .mat-mdc-snack-bar-container {
   --mdc-snackbar-container-color: #1e1e1e;
   --mdc-snackbar-supporting-text-color: #ffffff;
-  --mat-snack-bar-button-color: #3B82F6;
+  --mat-snack-bar-button-color: #A855F7;
   border: 1px solid #2d2d2d;
 }
 

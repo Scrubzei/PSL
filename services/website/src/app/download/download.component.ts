@@ -8,8 +8,8 @@ import { CommonModule } from '@angular/common';
   template: `
     <div class="page-wrapper">
       <div class="download-container">
-        <img src="assets/logo.webp" alt="1v1 Leaderboards" class="logo">
-        <h1>1v1 Leaderboards Launcher</h1>
+        <img src="assets/psl-logo.png" alt="Premier Sniping League" class="logo">
+        <h1>PSL Launcher</h1>
         <p class="subtitle">Queue for ranked matches, run anticheat, and manage your Plutonium settings — all in one place.</p>
 
         <a href="https://github.com/1v1Leaderboards/launcher-releases/releases/latest/download/1v1-Leaderboards-Setup.exe" class="btn-download">
@@ -33,7 +33,7 @@ import { CommonModule } from '@angular/common';
               </svg>
             </div>
             <h3>Matchmaking</h3>
-            <p>Queue for ranked 1v1 matches directly from the launcher.</p>
+            <p>Queue for ranked matches directly from the launcher.</p>
           </div>
           <div class="feature">
             <div class="feature-icon">

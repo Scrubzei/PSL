@@ -1018,8 +1018,9 @@ export class MatchfinderDetailComponent implements OnInit {
 
   private gameNames: Record<string, string> = {
     mw2: "Modern Warfare 2",
+    bo1: "Black Ops 1",
+    mw3: "Modern Warfare 3",
     bo2: "Black Ops 2",
-    "mw 2019": "MW 2019",
   };
 
   private platformIcons: Record<string, string> = {

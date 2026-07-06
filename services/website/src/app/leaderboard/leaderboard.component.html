@@ -1,69 +1,52 @@
-<div class="page-wrapper">
-  <!-- Dynamic background image on hover -->
-  <div
-    class="bg-image"
-    [class.active]="hoveredGame"
-    [style.background-image]="hoveredImage ? 'url(' + hoveredImage + ')' : 'none'">
+<div class="page">
+  <!-- Background -->
+  <div class="bg">
+    <div class="orb orb-1"></div>
+    <div class="orb orb-2"></div>
+    <div class="scanline"></div>
   </div>
 
-  <!-- Background decorations -->
-  <div class="bg-decoration">
-    <div class="gradient-orb orb-1"></div>
-    <div class="gradient-orb orb-2"></div>
-    <div class="grid-lines"></div>
+  <!-- Particles -->
+  <div class="particles">
+    <div class="ember" *ngFor="let p of [1,2,3,4,5,6,7,8]" [style.--i]="p"></div>
   </div>
 
-  <div class="leaderboard-container">
-    <!-- Hero Section -->
-    <div class="hero">
-      <div class="hero-badge">
-        <span class="badge-dot"></span>
-        Live Rankings
-      </div>
-      <h1>Leaderboards</h1>
-      <p class="subtitle">Select a game to view the rankings</p>
-    </div>
-
-    <!-- Games Grid -->
-    <div class="games-grid">
+  <div class="content">
+    <div class="games">
       @for (game of games; track game.slug) {
-        <div
-          class="game-card"
-          [class.expanded]="selectedGame === game.slug"
-          [style.animation-delay]="$index * 0.08 + 's'">
-
+        <div class="game-card" [class.expanded]="selectedGame === game.slug" [style.animation-delay]="$index * 0.08 + 's'">
           @if (selectedGame !== game.slug) {
-            <!-- Game Cover -->
-            <div
-              class="card-face card-front"
-              (click)="selectGame(game.slug)"
-              (mouseenter)="hoveredGame = game.slug; hoveredImage = game.image"
-              (mouseleave)="hoveredGame = null; hoveredImage = null">
-              <div class="game-image">
+            <div class="card-front" (click)="selectGame(game.slug)">
+              <div class="card-image">
                 <img [src]="game.image" [alt]="game.name" />
-                <div class="image-overlay"></div>
+                <div class="overlay"></div>
+                <div class="shine"></div>
               </div>
-              <div class="game-info">
-                <h3>{{ game.name }}</h3>
-                <span class="arrow">&rarr;</span>
+              <div class="card-label">
+                <div class="label-text">
+                  <span class="game-name">{{ game.name }}</span>
+                  <span class="platform-count">{{ game.platforms.length }} platform{{ game.platforms.length > 1 ? 's' : '' }}</span>
+                </div>
+                <div class="arrow-circle">
+                  <i class="fa-solid fa-chevron-right"></i>
+                </div>
               </div>
             </div>
           } @else {
-            <!-- Platform Selection -->
-            <div class="card-face card-back">
+            <div class="card-back">
               <button class="back-btn" (click)="selectGame(null)">
-                <span class="back-arrow">&larr;</span>
+                <i class="fa-solid fa-chevron-left"></i>
                 {{ game.name }}
               </button>
-              <div class="platform-list">
+              <div class="platforms">
                 @for (platform of game.platforms; track platform.slug) {
                   <button
                     class="platform-btn"
-                    [style.--btn-color]="platform.color"
-                    [style.--btn-hover]="platform.hoverColor"
+                    [style.--c]="platform.color"
+                    [style.--ch]="platform.hoverColor"
                     (click)="selectPlatform(game, platform)">
-                    <i [class]="platform.icon" class="platform-icon"></i>
-                    <span class="platform-name">{{ platform.name }}</span>
+                    <i [class]="platform.icon"></i>
+                    <span>{{ platform.name }}</span>
                   </button>
                 }
               </div>

@@ -22,7 +22,8 @@ interface Game {
   standalone: true,
   imports: [CommonModule],
   templateUrl: './leaderboard.component.html',
-  styleUrls: ['./leaderboard.component.scss']
+  styleUrls: ['./leaderboard.component.scss'],
+  host: { style: 'display: block;' }
 })
 export class LeaderboardComponent {
   selectedGame: string | null = null;
@@ -37,7 +38,25 @@ export class LeaderboardComponent {
       platforms: [
         { name: 'IW4X', slug: 'iw4x', color: '#991b1b', hoverColor: '#b91c1c', icon: 'fa-solid fa-desktop' },
         { name: 'Xbox', slug: 'xbox', color: '#14532d', hoverColor: '#166534', icon: 'fa-brands fa-xbox' },
-        { name: 'PS3', slug: 'ps3', color: '#1e3a5f', hoverColor: '#1e4d8a', icon: 'fa-brands fa-playstation' }
+        { name: 'PlayStation', slug: 'ps3', color: '#1e3a5f', hoverColor: '#1e4d8a', icon: 'fa-brands fa-playstation' }
+      ]
+    },
+    {
+      name: 'Black Ops 1',
+      slug: 'bo1',
+      image: 'assets/games/bo1.webp',
+      platforms: [
+        { name: 'Xbox', slug: 'xbox', color: '#14532d', hoverColor: '#166534', icon: 'fa-brands fa-xbox' },
+        { name: 'PlayStation', slug: 'ps3', color: '#1e3a5f', hoverColor: '#1e4d8a', icon: 'fa-brands fa-playstation' }
+      ]
+    },
+    {
+      name: 'Modern Warfare 3',
+      slug: 'mw3',
+      image: 'assets/games/mw3.webp',
+      platforms: [
+        { name: 'Xbox', slug: 'xbox', color: '#14532d', hoverColor: '#166534', icon: 'fa-brands fa-xbox' },
+        { name: 'PlayStation', slug: 'ps3', color: '#1e3a5f', hoverColor: '#1e4d8a', icon: 'fa-brands fa-playstation' }
       ]
     },
     {
@@ -47,17 +66,9 @@ export class LeaderboardComponent {
       platforms: [
         { name: 'Plutonium', slug: 'plutonium', color: '#991b1b', hoverColor: '#b91c1c', icon: 'fa-solid fa-desktop' },
         { name: 'Xbox', slug: 'xbox', color: '#14532d', hoverColor: '#166534', icon: 'fa-brands fa-xbox' },
-        { name: 'PS3', slug: 'ps3', color: '#1e3a5f', hoverColor: '#1e4d8a', icon: 'fa-brands fa-playstation' }
+        { name: 'PlayStation', slug: 'ps3', color: '#1e3a5f', hoverColor: '#1e4d8a', icon: 'fa-brands fa-playstation' }
       ]
     },
-    {
-      name: 'MW 2019',
-      slug: 'mw 2019',
-      image: 'assets/games/mw2019.webp',
-      platforms: [
-        { name: 'Cross-Platform', slug: 'cross-platform', color: '#3b1578', hoverColor: '#4c1d95', icon: 'fa-solid fa-globe' }
-      ]
-    }
   ];
 
   constructor(private router: Router) {}

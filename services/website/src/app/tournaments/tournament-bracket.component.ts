@@ -1294,7 +1294,7 @@ export class TournamentBracketComponent implements OnInit, OnDestroy {
     const platformMap: Record<string, Platform> = {
       'plutonium': 'Plutonium',
       'xbox': 'Xbox',
-      'ps3': 'PS3'
+      'ps3': 'PlayStation'
     };
     const platformName = this.bracketData.tournament.platform.name.toLowerCase();
     const themePlatform = platformMap[platformName];

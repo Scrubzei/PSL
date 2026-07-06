@@ -38,7 +38,7 @@ import { AuthService } from '../auth/auth.service';
             <span>COMPETE & CONQUER</span>
           </div>
           <h1 class="hero-title">TOURNAMENTS</h1>
-          <p class="hero-subtitle">Battle your way to glory in competitive brackets</p>
+          <p class="hero-subtitle">Compete in organized sniping tournaments</p>
 
           @if (isAdmin) {
             <button class="create-btn" routerLink="/tournaments/create">
