@@ -22,6 +22,7 @@ import { MatchfinderComponent } from './matchfinder/matchfinder.component';
 import { MatchfinderAllComponent } from './matchfinder/matchfinder-all.component';
 import { MatchfinderDetailComponent } from './matchfinder/matchfinder-detail.component';
 import { homeRedirectGuard } from './auth/home-redirect.guard';
+import { LandingComponent } from './landing/landing.component';
 import { AdminComponent } from './admin/admin.component';
 import { BulkDmComponent } from './admin/bulk-dm.component';
 import { BotPanelComponent } from './admin/bot-panel.component';
@@ -32,7 +33,7 @@ import { refOrAdminGuard } from './auth/ref-or-admin.guard';
 import { DisputesPageComponent } from './disputes/disputes-page.component';
 
 export const routes: Routes = [
-  { path: '', canActivate: [homeRedirectGuard], children: [] },
+  { path: '', component: LandingComponent, canActivate: [homeRedirectGuard] },
   { path: 'discord-callback', component: DiscordCallbackComponent },
   { path: 'choose-username', component: UsernameSelectionComponent },
   { path: 'match/:token', component: MatchShareComponent },

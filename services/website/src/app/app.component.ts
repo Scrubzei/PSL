@@ -62,6 +62,8 @@ export class AppComponent implements OnInit {
     "/dev-login",
   ];
 
+  private exactNoNavbarRoutes: string[] = [];
+
   constructor(
     private themeService: ThemeService,
     private iconRegistry: MatIconRegistry,
@@ -78,9 +80,11 @@ export class AppComponent implements OnInit {
     this.router.events
       .pipe(filter((event) => event instanceof NavigationEnd))
       .subscribe((event: NavigationEnd) => {
-        this.showNavbar = !this.noNavbarRoutes.some((route) =>
-          event.urlAfterRedirects.startsWith(route),
-        );
+        this.showNavbar =
+          !this.exactNoNavbarRoutes.includes(event.urlAfterRedirects) &&
+          !this.noNavbarRoutes.some((route) =>
+            event.urlAfterRedirects.startsWith(route),
+          );
         const pageContent = document.querySelector(".page-content");
         if (pageContent) pageContent.scrollTop = 0;
       });

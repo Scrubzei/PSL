@@ -34,17 +34,10 @@ import { environment } from '../../environments/environment';
 
       <!-- Desktop Navigation -->
       <nav class="nav-links desktop-only">
-        <a routerLink="/leaderboards" routerLinkActive="active">Leaderboards</a>
         <a routerLink="/tournaments" routerLinkActive="active">Tournaments</a>
-        @if (!isProduction && authService.currentUser()) {
-          <a routerLink="/challenges" routerLinkActive="active">My Matches</a>
-        }
-        @if (!isProduction && isStaff) {
-          <a routerLink="/disputes" routerLinkActive="active">Disputes</a>
-        }
-        @if (isAdmin) {
-          <a routerLink="/admin" routerLinkActive="active">Admin</a>
-        }
+        <!-- <a routerLink="/challenges" routerLinkActive="active">My Matches</a> -->
+        <!-- <a routerLink="/disputes" routerLinkActive="active">Disputes</a> -->
+        <!-- <a routerLink="/admin" routerLinkActive="active">Admin</a> -->
         <a routerLink="/rules" routerLinkActive="active">Rules</a>
       </nav>
 
@@ -128,32 +121,10 @@ import { environment } from '../../environments/environment';
       }
 
       <div class="mobile-nav-links">
-        <a routerLink="/leaderboards" routerLinkActive="active" (click)="closeMobileMenu()">
-          <mat-icon>leaderboard</mat-icon>
-          Leaderboards
-        </a>
         <a routerLink="/tournaments" routerLinkActive="active" (click)="closeMobileMenu()">
           <mat-icon>emoji_events</mat-icon>
           Tournaments
         </a>
-        @if (!isProduction && authService.currentUser()) {
-          <a routerLink="/challenges" routerLinkActive="active" (click)="closeMobileMenu()">
-            <mat-icon>sports_esports</mat-icon>
-            My Matches
-          </a>
-        }
-        @if (!isProduction && isStaff) {
-          <a routerLink="/disputes" routerLinkActive="active" (click)="closeMobileMenu()">
-            <mat-icon>gavel</mat-icon>
-            Disputes
-          </a>
-        }
-        @if (isAdmin) {
-          <a routerLink="/admin" routerLinkActive="active" (click)="closeMobileMenu()">
-            <mat-icon>admin_panel_settings</mat-icon>
-            Admin
-          </a>
-        }
         <a routerLink="/rules" routerLinkActive="active" (click)="closeMobileMenu()">
           <mat-icon>gavel</mat-icon>
           Rules

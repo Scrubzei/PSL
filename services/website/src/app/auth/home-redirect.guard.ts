@@ -8,9 +8,9 @@ export const homeRedirectGuard: CanActivateFn = () => {
 
   if (authService.isAuthenticated()) {
     router.navigate(['/dashboard']);
-  } else {
-    router.navigate(['/leaderboards']);
+    return false;
   }
 
-  return false;
+  // Not logged in — show landing page
+  return true;
 };
