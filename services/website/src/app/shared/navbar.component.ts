@@ -27,13 +27,14 @@ import { environment } from '../../environments/environment';
   template: `
     <mat-toolbar class="navbar">
       <div class="nav-brand">
-        <a routerLink="/dashboard" class="brand-link">
+        <a routerLink="/" class="brand-link">
           <img src="/assets/psl-logo.png" alt="Premier Sniping League" class="brand-logo" />
         </a>
       </div>
 
       <!-- Desktop Navigation -->
       <nav class="nav-links desktop-only">
+        <a routerLink="/teams" routerLinkActive="active">Teams</a>
         <a routerLink="/tournaments" routerLinkActive="active">Tournaments</a>
         <!-- <a routerLink="/challenges" routerLinkActive="active">My Matches</a> -->
         <!-- <a routerLink="/disputes" routerLinkActive="active">Disputes</a> -->
@@ -121,6 +122,10 @@ import { environment } from '../../environments/environment';
       }
 
       <div class="mobile-nav-links">
+        <a routerLink="/teams" routerLinkActive="active" (click)="closeMobileMenu()">
+          <mat-icon>groups</mat-icon>
+          Teams
+        </a>
         <a routerLink="/tournaments" routerLinkActive="active" (click)="closeMobileMenu()">
           <mat-icon>emoji_events</mat-icon>
           Tournaments
@@ -145,7 +150,7 @@ import { environment } from '../../environments/environment';
       overflow-x: hidden;
       touch-action: manipulation;
       overscroll-behavior: contain;
-      height: 72px;
+      height: 80px;
       box-shadow: 0 1px 0 rgba(124, 58, 237, 0.15);
     }
 
@@ -165,10 +170,10 @@ import { environment } from '../../environments/environment';
       }
 
       .brand-logo {
-        height: 72px;
+        height: 64px;
         width: auto;
         object-fit: contain;
-        margin-left: 0;
+        margin-left: -4px;
       }
 
       .brand-text {
@@ -371,7 +376,7 @@ import { environment } from '../../environments/environment';
       z-index: 999;
       display: flex;
       flex-direction: column;
-      padding-top: 72px;
+      padding-top: 80px;
 
       &.open {
         transform: translateX(0);
@@ -445,7 +450,7 @@ import { environment } from '../../environments/environment';
       justify-content: center;
       gap: 10px;
       padding: 12px 24px;
-      background: #1a3f9e;
+      background: linear-gradient(135deg, #7C3AED, #6D28D9);
       border: none;
       border-radius: 8px;
       color: white;
@@ -461,7 +466,8 @@ import { environment } from '../../environments/environment';
       }
 
       &:hover {
-        background: #153080;
+        background: linear-gradient(135deg, #8B5CF6, #7C3AED);
+        box-shadow: 0 4px 12px rgba(124, 58, 237, 0.3);
       }
     }
 
@@ -497,7 +503,7 @@ import { environment } from '../../environments/environment';
       align-items: center;
       gap: 8px;
       padding: 7px 14px;
-      background: #1a3f9e;
+      background: linear-gradient(135deg, #7C3AED, #6D28D9);
       border: none;
       border-radius: 6px;
       color: white;
@@ -513,8 +519,9 @@ import { environment } from '../../environments/environment';
       }
 
       &:hover {
-        background: #153080;
+        background: linear-gradient(135deg, #8B5CF6, #7C3AED);
         transform: translateY(-1px);
+        box-shadow: 0 4px 12px rgba(124, 58, 237, 0.3);
       }
 
       &:active {

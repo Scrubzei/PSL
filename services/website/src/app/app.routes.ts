@@ -23,6 +23,9 @@ import { MatchfinderAllComponent } from './matchfinder/matchfinder-all.component
 import { MatchfinderDetailComponent } from './matchfinder/matchfinder-detail.component';
 import { homeRedirectGuard } from './auth/home-redirect.guard';
 import { LandingComponent } from './landing/landing.component';
+import { TeamsComponent } from './teams/teams.component';
+import { TeamDetailComponent } from './teams/team-detail.component';
+import { HeadToHeadComponent } from './teams/head-to-head.component';
 import { AdminComponent } from './admin/admin.component';
 import { BulkDmComponent } from './admin/bulk-dm.component';
 import { BotPanelComponent } from './admin/bot-panel.component';
@@ -55,6 +58,9 @@ export const routes: Routes = [
     component: DisputesPageComponent,
     canActivate: [authGuard, refOrAdminGuard],
   },
+  { path: 'teams', component: TeamsComponent },
+  { path: 'teams/h2h', component: HeadToHeadComponent },
+  { path: 'teams/:id', component: TeamDetailComponent },
   { path: 'tournaments', component: TournamentsListComponent },
   { path: 'tournaments/create', component: TournamentCreateComponent, canActivate: [authGuard, adminGuard] },
   { path: 'tournaments/:id', component: TournamentDetailComponent },

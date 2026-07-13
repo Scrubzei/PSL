@@ -94,14 +94,6 @@ interface LandingPageVideo {
         </div>
       </section>
 
-      <!-- Game Marquee -->
-      <div class="marquee">
-        <div class="marquee-track">
-          <span *ngFor="let g of marqueeGames">{{ g }}</span>
-          <span *ngFor="let g of marqueeGames">{{ g }}</span>
-        </div>
-      </div>
-
       <!-- Features -->
       <section class="features">
         <div class="features-inner">

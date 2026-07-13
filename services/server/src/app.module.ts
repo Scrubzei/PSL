@@ -24,6 +24,10 @@ import { Tournament } from './tournaments/tournament.entity';
 import { TournamentParticipant } from './tournaments/tournament-participant.entity';
 import { TournamentMatch } from './tournaments/tournament-match.entity';
 import { PlutoGame } from './pluto-games/pluto-game.entity';
+import { Team } from './teams/team.entity';
+import { TeamMembership } from './teams/team-membership.entity';
+import { TeamInvite } from './teams/team-invite.entity';
+import { TeamsModule } from './teams/teams.module';
 
 @Module({
   imports: [
@@ -38,7 +42,7 @@ import { PlutoGame } from './pluto-games/pluto-game.entity';
       username: process.env.DATABASE_USER || 'postgres',
       password: process.env.DATABASE_PASSWORD || 'postgres',
       database: process.env.DATABASE_NAME || 'appdb',
-      entities: [User, Game, GameMap, Platform, Leaderboard, LeaderboardEntry, Match, Notification, Tournament, TournamentParticipant, TournamentMatch, PlutoGame],
+      entities: [User, Game, GameMap, Platform, Leaderboard, LeaderboardEntry, Match, Notification, Tournament, TournamentParticipant, TournamentMatch, PlutoGame, Team, TeamMembership, TeamInvite],
       migrations: ['dist/migrations/*.js'],
       migrationsRun: true,
       synchronize: false,
@@ -53,6 +57,7 @@ import { PlutoGame } from './pluto-games/pluto-game.entity';
     TournamentsModule,
     BotzeiModule,
     PlutoGamesModule,
+    TeamsModule,
   ],
 })
 export class AppModule {}
