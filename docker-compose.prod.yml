@@ -3,44 +3,39 @@ services:
     image: postgres:15-alpine
     container_name: postgres-db
     environment:
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgres
-      POSTGRES_DB: appdb
-    ports:
-      - "5432:5432"
+      POSTGRES_USER: ${DATABASE_USER:-postgres}
+      POSTGRES_PASSWORD: ${DATABASE_PASSWORD}
+      POSTGRES_DB: ${DATABASE_NAME:-appdb}
     volumes:
       - postgres_data:/var/lib/postgresql/data
     networks:
       - app-network
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      test: ["CMD-SHELL", "pg_isready -U ${DATABASE_USER:-postgres}"]
       interval: 10s
       timeout: 5s
       retries: 5
+    restart: unless-stopped
 
   server:
     build:
       context: ./services/server
-      dockerfile: Dockerfile.dev
+      dockerfile: Dockerfile
     container_name: server
-    # Ensures deps (e.g. @nestjs/schedule) exist in the /app/node_modules volume after package.json changes — no image rebuild required.
-    command: sh -c "npm install && npm run start:dev"
     environment:
       DATABASE_HOST: postgres
       DATABASE_PORT: 5432
-      DATABASE_USER: postgres
-      DATABASE_PASSWORD: postgres
-      DATABASE_NAME: appdb
-      JWT_SECRET: your-secret-key-change-in-production
+      DATABASE_USER: ${DATABASE_USER:-postgres}
+      DATABASE_PASSWORD: ${DATABASE_PASSWORD}
+      DATABASE_NAME: ${DATABASE_NAME:-appdb}
+      JWT_SECRET: ${JWT_SECRET}
       JWT_EXPIRATION: 24h
-      FRONTEND_URL: http://localhost:4200
+      FRONTEND_URL: ${FRONTEND_URL}
       BOT_API_KEY: ${BOT_API_KEY}
       BOTZEI_URL: http://botzei:3001
       DISCORD_CLIENT_ID: ${DISCORD_CLIENT_ID}
       DISCORD_CLIENT_SECRET: ${DISCORD_CLIENT_SECRET}
       DISCORD_CALLBACK_URL: ${DISCORD_CALLBACK_URL}
-    ports:
-      - "3000:3000"
     depends_on:
       postgres:
         condition: service_healthy
@@ -48,51 +43,57 @@ services:
       app-network:
         aliases:
           - backend
-    volumes:
-      - ./services/server:/app
-      - /app/node_modules
+    restart: unless-stopped
 
   website:
     build:
       context: ./services/website
-      dockerfile: Dockerfile.dev
+      dockerfile: Dockerfile
     container_name: website
-    ports:
-      - "4200:4200"
     depends_on:
       - server
     networks:
       - app-network
-    volumes:
-      - ./services/website:/app
-      - /app/node_modules
-    environment:
-      - CHOKIDAR_USEPOLLING=true
+    restart: unless-stopped
 
   botzei:
     build:
       context: ./services/botzei
-      dockerfile: Dockerfile.dev
+      dockerfile: Dockerfile
     container_name: botzei
     environment:
       DISCORD_TOKEN: ${DISCORD_TOKEN}
-      DISCORD_CLIENT_ID: 1469896838856441979
-      DISCORD_GUILD_ID: 1459142539142627562
+      DISCORD_CLIENT_ID: ${DISCORD_CLIENT_ID}
+      DISCORD_GUILD_ID: ${DISCORD_GUILD_ID}
       BACKEND_URL: http://server:3000
-      FRONTEND_URL: ${FRONTEND_URL:-http://localhost:4200}
-      LOGIN_URL: http://localhost:3000/auth/discord
+      FRONTEND_URL: ${FRONTEND_URL}
+      LOGIN_URL: ${FRONTEND_URL}/auth/discord
       BOT_API_KEY: ${BOT_API_KEY}
       ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY}
       API_PORT: 3001
-    ports:
-      - "3001:3001"
     depends_on:
       - server
     networks:
       - app-network
+    restart: unless-stopped
+
+  caddy:
+    image: caddy:2-alpine
+    container_name: caddy
+    ports:
+      - "80:80"
+      - "443:443"
     volumes:
-      - ./services/botzei:/app
-      - /app/node_modules
+      - ./deploy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    environment:
+      DOMAIN: ${DOMAIN}
+    depends_on:
+      - website
+      - server
+    networks:
+      - app-network
     restart: unless-stopped
 
 networks:
@@ -101,3 +102,5 @@ networks:
 
 volumes:
   postgres_data:
+  caddy_data:
+  caddy_config:
