@@ -1085,8 +1085,8 @@ import { CdkDragDrop, CdkDrag, CdkDropList, moveItemInArray } from '@angular/cdk
     .sponsors-banner {
       margin: 16px 0;
       padding: 20px 24px;
-      background: linear-gradient(135deg, rgba(34, 197, 94, 0.06) 0%, rgba(34, 197, 94, 0.02) 100%);
-      border: 1px solid rgba(34, 197, 94, 0.15);
+      background: linear-gradient(135deg, rgba(168, 85, 247, 0.06) 0%, rgba(168, 85, 247, 0.02) 100%);
+      border: 1px solid rgba(168, 85, 247, 0.15);
       border-radius: 14px;
       position: relative;
       overflow: hidden;
@@ -1095,7 +1095,7 @@ import { CdkDragDrop, CdkDrag, CdkDropList, moveItemInArray } from '@angular/cdk
         content: '';
         position: absolute;
         inset: 0;
-        background: radial-gradient(ellipse at 20% 50%, rgba(34, 197, 94, 0.08) 0%, transparent 60%);
+        background: radial-gradient(ellipse at 20% 50%, rgba(168, 85, 247, 0.08) 0%, transparent 60%);
         pointer-events: none;
       }
     }
@@ -1109,7 +1109,7 @@ import { CdkDragDrop, CdkDrag, CdkDropList, moveItemInArray } from '@angular/cdk
       font-weight: 700;
       text-transform: uppercase;
       letter-spacing: 1px;
-      color: #22c55e;
+      color: #A855F7;
       position: relative;
     }
 
@@ -1117,7 +1117,7 @@ import { CdkDragDrop, CdkDrag, CdkDropList, moveItemInArray } from '@angular/cdk
       font-size: 16px;
       width: 16px;
       height: 16px;
-      filter: drop-shadow(0 0 4px rgba(34, 197, 94, 0.5));
+      filter: drop-shadow(0 0 4px rgba(168, 85, 247, 0.5));
     }
 
     .sponsors-list {
@@ -1136,10 +1136,10 @@ import { CdkDragDrop, CdkDrag, CdkDropList, moveItemInArray } from '@angular/cdk
       align-items: center;
       gap: 8px;
       padding: 10px 18px;
-      background: rgba(34, 197, 94, 0.08);
-      border: 1px solid rgba(34, 197, 94, 0.18);
+      background: rgba(168, 85, 247, 0.08);
+      border: 1px solid rgba(168, 85, 247, 0.18);
       border-radius: 10px;
-      color: #22c55e;
+      color: #A855F7;
       font-size: 14px;
       font-weight: 600;
       text-decoration: none;
@@ -1150,8 +1150,8 @@ import { CdkDragDrop, CdkDrag, CdkDropList, moveItemInArray } from '@angular/cdk
         font-size: 16px;
         width: 16px;
         height: 16px;
-        color: #22c55e;
-        filter: drop-shadow(0 0 3px rgba(34, 197, 94, 0.4));
+        color: #A855F7;
+        filter: drop-shadow(0 0 3px rgba(168, 85, 247, 0.4));
       }
 
       .ext {
@@ -1164,9 +1164,9 @@ import { CdkDragDrop, CdkDrag, CdkDropList, moveItemInArray } from '@angular/cdk
     }
 
     .sponsor-link:hover {
-      background: rgba(34, 197, 94, 0.14);
-      border-color: rgba(34, 197, 94, 0.3);
-      box-shadow: 0 0 20px rgba(34, 197, 94, 0.1);
+      background: rgba(168, 85, 247, 0.14);
+      border-color: rgba(168, 85, 247, 0.3);
+      box-shadow: 0 0 20px rgba(168, 85, 247, 0.1);
     }
 
     /* Content Grid */

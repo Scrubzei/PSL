@@ -340,7 +340,7 @@ interface LandingPageVideo {
       &.won .tc-captain { color: #22c55e; }
       &.won .tc-roster { color: rgba(34, 197, 94, 0.35); }
       &.lost .tc-captain { color: rgba(255, 255, 255, 0.25); }
-      &.lost .tc-roster { color: rgba(255, 255, 255, 0.1); }
+      &.lost .tc-roster { color: rgba(255, 255, 255, 0.18); }
     }
 
     .tc-captain {
@@ -355,7 +355,7 @@ interface LandingPageVideo {
     .tc-roster {
       font-size: 11px;
       font-weight: 400;
-      color: rgba(255, 255, 255, 0.25);
+      color: rgba(255, 255, 255, 0.35);
       white-space: nowrap;
       overflow: hidden;
       text-overflow: ellipsis;

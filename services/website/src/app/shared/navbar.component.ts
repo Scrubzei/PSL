@@ -35,6 +35,7 @@ import { environment } from '../../environments/environment';
       <!-- Desktop Navigation -->
       <nav class="nav-links desktop-only">
         <a routerLink="/teams" routerLinkActive="active">Teams</a>
+        <a routerLink="/teams/h2h" routerLinkActive="active">Stats</a>
         <a routerLink="/tournaments" routerLinkActive="active">Tournaments</a>
         <!-- <a routerLink="/challenges" routerLinkActive="active">My Matches</a> -->
         <!-- <a routerLink="/disputes" routerLinkActive="active">Disputes</a> -->
@@ -125,6 +126,10 @@ import { environment } from '../../environments/environment';
         <a routerLink="/teams" routerLinkActive="active" (click)="closeMobileMenu()">
           <mat-icon>groups</mat-icon>
           Teams
+        </a>
+        <a routerLink="/teams/h2h" routerLinkActive="active" (click)="closeMobileMenu()">
+          <mat-icon>compare_arrows</mat-icon>
+          Stats
         </a>
         <a routerLink="/tournaments" routerLinkActive="active" (click)="closeMobileMenu()">
           <mat-icon>emoji_events</mat-icon>

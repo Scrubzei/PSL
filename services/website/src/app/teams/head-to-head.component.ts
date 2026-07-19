@@ -10,7 +10,9 @@ interface H2HMatch {
   winner: string;
   score1: number;
   score2: number;
+  diff: number;
   mvp: string;
+  t1Result: 'W' | 'L';
 }
 
 @Component({
@@ -21,12 +23,10 @@ interface H2HMatch {
     <div class="page">
       <div class="container">
         <a routerLink="/teams" class="back">&larr; Teams</a>
-        <h1>Head to Head</h1>
 
         <!-- Team Selectors -->
         <div class="selectors">
           <div class="selector">
-            <label>Team 1</label>
             <select [(ngModel)]="team1Id" (change)="compute()">
               <option value="">Select team</option>
               @for (t of allTeams; track t.id) {
@@ -34,9 +34,8 @@ interface H2HMatch {
               }
             </select>
           </div>
-          <div class="vs-badge">VS</div>
+          <span class="sel-vs">VS</span>
           <div class="selector">
-            <label>Team 2</label>
             <select [(ngModel)]="team2Id" (change)="compute()">
               <option value="">Select team</option>
               @for (t of allTeams; track t.id) {
@@ -47,57 +46,61 @@ interface H2HMatch {
         </div>
 
         @if (t1 && t2) {
-          <!-- Comparison -->
-          <div class="comparison">
-            <!-- Team headers -->
-            <div class="comp-header">
-              <div class="comp-team left" [style.--tc]="t1.color || '#7C3AED'">
-                <div class="comp-name">{{ t1.name }}</div>
-                <div class="comp-tag">{{ t1.tag }}</div>
+          <!-- VS Hero -->
+          <div class="vs-hero" [style.--c1]="t1.color || '#7C3AED'" [style.--c2]="t2.color || '#DC2626'">
+            <div class="vs-wedge left"></div>
+            <div class="vs-wedge right"></div>
+            <div class="vs-seam"></div>
+            <div class="vs-content">
+              <div class="vs-side left">
+                <span class="vs-name">{{ t1.name }}</span>
               </div>
-              <div class="comp-record">
-                <span class="cr-val" [class.leading]="h2hRecord.t1Wins > h2hRecord.t2Wins">{{ h2hRecord.t1Wins }}</span>
-                <span class="cr-dash">-</span>
-                <span class="cr-val" [class.leading]="h2hRecord.t2Wins > h2hRecord.t1Wins">{{ h2hRecord.t2Wins }}</span>
+              <div class="vs-record">
+                <span class="vs-num" [class.leading]="h2hRecord.t1Wins > h2hRecord.t2Wins" [style.color]="h2hRecord.t1Wins > h2hRecord.t2Wins ? t1.color : ''">{{ h2hRecord.t1Wins }}</span>
+                <span class="vs-dash">–</span>
+                <span class="vs-num" [class.leading]="h2hRecord.t2Wins > h2hRecord.t1Wins" [style.color]="h2hRecord.t2Wins > h2hRecord.t1Wins ? t2.color : ''">{{ h2hRecord.t2Wins }}</span>
               </div>
-              <div class="comp-team right" [style.--tc]="t2.color || '#7C3AED'">
-                <div class="comp-name">{{ t2.name }}</div>
-                <div class="comp-tag">{{ t2.tag }}</div>
+              <div class="vs-side right">
+                <span class="vs-name">{{ t2.name }}</span>
               </div>
             </div>
+          </div>
 
-            <!-- Stat bars -->
-            <div class="stat-bars">
-              @for (s of compStats; track s.label) {
-                <div class="stat-bar-row">
-                  <span class="sb-val left" [class.better]="s.val1 > s.val2">{{ s.display1 }}</span>
-                  <div class="sb-center">
-                    <div class="sb-track">
-                      <div class="sb-fill left" [style.width.%]="s.pct1" [style.background]="t1.color || '#7C3AED'"></div>
-                      <div class="sb-fill right" [style.width.%]="s.pct2" [style.background]="t2.color || '#DC2626'"></div>
-                    </div>
-                    <span class="sb-label">{{ s.label }}</span>
+          <!-- Stat Bars -->
+          <div class="stat-bars">
+            @for (s of compStats; track s.label) {
+              <div class="bar-row">
+                <span class="bar-val left" [class.better]="s.val1 > s.val2" [style.color]="s.val1 >= s.val2 ? t1.color : ''">{{ s.display1 }}</span>
+                <div class="bar-center">
+                  <div class="bar-track">
+                    <div class="bar-fill left" [style.width.%]="s.pct1" [style.background]="t1.color || '#7C3AED'"></div>
+                    <div class="bar-fill right" [style.width.%]="s.pct2" [style.background]="t2.color || '#DC2626'"></div>
                   </div>
-                  <span class="sb-val right" [class.better]="s.val2 > s.val1">{{ s.display2 }}</span>
+                  <span class="bar-label">{{ s.label }}</span>
                 </div>
-              }
-            </div>
+                <span class="bar-val right" [class.better]="s.val2 > s.val1" [style.color]="s.val2 >= s.val1 ? t2.color : ''">{{ s.display2 }}</span>
+              </div>
+            }
+          </div>
 
-            <!-- H2H Match History -->
-            <div class="h2h-history">
-              <div class="section-header">Match History</div>
-              @for (m of h2hMatches; track m.date) {
-                <div class="h2h-row" [class.t1-win]="m.winner === t1!.name" [class.t2-win]="m.winner === t2!.name">
-                  <span class="h2h-team" [class.winner]="m.winner === t1!.name">{{ t1!.tag }}</span>
-                  <span class="h2h-score" [class.win-score]="m.winner === t1!.name">{{ m.score1 }}</span>
-                  <span class="h2h-dash">-</span>
-                  <span class="h2h-score" [class.win-score]="m.winner === t2!.name">{{ m.score2 }}</span>
-                  <span class="h2h-team" [class.winner]="m.winner === t2!.name">{{ t2!.tag }}</span>
-                  <span class="h2h-mvp">MVP {{ m.mvp }}</span>
-                  <span class="h2h-date">{{ m.date }}</span>
+          <!-- Match History -->
+          <div class="history">
+            <div class="section-header">Match History</div>
+            @for (m of h2hMatches; track m.date + m.score1) {
+              <div class="h-row">
+                <span class="h-chip" [class.w]="m.t1Result === 'W'" [class.l]="m.t1Result === 'L'">{{ m.t1Result }}</span>
+                <span class="h-team" [style.color]="m.t1Result === 'W' ? t1.color : ''">{{ t1.tag }}</span>
+                <div class="h-score-wrap">
+                  <span class="h-score" [class.win-s]="m.t1Result === 'W'">{{ m.score1 }}</span>
+                  <span class="h-dash">-</span>
+                  <span class="h-score" [class.win-s]="m.t1Result === 'L'">{{ m.score2 }}</span>
+                  <span class="h-diff" [class.pos]="m.t1Result === 'W'" [class.neg]="m.t1Result === 'L'">{{ m.t1Result === 'W' ? '+' : '' }}{{ m.diff }}</span>
                 </div>
-              }
-            </div>
+                <span class="h-team right" [style.color]="m.t1Result === 'L' ? t2.color : ''">{{ t2.tag }}</span>
+                <span class="h-mvp">MVP {{ m.mvp }}</span>
+                <span class="h-date">{{ m.date }}</span>
+              </div>
+            }
           </div>
         }
       </div>
@@ -105,106 +108,162 @@ interface H2HMatch {
   `,
   styles: [`
     .page { background: #0a0a0f; min-height: 100%; }
-    .container { max-width: 900px; margin: 0 auto; padding: 32px 24px 60px; }
+    .container { max-width: 960px; margin: 0 auto; padding: 28px 24px 60px; }
     .back {
-      display: inline-block; margin-bottom: 16px;
+      display: inline-block; margin-bottom: 20px;
       color: rgba(255,255,255,0.35); text-decoration: none; font-size: 13px;
       &:hover { color: white; }
     }
-    h1 {
-      font-family: 'Chakra Petch', sans-serif; font-size: 32px; font-weight: 700;
-      color: white; margin: 0 0 28px; text-transform: uppercase;
-    }
 
     /* Selectors */
-    .selectors { display: flex; align-items: flex-end; gap: 16px; margin-bottom: 40px; }
+    .selectors { display: flex; align-items: center; gap: 14px; margin-bottom: 28px; }
     .selector {
       flex: 1;
-      label { display: block; font-size: 11px; font-weight: 600; color: rgba(255,255,255,0.35); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 6px; }
       select {
-        width: 100%; padding: 12px 16px; background: #12121e; border: 1px solid rgba(255,255,255,0.08);
-        border-radius: 10px; color: white; font-size: 15px; font-weight: 600; font-family: inherit;
-        appearance: none; cursor: pointer;
+        width: 100%; padding: 14px 18px; background: #12121e; border: 1px solid rgba(255,255,255,0.08);
+        border-radius: 10px; color: white; font-size: 16px; font-weight: 700; font-family: 'Chakra Petch', sans-serif;
+        text-transform: uppercase; letter-spacing: 0.5px; appearance: none; cursor: pointer;
         &:focus { outline: none; border-color: rgba(124,58,237,0.4); }
-        option { background: #12121e; }
+        option { background: #12121e; text-transform: none; font-family: inherit; }
       }
     }
-    .vs-badge {
-      font-family: 'Chakra Petch', sans-serif; font-size: 16px; font-weight: 700;
-      color: rgba(255,255,255,0.15); padding-bottom: 12px;
+    .sel-vs {
+      font-family: 'Chakra Petch', sans-serif; font-size: 14px; font-weight: 700;
+      color: rgba(255,255,255,0.15); letter-spacing: 2px; flex-shrink: 0;
     }
 
-    /* Comparison */
-    .comparison { animation: fadeIn 0.3s ease; }
-    @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
-
-    .comp-header {
-      display: flex; align-items: center; justify-content: space-between; gap: 16px;
-      margin-bottom: 32px; padding: 24px; background: #12121e;
-      border: 1px solid rgba(255,255,255,0.06); border-radius: 14px;
+    /* VS Hero */
+    .vs-hero {
+      --c1: #7C3AED; --c2: #DC2626;
+      position: relative; height: 180px; border-radius: 14px; overflow: hidden;
+      margin-bottom: 28px; animation: fadeUp 0.4s ease;
     }
-    .comp-team { text-align: center; flex: 1; }
-    .comp-team.right { text-align: center; }
-    .comp-name { font-family: 'Chakra Petch', sans-serif; font-size: 24px; font-weight: 700; color: white; text-transform: uppercase; }
-    .comp-tag { font-size: 12px; font-weight: 600; color: rgba(255,255,255,0.3); letter-spacing: 1px; margin-top: 2px; }
-    .comp-record { text-align: center; flex-shrink: 0; }
-    .cr-val {
-      font-family: 'Chakra Petch', sans-serif; font-size: 36px; font-weight: 700; color: rgba(255,255,255,0.3);
+    .vs-wedge {
+      position: absolute; top: 0; bottom: 0; width: 55%;
+      &.left {
+        left: 0;
+        background: linear-gradient(135deg, color-mix(in srgb, var(--c1) 18%, #12121e) 0%, #12121e 80%);
+        clip-path: polygon(0 0, 100% 0, 75% 100%, 0 100%);
+      }
+      &.right {
+        right: 0;
+        background: linear-gradient(225deg, color-mix(in srgb, var(--c2) 18%, #12121e) 0%, #12121e 80%);
+        clip-path: polygon(25% 0, 100% 0, 100% 100%, 0 100%);
+      }
+    }
+    .vs-seam {
+      position: absolute; top: 0; bottom: 0; left: 50%; width: 3px; transform: translateX(-50%) skewX(-20deg);
+      background: linear-gradient(180deg, color-mix(in srgb, var(--c1) 60%, white), rgba(255,255,255,0.1), color-mix(in srgb, var(--c2) 60%, white));
+      box-shadow: 0 0 16px rgba(255,255,255,0.15);
+      animation: seamPulse 3s ease-in-out infinite;
+    }
+    @keyframes seamPulse {
+      0%, 100% { box-shadow: 0 0 16px rgba(255,255,255,0.1); }
+      50% { box-shadow: 0 0 24px rgba(255,255,255,0.25); }
+    }
+    .vs-content {
+      position: relative; height: 100%; display: flex; align-items: center; justify-content: center; z-index: 1;
+    }
+    .vs-side {
+      flex: 1; display: flex; align-items: center; padding: 0 32px;
+      &.left { justify-content: flex-start; }
+      &.right { justify-content: flex-end; }
+    }
+    .vs-name {
+      font-family: 'Chakra Petch', sans-serif; font-size: 32px; font-weight: 700;
+      color: white; text-transform: uppercase; letter-spacing: 1px;
+    }
+    .vs-record {
+      display: flex; align-items: center; gap: 10px; flex-shrink: 0; padding: 0 20px;
+    }
+    .vs-num {
+      font-family: 'Chakra Petch', sans-serif; font-size: 48px; font-weight: 800;
+      color: rgba(255,255,255,0.25); line-height: 1;
       &.leading { color: white; }
     }
-    .cr-dash { font-size: 24px; color: rgba(255,255,255,0.15); margin: 0 8px; }
+    .vs-dash { font-size: 28px; color: rgba(255,255,255,0.12); }
+
+    @keyframes fadeUp {
+      from { opacity: 0; transform: translateY(12px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
 
     /* Stat Bars */
-    .stat-bars { display: flex; flex-direction: column; gap: 14px; margin-bottom: 32px; }
-    .stat-bar-row { display: flex; align-items: center; gap: 12px; }
-    .sb-val {
-      width: 60px; font-size: 15px; font-weight: 700; color: rgba(255,255,255,0.5);
-      font-variant-numeric: tabular-nums;
+    .stat-bars { display: flex; flex-direction: column; gap: 12px; margin-bottom: 32px; animation: fadeUp 0.5s ease 0.1s both; }
+    .bar-row { display: flex; align-items: center; gap: 14px; }
+    .bar-val {
+      width: 56px; font-family: 'Chakra Petch', sans-serif; font-size: 16px; font-weight: 700;
+      color: rgba(255,255,255,0.35); font-variant-numeric: tabular-nums;
       &.left { text-align: right; }
       &.right { text-align: left; }
       &.better { color: white; }
     }
-    .sb-center { flex: 1; text-align: center; }
-    .sb-track {
-      display: flex; height: 6px; border-radius: 3px; background: rgba(255,255,255,0.04); overflow: hidden;
-      margin-bottom: 4px;
+    .bar-center { flex: 1; text-align: center; }
+    .bar-track {
+      display: flex; height: 8px; border-radius: 4px; background: rgba(255,255,255,0.04);
+      overflow: hidden; margin-bottom: 4px;
     }
-    .sb-fill {
-      height: 100%; transition: width 0.5s ease;
-      &.left { border-radius: 3px 0 0 3px; }
-      &.right { margin-left: auto; border-radius: 0 3px 3px 0; }
+    .bar-fill {
+      height: 100%; transition: width 0.8s cubic-bezier(0.4, 0, 0.2, 1);
+      &.left { border-radius: 4px 0 0 4px; }
+      &.right { margin-left: auto; border-radius: 0 4px 4px 0; }
     }
-    .sb-label { font-size: 10px; font-weight: 600; color: rgba(255,255,255,0.25); text-transform: uppercase; letter-spacing: 1px; }
+    .bar-label {
+      font-size: 10px; font-weight: 700; color: rgba(255,255,255,0.2); text-transform: uppercase; letter-spacing: 1.5px;
+    }
 
-    /* H2H History */
+    /* History */
+    .history { animation: fadeUp 0.5s ease 0.2s both; }
     .section-header {
-      font-size: 12px; font-weight: 700; color: rgba(255,255,255,0.35); text-transform: uppercase;
+      font-size: 12px; font-weight: 700; color: rgba(255,255,255,0.3); text-transform: uppercase;
       letter-spacing: 2px; margin-bottom: 14px; padding-bottom: 10px; border-bottom: 1px solid rgba(255,255,255,0.06);
     }
-    .h2h-history { margin-top: 8px; }
-    .h2h-row {
-      display: grid; grid-template-columns: 60px auto 20px auto 60px 1fr auto; align-items: center; gap: 8px;
-      padding: 10px 14px; border-radius: 8px;
-      &:hover { background: rgba(255,255,255,0.02); }
+    .h-row {
+      display: grid; grid-template-columns: 36px 56px 1fr 56px 120px auto; align-items: center; gap: 10px;
+      padding: 10px 14px; border-radius: 8px; transition: all 0.15s;
+      &:hover { background: rgba(255,255,255,0.02); transform: translateY(-1px); }
     }
-    .h2h-team { font-size: 13px; font-weight: 700; color: rgba(255,255,255,0.4); text-align: center;
-      &.winner { color: #22c55e; }
+    .h-chip {
+      width: 32px; height: 28px; border-radius: 6px; display: flex; align-items: center; justify-content: center;
+      font-size: 12px; font-weight: 700; background: rgba(255,255,255,0.05); color: rgba(255,255,255,0.4);
+      &.w { background: rgba(34,197,94,0.15); color: #22c55e; }
+      &.l { background: rgba(239,68,68,0.15); color: #ef4444; }
     }
-    .h2h-score { font-size: 15px; font-weight: 700; color: rgba(255,255,255,0.35); text-align: center; font-variant-numeric: tabular-nums;
-      &.win-score { color: white; }
+    .h-team {
+      font-size: 13px; font-weight: 700; color: rgba(255,255,255,0.4); text-align: center;
+      &.right { text-align: center; }
     }
-    .h2h-dash { font-size: 12px; color: rgba(255,255,255,0.15); text-align: center; }
-    .h2h-mvp { font-size: 11px; color: rgba(234,179,8,0.6); font-weight: 600; text-align: right; }
-    .h2h-date { font-size: 11px; color: rgba(255,255,255,0.2); text-align: right; }
+    .h-score-wrap { display: flex; align-items: center; justify-content: center; gap: 4px; font-variant-numeric: tabular-nums; }
+    .h-score { font-size: 15px; font-weight: 700; color: rgba(255,255,255,0.3);
+      &.win-s { color: white; }
+    }
+    .h-dash { font-size: 12px; color: rgba(255,255,255,0.12); }
+    .h-diff {
+      font-size: 11px; font-weight: 700; margin-left: 6px; padding: 1px 6px; border-radius: 4px;
+      &.pos { color: #22c55e; background: rgba(34,197,94,0.1); }
+      &.neg { color: #ef4444; background: rgba(239,68,68,0.1); }
+    }
+    .h-mvp { font-size: 11px; color: rgba(234,179,8,0.6); font-weight: 600; text-align: right; }
+    .h-date { font-size: 11px; color: rgba(255,255,255,0.2); text-align: right; min-width: 50px; }
 
-    @media (max-width: 600px) {
-      .selectors { flex-direction: column; align-items: stretch; }
-      .vs-badge { text-align: center; padding: 0; }
-      .comp-header { flex-direction: column; gap: 12px; }
-      .comp-name { font-size: 20px; }
-      .cr-val { font-size: 28px; }
-      .h2h-row { grid-template-columns: 40px auto 16px auto 40px 1fr; }
-      .h2h-date { display: none; }
+    @media (max-width: 768px) {
+      .selectors { flex-direction: column; gap: 8px; }
+      .sel-vs { padding: 0; }
+      .vs-hero { height: 140px; }
+      .vs-name { font-size: 20px; }
+      .vs-num { font-size: 36px; }
+      .vs-side { padding: 0 16px; }
+      .h-row { grid-template-columns: 36px 40px 1fr 40px auto; }
+      .h-mvp, .h-date { display: none; }
+    }
+
+    @media (max-width: 480px) {
+      .vs-hero { height: 200px; }
+      .vs-content { flex-direction: column; gap: 8px; }
+      .vs-side { justify-content: center !important; padding: 0; }
+      .vs-wedge.left { clip-path: polygon(0 0, 100% 0, 100% 55%, 0 55%); width: 100%; }
+      .vs-wedge.right { clip-path: polygon(0 45%, 100% 45%, 100% 100%, 0 100%); width: 100%; }
+      .vs-seam { left: 0; right: 0; top: 50%; bottom: auto; width: 100%; height: 3px; transform: translateY(-50%) skewY(-3deg); }
     }
   `]
 })
@@ -241,9 +300,8 @@ export class HeadToHeadComponent implements OnInit {
 
     const rng = (min: number, max: number) => Math.floor(Math.random() * (max - min + 1)) + min;
     const seed = (this.t1.id + this.t2.id).split('').reduce((a, c) => a + c.charCodeAt(0), 0);
-
-    // Seeded stats
     const s = (base: number, offset: number) => base + ((seed + offset) % 20);
+
     const t1w = s(12, 1); const t1l = s(5, 2);
     const t2w = s(10, 3); const t2l = s(6, 4);
     const t1kd = +((0.8 + ((seed % 50) / 50)).toFixed(2));
@@ -253,38 +311,35 @@ export class HeadToHeadComponent implements OnInit {
 
     this.compStats = [
       this.makeStat('Wins', t1w, t2w),
-      this.makeStat('Losses', t1l, t2l, true),
-      this.makeStat('Win Rate', t1wp, t2wp, false, '%'),
+      this.makeStat('Losses', t1l, t2l),
+      this.makeStat('Win Rate', t1wp, t2wp, '%'),
       this.makeStat('Avg K/D', t1kd, t2kd),
       this.makeStat('Avg Score', s(240, 5), s(235, 6)),
     ];
 
-    // H2H record
-    const totalH2H = 3 + (seed % 4);
+    const totalH2H = 3 + (seed % 5);
     const t1Wins = Math.min(totalH2H, 1 + (seed % totalH2H));
     this.h2hRecord = { t1Wins, t2Wins: totalH2H - t1Wins };
 
-    // H2H matches
     const allPlayers = [...(this.t1.memberships || []).map(m => m.user?.username || '?'), ...(this.t2.memberships || []).map(m => m.user?.username || '?')];
     this.h2hMatches = Array.from({ length: totalH2H }, (_, i) => {
       const t1Win = i < t1Wins;
+      const s1 = t1Win ? rng(250, 300) : rng(150, 240);
+      const s2 = t1Win ? rng(150, 240) : rng(250, 300);
       return {
         date: `Jul ${rng(1, 12)}`,
         winner: t1Win ? this.t1!.name : this.t2!.name,
-        score1: t1Win ? rng(250, 300) : rng(150, 240),
-        score2: t1Win ? rng(150, 240) : rng(250, 300),
+        score1: s1, score2: s2,
+        diff: s1 - s2,
         mvp: allPlayers[rng(0, allPlayers.length - 1)],
+        t1Result: (t1Win ? 'W' : 'L') as 'W' | 'L',
       };
     });
   }
 
-  private makeStat(label: string, v1: number, v2: number, lowerBetter = false, suffix = ''): any {
+  private makeStat(label: string, v1: number, v2: number, suffix = ''): any {
     const total = v1 + v2 || 1;
-    return {
-      label, val1: v1, val2: v2,
-      display1: v1 + suffix, display2: v2 + suffix,
-      pct1: (v1 / total) * 100, pct2: (v2 / total) * 100,
-    };
+    return { label, val1: v1, val2: v2, display1: v1 + suffix, display2: v2 + suffix, pct1: (v1 / total) * 100, pct2: (v2 / total) * 100 };
   }
 
   private mk = (id: string, uid: string, name: string, role: 'captain' | 'member' = 'member') =>

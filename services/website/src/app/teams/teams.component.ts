@@ -204,7 +204,7 @@ import { CreateTeamDialogComponent } from './create-team-dialog.component';
       &.lost .tc-roster { color: rgba(255,255,255,0.1); }
     }
     .tc-captain { font-size: 15px; font-weight: 700; color: rgba(255,255,255,0.85); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-    .tc-roster { font-size: 11px; font-weight: 400; color: rgba(255,255,255,0.25); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .tc-roster { font-size: 11px; font-weight: 400; color: rgba(255,255,255,0.35); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
     .tc-divider {
       display: flex; align-items: center; padding: 0 14px; flex-shrink: 0;
       span { font-size: 10px; font-weight: 700; color: rgba(124,58,237,0.3); letter-spacing: 1px; }

@@ -60,19 +60,21 @@ import { AuthService } from '../auth/auth.service';
         </div>
 
         <div class="hero-content">
-          <div class="hero-badge">
-            <mat-icon>emoji_events</mat-icon>
-            <span>COMPETE & CONQUER</span>
-          </div>
           <h1 class="hero-title">TOURNAMENTS</h1>
           <p class="hero-subtitle">Compete in organized sniping tournaments</p>
 
-          @if (isAdmin) {
-            <button class="create-btn" routerLink="/tournaments/create">
-              <mat-icon>add</mat-icon>
-              <span>Create Tournament</span>
-            </button>
-          }
+          <div class="hero-buttons">
+            <a href="https://discord.gg/psl" target="_blank" rel="noopener" class="sponsor-btn">
+              <mat-icon>diamond</mat-icon>
+              <span>Become a Sponsor</span>
+            </a>
+            @if (isAdmin) {
+              <button class="create-btn" routerLink="/tournaments/create">
+                <mat-icon>add</mat-icon>
+                <span>Create Tournament</span>
+              </button>
+            }
+          </div>
         </div>
       </div>
 
@@ -265,7 +267,7 @@ import { AuthService } from '../auth/auth.service';
       &.lost .tc-roster { color: rgba(255,255,255,0.1); }
     }
     .tc-captain { font-size: 15px; font-weight: 700; color: rgba(255,255,255,0.85); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-    .tc-roster { font-size: 11px; font-weight: 400; color: rgba(255,255,255,0.25); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .tc-roster { font-size: 11px; font-weight: 400; color: rgba(255,255,255,0.35); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
     .tc-divider {
       display: flex; align-items: center; padding: 0 14px; flex-shrink: 0;
       span { font-size: 10px; font-weight: 700; color: rgba(124,58,237,0.3); letter-spacing: 1px; }
@@ -274,7 +276,7 @@ import { AuthService } from '../auth/auth.service';
     /* ==================== HERO SECTION ==================== */
     .hero-section {
       position: relative;
-      padding: 80px 24px 100px;
+      padding: 48px 24px 56px;
       overflow: visible;
       display: flex;
       align-items: center;
@@ -351,6 +353,10 @@ import { AuthService } from '../auth/auth.service';
       position: relative;
       text-align: center;
       max-width: 600px;
+      margin: 0 auto;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
     }
 
     .hero-badge {
@@ -379,11 +385,11 @@ import { AuthService } from '../auth/auth.service';
     }
 
     .hero-title {
-      font-size: clamp(40px, 10vw, 72px);
+      font-size: clamp(36px, 8vw, 56px);
       font-weight: 900;
       letter-spacing: 4px;
-      margin: 0 0 16px;
-      padding-top: 8px;
+      margin: 0 0 12px;
+      padding-top: 0;
       color: white;
       line-height: 1.1;
     }
@@ -391,8 +397,25 @@ import { AuthService } from '../auth/auth.service';
     .hero-subtitle {
       font-size: 16px;
       color: rgba(255, 255, 255, 0.6);
-      margin: 0 0 28px;
+      margin: 0 0 24px;
       letter-spacing: 0.5px;
+    }
+
+    .hero-buttons {
+      display: flex; gap: 12px; flex-wrap: wrap; justify-content: center;
+    }
+
+    .sponsor-btn {
+      display: inline-flex; align-items: center; gap: 8px;
+      padding: 12px 24px; background: rgba(168, 85, 247, 0.08);
+      border: 1px solid rgba(168, 85, 247, 0.25); border-radius: 10px;
+      color: #A855F7; font-size: 14px; font-weight: 600;
+      text-decoration: none; font-family: inherit; transition: all 0.2s;
+      mat-icon { font-size: 18px; width: 18px; height: 18px; filter: drop-shadow(0 0 4px rgba(168, 85, 247, 0.4)); }
+      &:hover {
+        background: rgba(168, 85, 247, 0.15); border-color: rgba(168, 85, 247, 0.4); color: #c084fc;
+        box-shadow: 0 0 16px rgba(168, 85, 247, 0.1);
+      }
     }
 
     .create-btn {
