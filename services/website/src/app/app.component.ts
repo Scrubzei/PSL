@@ -9,6 +9,7 @@ import { MatDialog } from "@angular/material/dialog";
 import { ThemeService } from "./shared/theme.service";
 import { HallOfFameService } from "./shared/hall-of-fame.service";
 import { NavbarComponent } from "./shared/navbar.component";
+import { LiveActivityComponent } from "./shared/live-activity.component";
 import { WelcomeModalComponent } from "./shared/welcome-modal.component";
 
 import { filter } from "rxjs/operators";
@@ -16,11 +17,12 @@ import { filter } from "rxjs/operators";
 @Component({
   selector: "app-root",
   standalone: true,
-  imports: [RouterOutlet, CommonModule, NavbarComponent],
+  imports: [RouterOutlet, CommonModule, NavbarComponent, LiveActivityComponent],
   template: `
     <div class="app-layout">
       @if (showNavbar) {
         <app-navbar></app-navbar>
+        <app-live-activity></app-live-activity>
       }
       <div class="page-content">
         <router-outlet></router-outlet>

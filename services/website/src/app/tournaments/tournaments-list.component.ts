@@ -19,32 +19,7 @@ import { AuthService } from '../auth/auth.service';
   ],
   template: `
     <div class="tournaments-page">
-      <!-- Match Ticker -->
-      <div class="ticker">
-        <div class="ticker-fade-left"></div>
-        <div class="ticker-fade-right"></div>
-        <div class="ticker-inner">
-          @for (m of liveMatches; track m.team1) {
-            <div class="ticker-card">
-              <div class="tc-badge" [class.live]="m.status === 'LIVE'">
-                <span class="tc-badge-status">{{ m.status }}</span>
-                <span class="tc-badge-game">{{ m.game }}</span>
-              </div>
-              <div class="tc-body">
-                <div class="tc-side" [class.won]="m.winner === m.team1" [class.lost]="m.winner && m.winner !== m.team1">
-                  <span class="tc-captain">{{ m.team1 }}</span>
-                  <span class="tc-roster">{{ m.players1.join(' · ') }}</span>
-                </div>
-                <div class="tc-divider"><span>VS</span></div>
-                <div class="tc-side" [class.won]="m.winner === m.team2" [class.lost]="m.winner && m.winner !== m.team2">
-                  <span class="tc-captain">{{ m.team2 }}</span>
-                  <span class="tc-roster">{{ m.players2.join(' · ') }}</span>
-                </div>
-              </div>
-            </div>
-          }
-        </div>
-      </div>
+      <!-- Live match ticker is now the global <app-live-activity> component (rendered under the navbar). -->
 
       <!-- Hero Section -->
       <div class="hero-section">
@@ -231,47 +206,6 @@ import { AuthService } from '../auth/auth.service';
       min-height: 100%;
     }
 
-    /* Ticker */
-    .ticker {
-      background: #0a0a0f; overflow-x: auto; position: relative;
-      scrollbar-width: none; -ms-overflow-style: none;
-      &::-webkit-scrollbar { display: none; }
-    }
-    .ticker-fade-left, .ticker-fade-right {
-      position: absolute; top: 0; bottom: 0; width: 80px; z-index: 2; pointer-events: none;
-    }
-    .ticker-fade-left { left: 0; background: linear-gradient(to right, #0a0a0f, transparent); }
-    .ticker-fade-right { right: 0; background: linear-gradient(to left, #0a0a0f, transparent); }
-    .ticker-inner { display: flex; gap: 12px; padding: 16px 20px; min-width: max-content; }
-    .ticker-card {
-      background: linear-gradient(135deg, #161620 0%, #1a1428 100%);
-      border: 1px solid rgba(124,58,237,0.12); border-radius: 10px;
-      min-width: 280px; overflow: hidden; flex-shrink: 0;
-      transition: border-color 0.2s, box-shadow 0.2s;
-      &:hover { border-color: rgba(124,58,237,0.25); box-shadow: 0 4px 20px rgba(124,58,237,0.08); }
-    }
-    .tc-badge {
-      padding: 10px 16px; display: flex; align-items: center; justify-content: space-between;
-      border-bottom: 1px solid rgba(124,58,237,0.08);
-      &.live .tc-badge-status { color: #ef4444; text-shadow: 0 0 8px rgba(239,68,68,0.4); }
-      &.live { background: linear-gradient(90deg, rgba(239,68,68,0.08), transparent); border-bottom-color: rgba(239,68,68,0.1); }
-    }
-    .tc-badge-status { font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; color: #A855F7; }
-    .tc-badge-game { font-size: 12px; font-weight: 600; color: rgba(168,85,247,0.5); text-transform: uppercase; letter-spacing: 0.5px; }
-    .tc-body { display: flex; align-items: stretch; padding: 12px 16px; gap: 0; }
-    .tc-side {
-      flex: 1; display: flex; flex-direction: column; gap: 4px; min-width: 0;
-      &.won .tc-captain { color: #22c55e; }
-      &.won .tc-roster { color: rgba(34,197,94,0.35); }
-      &.lost .tc-captain { color: rgba(255,255,255,0.25); }
-      &.lost .tc-roster { color: rgba(255,255,255,0.1); }
-    }
-    .tc-captain { font-size: 15px; font-weight: 700; color: rgba(255,255,255,0.85); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-    .tc-roster { font-size: 11px; font-weight: 400; color: rgba(255,255,255,0.35); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-    .tc-divider {
-      display: flex; align-items: center; padding: 0 14px; flex-shrink: 0;
-      span { font-size: 10px; font-weight: 700; color: rgba(124,58,237,0.3); letter-spacing: 1px; }
-    }
 
     /* ==================== HERO SECTION ==================== */
     .hero-section {
@@ -1022,16 +956,6 @@ export class TournamentsListComponent implements OnInit {
   loading = true;
   particles = Array.from({ length: 8 }, (_, i) => i);
 
-  liveMatches = [
-    { status: 'LIVE', game: 'MW2 Comp', team1: 'Darius', team2: 'LavishHardyz', players1: ['Darius', 'Levi', 'S3l', 'M r G'], players2: ['Trippy', 'Fartache', 'khmer', 'Drama'], winner: '' },
-    { status: 'LIVE', game: 'Cod4 Comp', team1: 'chizmdg', team2: 'Myr', players1: ['chizmdg', 'rudy', 'LockDown', 'sorrow'], players2: ['Myr', 'Raxeo', 'Lemmy', 'ClubyG'], winner: '' },
-    { status: 'Queue', game: 'MW2 Comp', team1: 'Myr', team2: 'Versace', players1: ['Levi', 'mahogany', 'Myr', 'False'], players2: ['Versace', 'YuKi', 'Anisity', 'scueby'], winner: 'Myr' },
-    { status: 'Queue', game: 'MW2 Comp', team1: 'Versace', team2: 'Raxeo', players1: ['Versace', 'khmer', 'scueby', 'Banjo'], players2: ['Raxeo', 'RapTo', 'accurra', 'Punish'], winner: 'Raxeo' },
-    { status: 'Queue', game: 'BO1 Comp', team1: 'Off The Magic', team2: 'Big British Brute', players1: ['Apollo', 'livypoo', 'Lemmy', 'Off The Magic'], players2: ['Brute', 'ClubyG', 'Harmony', 'accurra'], winner: 'Big British Brute' },
-    { status: 'Queue', game: 'Cod4 Comp', team1: 'chizmdg', team2: 'Chimp', players1: ['Raxeo', 'chizmdg', 'Wubbie', 'LockDown'], players2: ['Burb5rry', 'Chimp', 'Lemmy', 'STyLz'], winner: 'Chimp' },
-    { status: 'Queue', game: 'MW2 Comp', team1: 'Ambush', team2: 'LavishHardyz', players1: ['Fartache', 'Levi', 'Ambush', 'Drama'], players2: ['Trippy', 'khmer', 'Darius', 'Burb5rry'], winner: 'LavishHardyz' },
-    { status: 'Queue', game: 'BO1 Comp', team1: 'Raxeo', team2: 'Twizzy', players1: ['Myr', 'Harmony', 'Off The Magic', 'Raxeo'], players2: ['Twizzy', 'Apollo', 'Hanndys', 'Turboz'], winner: 'Twizzy' },
-  ];
 
   private gameImages: Record<string, string> = {
     'Bo1': '/assets/games/bo1.webp',

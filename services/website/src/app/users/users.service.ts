@@ -65,11 +65,15 @@ export interface DashboardStats {
 
 export interface GlobalRecentWin {
   matchId: string;
-  winner: { id: string; username: string; avatar?: string };
-  loser: { id: string; username: string; avatar?: string };
   game: string;
-  platform: string;
-  matchType: 'XP' | 'RANKED';
+  /** 'FINAL' for completed history results; 'LIVE' reserved for in-progress matches. */
+  status: string;
+  team1: string;
+  team2: string;
+  players1: string[];
+  players2: string[];
+  /** Winning team name (equals team1 or team2), or null if undecided. */
+  winner: string | null;
   completedAt: string;
 }
 

@@ -6,7 +6,7 @@ import { MatIconModule } from '@angular/material/icon';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { AuthService } from '../auth/auth.service';
-import { UsersService, UserStats, DashboardStats, GlobalRecentWin } from '../users/users.service';
+import { UsersService, UserStats, DashboardStats } from '../users/users.service';
 import { ChallengesService, Match } from '../challenges/challenges.service';
 import { forkJoin } from 'rxjs';
 
@@ -190,31 +190,7 @@ import { forkJoin } from 'rxjs';
 
           <!-- Right Column -->
           <aside class="side-col">
-            <!-- Recent Wins Feed -->
-            @if (recentWins.length > 0) {
-              <section class="card">
-                <header class="card-header">
-                  <h2>Live Activity</h2>
-                  <span class="live-tag">LIVE</span>
-                </header>
-                <div class="activity-feed">
-                  @for (w of recentWins; track w.matchId) {
-                    <div class="activity-item">
-                      <div class="activity-avatar winner-avatar">
-                        {{ getInitial(w.winner.username) }}
-                      </div>
-                      <span class="winner">{{ w.winner.username }}</span>
-                      <span class="action">beat</span>
-                      <div class="activity-avatar loser-avatar">
-                        {{ getInitial(w.loser.username) }}
-                      </div>
-                      <span class="loser">{{ w.loser.username }}</span>
-                      <span class="game-tag">{{ w.game }}</span>
-                    </div>
-                  }
-                </div>
-              </section>
-            }
+            <!-- Global recent wins now live in the app-wide <app-live-activity> ticker -->
 
           </aside>
         </div>
@@ -822,7 +798,6 @@ export class DashboardComponent implements OnInit {
   user: any;
   stats: UserStats | null = null;
   dashboardStats: DashboardStats | null = null;
-  recentWins: GlobalRecentWin[] = [];
   pendingChallenges: Match[] = [];
   loading = true;
   plutoniumUsername = '';
@@ -856,13 +831,11 @@ export class DashboardComponent implements OnInit {
     forkJoin({
       stats: this.usersService.getUserStats(this.user.id),
       dashboardStats: this.usersService.getDashboardStats(this.user.id),
-      recentWins: this.usersService.getGlobalRecentWins(8),
       challenges: this.challengesService.getMyChallenges('PENDING'),
     }).subscribe({
-      next: ({ stats, dashboardStats, recentWins, challenges }) => {
+      next: ({ stats, dashboardStats, challenges }) => {
         this.stats = stats;
         this.dashboardStats = dashboardStats;
-        this.recentWins = recentWins;
         this.pendingChallenges = challenges;
         this.loading = false;
       },

@@ -1,4 +1,5 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { InjectRepository } from '@nestjs/typeorm';
 import { In, Repository } from 'typeorm';
 import { User, UserRole } from './user.entity';
@@ -50,11 +51,15 @@ export interface UserDashboardStats {
 
 export interface GlobalRecentWin {
   matchId: string;
-  winner: { id: string; username: string; avatar?: string };
-  loser: { id: string; username: string; avatar?: string };
   game: string;
-  platform: string;
-  matchType: 'XP' | 'RANKED';
+  /** 'FINAL' for completed history results; 'LIVE' reserved for in-progress matches. */
+  status: string;
+  team1: string;
+  team2: string;
+  players1: string[];
+  players2: string[];
+  /** Winning team name (equals team1 or team2), or null if undecided. */
+  winner: string | null;
   completedAt: Date;
 }
 
@@ -71,6 +76,7 @@ export class UsersService {
     private tournamentMatchesRepository: Repository<TournamentMatch>,
     @InjectRepository(Tournament)
     private tournamentsRepository: Repository<Tournament>,
+    private configService: ConfigService,
   ) {}
 
   async findByUsername(username: string): Promise<User | undefined> {
@@ -450,7 +456,155 @@ export class UsersService {
     };
   }
 
+  private readonly logger = new Logger(UsersService.name);
+  private static readonly NEATQUEUE_BASE = 'https://api.neatqueue.com/api/v1';
+  /** How far back to pull match history for the live activity feed. */
+  private static readonly NEATQUEUE_LOOKBACK_DAYS = 14;
+  /** In-memory cache of the mapped feed so every dashboard load doesn't hit NeatQueue. */
+  private neatQueueCache: { expires: number; wins: GlobalRecentWin[] } | null = null;
+  /** Short TTL so in-progress (LIVE) matches stay fresh; ~matches the frontend poll. */
+  private static readonly NEATQUEUE_CACHE_TTL_MS = 30_000;
+
   async getGlobalRecentWins(limit: number = 10): Promise<GlobalRecentWin[]> {
+    const token = this.configService.get<string>('NEATQUEUE_API_TOKEN');
+    const serverId = this.configService.get<string>('NEATQUEUE_SERVER_ID');
+
+    // Prefer real NeatQueue data (LIVE in-progress + FINAL history); fall back to
+    // local matches if it's unconfigured or unreachable so the feed never hard-fails.
+    if (token && serverId) {
+      try {
+        const wins = await this.getNeatQueueFeed(token, serverId);
+        return wins.slice(0, limit);
+      } catch (err) {
+        this.logger.warn(`NeatQueue feed unavailable, falling back to DB: ${err instanceof Error ? err.message : err}`);
+      }
+    }
+
+    return this.getGlobalRecentWinsFromDb(limit);
+  }
+
+  /**
+   * Builds the activity feed from NeatQueue: in-progress matches (LIVE) first,
+   * then recent completed results (FINAL). Cached briefly so dashboard loads don't
+   * hammer the API. LIVE matches drive the cache TTL down since they change fast.
+   */
+  private async getNeatQueueFeed(token: string, serverId: string): Promise<GlobalRecentWin[]> {
+    if (this.neatQueueCache && this.neatQueueCache.expires > Date.now()) {
+      return this.neatQueueCache.wins;
+    }
+
+    // Fetch both sources concurrently; a LIVE failure shouldn't sink the FINAL feed.
+    const [live, final] = await Promise.all([
+      this.fetchNeatQueueLive(token, serverId).catch(err => {
+        this.logger.warn(`NeatQueue live matches unavailable: ${err instanceof Error ? err.message : err}`);
+        return [] as GlobalRecentWin[];
+      }),
+      this.fetchNeatQueueHistory(token, serverId),
+    ]);
+
+    const wins = [...live, ...final];
+    this.neatQueueCache = { expires: Date.now() + UsersService.NEATQUEUE_CACHE_TTL_MS, wins };
+    return wins;
+  }
+
+  /** In-progress matches from NeatQueue → LIVE feed items. */
+  private async fetchNeatQueueLive(token: string, serverId: string): Promise<GlobalRecentWin[]> {
+    const res = await fetch(`${UsersService.NEATQUEUE_BASE}/matches/${serverId}`, {
+      headers: { Authorization: token },
+    });
+    if (!res.ok) {
+      throw new Error(`NeatQueue matches returned ${res.status}`);
+    }
+
+    const parsed = JSON.parse(this.sanitizeNeatQueueJson(await res.text()));
+    // The endpoint returns an object keyed by match id (or an array); normalize to a list.
+    const rows: any[] = Array.isArray(parsed) ? parsed : Object.values(parsed ?? {});
+
+    return rows
+      .map(row => this.mapMatchRow(row, 'LIVE'))
+      .filter((w): w is GlobalRecentWin => w !== null);
+  }
+
+  /** Recent completed matches from NeatQueue → FINAL feed items, newest first. */
+  private async fetchNeatQueueHistory(token: string, serverId: string): Promise<GlobalRecentWin[]> {
+    const since = new Date(Date.now() - UsersService.NEATQUEUE_LOOKBACK_DAYS * 86_400_000)
+      .toISOString()
+      .slice(0, 10);
+    const url = `${UsersService.NEATQUEUE_BASE}/history/${serverId}?start_date=${since}`;
+
+    const res = await fetch(url, { headers: { Authorization: token } });
+    if (!res.ok) {
+      throw new Error(`NeatQueue history returned ${res.status}`);
+    }
+
+    // NeatQueue occasionally emits invalid backslash escapes in free-text fields
+    // (player names, messages), so sanitize before parsing rather than JSON()ing the response.
+    const parsed = JSON.parse(this.sanitizeNeatQueueJson(await res.text()));
+    const rows: any[] = Array.isArray(parsed?.data) ? parsed.data : [];
+
+    return rows
+      .map(row => this.mapMatchRow(row, 'FINAL'))
+      .filter((w): w is GlobalRecentWin => w !== null)
+      .sort((a, b) => b.completedAt.getTime() - a.completedAt.getTime());
+  }
+
+  /**
+   * Maps a NeatQueue match (history row or in-progress match) to a feed item.
+   * Returns null if it isn't a two-team match, or if it's FINAL without a decided winner.
+   */
+  private mapMatchRow(row: any, status: 'LIVE' | 'FINAL'): GlobalRecentWin | null {
+    const teams: any[][] = Array.isArray(row?.teams) ? row.teams : [];
+    if (teams.length !== 2) return null;
+
+    // winner is the winning team index; -1/out-of-range means undecided.
+    const winnerIdx: number = typeof row?.winner === 'number' ? row.winner : -1;
+    const decided = winnerIdx >= 0 && winnerIdx < teams.length;
+    if (status === 'FINAL' && !decided) return null;
+
+    const teamNames: string[] = Array.isArray(row?.team_names) ? row.team_names : [];
+    const roster = (team: any[]): string[] =>
+      (Array.isArray(team) ? team : []).map(p => p?.name).filter((n): n is string => !!n);
+    const teamLabel = (team: any[], idx: number): string => {
+      const players = Array.isArray(team) ? team : [];
+      const captain =
+        players.find(p => p?.name && p.name === teamNames[idx]) ??
+        players.find(p => p?.captain === true) ??
+        players[0];
+      return teamNames[idx] || captain?.name || `Team ${idx + 1}`;
+    };
+
+    const team1 = teamLabel(teams[0], 0);
+    const team2 = teamLabel(teams[1], 1);
+    const players1 = roster(teams[0]);
+    const players2 = roster(teams[1]);
+    if (!players1.length || !players2.length) return null;
+
+    const rawTime: string = row?.time ?? '';
+    const parsedTime = rawTime ? new Date(rawTime.includes('T') ? rawTime : `${rawTime.replace(' ', 'T')}Z`) : null;
+    const completedAt = parsedTime && !isNaN(parsedTime.getTime()) ? parsedTime : new Date();
+
+    return {
+      matchId: String(row?.channel ?? `${row?.guild_id}-${row?.game_num}`),
+      game: row?.game ?? 'Unknown',
+      status,
+      team1,
+      team2,
+      players1,
+      players2,
+      winner: decided ? (winnerIdx === 0 ? team1 : team2) : null,
+      completedAt,
+    };
+  }
+
+  /**
+   * Doubles any backslash that doesn't begin a valid JSON escape (`\uXXXX` or `\"\\/bfnrt`),
+   * repairing the malformed escapes NeatQueue sometimes returns so JSON.parse succeeds.
+   */
+  private sanitizeNeatQueueJson(raw: string): string {
+    return raw.replace(/\\(?:u[0-9a-fA-F]{4}|["\\/bfnrt])|\\/g, m => (m.length > 1 ? m : '\\\\'));
+  }
+
+  private async getGlobalRecentWinsFromDb(limit: number = 10): Promise<GlobalRecentWin[]> {
     const recentMatches = await this.matchesRepository
       .createQueryBuilder('match')
       .leftJoinAndSelect('match.challenger', 'challenger')
@@ -471,19 +625,13 @@ export class UsersService {
 
       return {
         matchId: match.id,
-        winner: {
-          id: winner.id,
-          username: winner.username,
-          avatar: winner.avatar
-        },
-        loser: {
-          id: loser.id,
-          username: loser.username,
-          avatar: loser.avatar
-        },
         game: match.leaderboard.game.name,
-        platform: match.leaderboard.platform.name,
-        matchType: match.type,
+        status: 'FINAL',
+        team1: winner.username,
+        team2: loser.username,
+        players1: [winner.username],
+        players2: [loser.username],
+        winner: winner.username,
         completedAt: match.updatedAt,
       };
     });
