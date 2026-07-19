@@ -39,7 +39,7 @@ import { AuthService } from '../auth/auth.service';
           <p class="hero-subtitle">Compete in organized sniping tournaments</p>
 
           <div class="hero-buttons">
-            <a href="https://discord.gg/psl" target="_blank" rel="noopener" class="sponsor-btn">
+            <a href="https://discord.gg/pslgaming" target="_blank" rel="noopener" class="sponsor-btn">
               <mat-icon>diamond</mat-icon>
               <span>Become a Sponsor</span>
             </a>
