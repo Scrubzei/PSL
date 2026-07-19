@@ -27,7 +27,8 @@
       "WebFetch(domain:forum.plutonium.pw)",
       "Bash(npx tsc:*)",
       "Bash(cp:*)",
-      "WebFetch(domain:docs.neatqueue.com)"
+      "WebFetch(domain:docs.neatqueue.com)",
+      "Bash(awk '/migrations: \\\\[/,/\\\\]/' src/data-source.ts)"
     ],
     "deny": [],
     "ask": []

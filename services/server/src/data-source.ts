@@ -46,6 +46,9 @@ import { AddMatchCompletedAt1742200000000 } from './migrations/1742200000000-Add
 import { AddServerInfoTargets1742300000000 } from './migrations/1742300000000-AddServerInfoTargets';
 import { AddGameServers1742400000000 } from './migrations/1742400000000-AddGameServers';
 import { AllowMultipleQueueStates1742500000000 } from './migrations/1742500000000-AllowMultipleQueueStates';
+import { AddGameServerMatchFields1742600000000 } from './migrations/1742600000000-AddGameServerMatchFields';
+import { AddTeams1742700000000 } from './migrations/1742700000000-AddTeams';
+import { AddPs4Ps5Platform1742800000000 } from './migrations/1742800000000-AddPs4Ps5Platform';
 
 export const AppDataSource = new DataSource({
   type: 'postgres',
@@ -91,6 +94,9 @@ export const AppDataSource = new DataSource({
     AddServerInfoTargets1742300000000,
     AddGameServers1742400000000,
     AllowMultipleQueueStates1742500000000,
+    AddGameServerMatchFields1742600000000,
+    AddTeams1742700000000,
+    AddPs4Ps5Platform1742800000000,
   ],
   synchronize: false,
 });

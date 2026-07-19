@@ -6,14 +6,14 @@ export class AddGameServerMatchFields1742600000000 implements MigrationInterface
   public async up(queryRunner: QueryRunner): Promise<void> {
     await queryRunner.query(`
       ALTER TABLE "game_servers"
-        ADD COLUMN "player1PlutoId" character varying,
-        ADD COLUMN "player2PlutoId" character varying,
-        ADD COLUMN "player1DiscordId" character varying,
-        ADD COLUMN "player2DiscordId" character varying,
-        ADD COLUMN "player1PlutoUsername" character varying,
-        ADD COLUMN "player2PlutoUsername" character varying,
-        ADD COLUMN "threadId" character varying,
-        ADD COLUMN "leaderboardId" character varying
+        ADD COLUMN IF NOT EXISTS "player1PlutoId" character varying,
+        ADD COLUMN IF NOT EXISTS "player2PlutoId" character varying,
+        ADD COLUMN IF NOT EXISTS "player1DiscordId" character varying,
+        ADD COLUMN IF NOT EXISTS "player2DiscordId" character varying,
+        ADD COLUMN IF NOT EXISTS "player1PlutoUsername" character varying,
+        ADD COLUMN IF NOT EXISTS "player2PlutoUsername" character varying,
+        ADD COLUMN IF NOT EXISTS "threadId" character varying,
+        ADD COLUMN IF NOT EXISTS "leaderboardId" character varying
     `);
   }
 

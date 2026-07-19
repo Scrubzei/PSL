@@ -5,7 +5,7 @@ export class AddTeams1742700000000 implements MigrationInterface {
 
   public async up(queryRunner: QueryRunner): Promise<void> {
     await queryRunner.query(`
-      CREATE TABLE "teams" (
+      CREATE TABLE IF NOT EXISTS "teams" (
         "id" uuid PRIMARY KEY DEFAULT gen_random_uuid(),
         "name" character varying NOT NULL,
         "tag" character varying(8) NOT NULL,
@@ -22,7 +22,7 @@ export class AddTeams1742700000000 implements MigrationInterface {
     `);
 
     await queryRunner.query(`
-      CREATE TABLE "team_memberships" (
+      CREATE TABLE IF NOT EXISTS "team_memberships" (
         "id" uuid PRIMARY KEY DEFAULT gen_random_uuid(),
         "teamId" uuid NOT NULL REFERENCES "teams"("id") ON DELETE CASCADE,
         "userId" uuid NOT NULL REFERENCES "users"("id"),
@@ -33,7 +33,7 @@ export class AddTeams1742700000000 implements MigrationInterface {
     `);
 
     await queryRunner.query(`
-      CREATE TABLE "team_invites" (
+      CREATE TABLE IF NOT EXISTS "team_invites" (
         "id" uuid PRIMARY KEY DEFAULT gen_random_uuid(),
         "teamId" uuid NOT NULL REFERENCES "teams"("id") ON DELETE CASCADE,
         "invitedUserId" uuid NOT NULL REFERENCES "users"("id"),
@@ -44,9 +44,9 @@ export class AddTeams1742700000000 implements MigrationInterface {
     `);
 
     // Indexes for common queries
-    await queryRunner.query(`CREATE INDEX "IDX_team_memberships_userId" ON "team_memberships" ("userId")`);
-    await queryRunner.query(`CREATE INDEX "IDX_team_invites_invitedUserId" ON "team_invites" ("invitedUserId")`);
-    await queryRunner.query(`CREATE INDEX "IDX_teams_game" ON "teams" ("game")`);
+    await queryRunner.query(`CREATE INDEX IF NOT EXISTS "IDX_team_memberships_userId" ON "team_memberships" ("userId")`);
+    await queryRunner.query(`CREATE INDEX IF NOT EXISTS "IDX_team_invites_invitedUserId" ON "team_invites" ("invitedUserId")`);
+    await queryRunner.query(`CREATE INDEX IF NOT EXISTS "IDX_teams_game" ON "teams" ("game")`);
   }
 
   public async down(queryRunner: QueryRunner): Promise<void> {
