@@ -6,9 +6,10 @@ services:
       POSTGRES_USER: ${DATABASE_USER:-postgres}
       POSTGRES_PASSWORD: ${DATABASE_PASSWORD}
       POSTGRES_DB: ${DATABASE_NAME:-appdb}
-    # Bound to loopback only — reachable via an SSH tunnel, never from the public internet.
+    # Published publicly on 5432. NOTE: exposed to the internet — restrict the VPS
+    # firewall/security group to trusted IPs and use a strong DATABASE_PASSWORD.
     ports:
-      - "127.0.0.1:5432:5432"
+      - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
     networks:
