@@ -37,3 +37,13 @@ coverage/
 *.pid
 *.seed
 *.pid.lock
+
+# Secrets — never commit (purged from history 2026-07-19)
+.env
+**/.env
+!**/.env.example
+.env.production*
+deploy/.env.production*
+deploy/ssh-keys.txt
+*.pem
+*.key
