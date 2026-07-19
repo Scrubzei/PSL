@@ -1,14 +1,24 @@
-FROM node:20-alpine
+FROM node:20-alpine AS build
 
 WORKDIR /app
 
 COPY package*.json ./
-
-RUN npm install
+RUN npm ci
 
 COPY . .
+RUN npm run build
+
+FROM node:20-alpine AS runtime
+
+WORKDIR /app
+ENV NODE_ENV=production
+
+COPY package*.json ./
+RUN npm ci --omit=dev
+
+COPY --from=build /app/dist ./dist
+COPY --from=build /app/index ./index
 
 EXPOSE 3000
 
-# Bind mount replaces /app but anonymous volume keeps node_modules; re-install so new deps in package.json appear without rebuilding the image.
-CMD ["sh", "-c", "npm install && npm run start:dev"]
+CMD ["node", "dist/main"]
