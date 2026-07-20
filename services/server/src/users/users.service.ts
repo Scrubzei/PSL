@@ -116,7 +116,7 @@ export class UsersService {
     return this.usersRepository.save(user);
   }
 
-  async updateProfile(userId: string, data: { plutoniumUsername?: string; xboxGamertag?: string; ps3Username?: string; activisionId?: string }): Promise<User> {
+  async updateProfile(userId: string, data: { plutoniumUsername?: string; xboxGamertag?: string; ps3Username?: string; activisionId?: string; psnUsername?: string }): Promise<User> {
     const user = await this.findById(userId);
     if (!user) {
       throw new Error('User not found');
@@ -132,6 +132,9 @@ export class UsersService {
     }
     if (data.activisionId !== undefined) {
       user.activisionId = data.activisionId;
+    }
+    if (data.psnUsername !== undefined) {
+      user.psnUsername = data.psnUsername;
     }
     return this.usersRepository.save(user);
   }
@@ -493,66 +496,75 @@ export class UsersService {
       return this.neatQueueCache.wins;
     }
 
+    const since = new Date(Date.now() - UsersService.NEATQUEUE_LOOKBACK_DAYS * 86_400_000)
+      .toISOString()
+      .slice(0, 10);
+
     // Fetch both sources concurrently; a LIVE failure shouldn't sink the FINAL feed.
-    const [live, final] = await Promise.all([
-      this.fetchNeatQueueLive(token, serverId).catch(err => {
+    const [liveRows, historyRows] = await Promise.all([
+      this.fetchNeatQueueRows(`${UsersService.NEATQUEUE_BASE}/matches/${serverId}`, token,
+        p => (Array.isArray(p) ? p : Object.values(p ?? {})),
+      ).catch(err => {
         this.logger.warn(`NeatQueue live matches unavailable: ${err instanceof Error ? err.message : err}`);
-        return [] as GlobalRecentWin[];
+        return [] as any[];
       }),
-      this.fetchNeatQueueHistory(token, serverId),
+      this.fetchNeatQueueRows(`${UsersService.NEATQUEUE_BASE}/history/${serverId}?start_date=${since}`, token,
+        p => (Array.isArray(p?.data) ? p.data : []),
+      ),
     ]);
+
+    // In-progress matches only carry the queue *channel*, not the clean queue name
+    // ("Bo1 Comp"); build a channel-id -> game map from history to label them.
+    const queueGame = new Map<string, string>();
+    for (const r of historyRows) {
+      const chId = this.queueChannelId(r);
+      if (chId && r?.game && !queueGame.has(chId)) queueGame.set(chId, r.game);
+    }
+
+    const live = liveRows
+      .map(row => this.mapMatchRow(row, 'LIVE', queueGame))
+      .filter((w): w is GlobalRecentWin => w !== null);
+    const final = historyRows
+      .map(row => this.mapMatchRow(row, 'FINAL', queueGame))
+      .filter((w): w is GlobalRecentWin => w !== null)
+      .sort((a, b) => b.completedAt.getTime() - a.completedAt.getTime());
 
     const wins = [...live, ...final];
     this.neatQueueCache = { expires: Date.now() + UsersService.NEATQUEUE_CACHE_TTL_MS, wins };
     return wins;
   }
 
-  /** In-progress matches from NeatQueue → LIVE feed items. */
-  private async fetchNeatQueueLive(token: string, serverId: string): Promise<GlobalRecentWin[]> {
-    const res = await fetch(`${UsersService.NEATQUEUE_BASE}/matches/${serverId}`, {
-      headers: { Authorization: token },
-    });
-    if (!res.ok) {
-      throw new Error(`NeatQueue matches returned ${res.status}`);
-    }
-
-    const parsed = JSON.parse(this.sanitizeNeatQueueJson(await res.text()));
-    // The endpoint returns an object keyed by match id (or an array); normalize to a list.
-    const rows: any[] = Array.isArray(parsed) ? parsed : Object.values(parsed ?? {});
-
-    return rows
-      .map(row => this.mapMatchRow(row, 'LIVE'))
-      .filter((w): w is GlobalRecentWin => w !== null);
-  }
-
-  /** Recent completed matches from NeatQueue → FINAL feed items, newest first. */
-  private async fetchNeatQueueHistory(token: string, serverId: string): Promise<GlobalRecentWin[]> {
-    const since = new Date(Date.now() - UsersService.NEATQUEUE_LOOKBACK_DAYS * 86_400_000)
-      .toISOString()
-      .slice(0, 10);
-    const url = `${UsersService.NEATQUEUE_BASE}/history/${serverId}?start_date=${since}`;
-
+  /** Fetches + sanitizes a NeatQueue JSON endpoint and extracts the row list. */
+  private async fetchNeatQueueRows(url: string, token: string, extract: (parsed: any) => any[]): Promise<any[]> {
     const res = await fetch(url, { headers: { Authorization: token } });
     if (!res.ok) {
-      throw new Error(`NeatQueue history returned ${res.status}`);
+      throw new Error(`NeatQueue request ${url} returned ${res.status}`);
     }
-
     // NeatQueue occasionally emits invalid backslash escapes in free-text fields
-    // (player names, messages), so sanitize before parsing rather than JSON()ing the response.
+    // (player names, messages), so sanitize before parsing.
     const parsed = JSON.parse(this.sanitizeNeatQueueJson(await res.text()));
-    const rows: any[] = Array.isArray(parsed?.data) ? parsed.data : [];
+    return extract(parsed);
+  }
 
-    return rows
-      .map(row => this.mapMatchRow(row, 'FINAL'))
-      .filter((w): w is GlobalRecentWin => w !== null)
-      .sort((a, b) => b.completedAt.getTime() - a.completedAt.getTime());
+  /** queue_channel is a plain id string in history, but an object in live matches. */
+  private queueChannelId(row: any): string | null {
+    const qc = row?.queue_channel;
+    if (typeof qc === 'string') return qc;
+    return qc?.id ?? row?.queue_channel_id ?? null;
+  }
+
+  /** Strips NeatQueue's decorative channel-name formatting, e.g. "【⚫】𝐁𝐎𝟏" -> "BO1". */
+  private cleanQueueName(name?: string): string | null {
+    if (!name) return null;
+    const cleaned = name.normalize('NFKC').replace(/【.*?】/g, '').replace(/[|]/g, '').trim();
+    return cleaned || null;
   }
 
   /**
    * Maps a NeatQueue match (history row or in-progress match) to a feed item.
    * Returns null if it isn't a two-team match, or if it's FINAL without a decided winner.
    */
-  private mapMatchRow(row: any, status: 'LIVE' | 'FINAL'): GlobalRecentWin | null {
+  private mapMatchRow(row: any, status: 'LIVE' | 'FINAL', queueGame: Map<string, string>): GlobalRecentWin | null {
     const teams: any[][] = Array.isArray(row?.teams) ? row.teams : [];
     if (teams.length !== 2) return null;
 
@@ -583,9 +595,21 @@ export class UsersService {
     const parsedTime = rawTime ? new Date(rawTime.includes('T') ? rawTime : `${rawTime.replace(' ', 'T')}Z`) : null;
     const completedAt = parsedTime && !isNaN(parsedTime.getTime()) ? parsedTime : new Date();
 
+    // Live matches lack the clean queue name; resolve via the channel->game map,
+    // then fall back to the (de-formatted) channel name.
+    const chId = this.queueChannelId(row);
+    const game =
+      row?.game ??
+      (chId ? queueGame.get(chId) : undefined) ??
+      this.cleanQueueName(row?.queue_channel?.name) ??
+      'Live Match';
+
+    // channel is a string id in history but an object in live matches.
+    const channelId = typeof row?.channel === 'string' ? row.channel : (row?.channel?.id ?? row?.channel_id);
+
     return {
-      matchId: String(row?.channel ?? `${row?.guild_id}-${row?.game_num}`),
-      game: row?.game ?? 'Unknown',
+      matchId: String(channelId ?? `${row?.guild_id}-${row?.game_num}`),
+      game,
       status,
       team1,
       team2,

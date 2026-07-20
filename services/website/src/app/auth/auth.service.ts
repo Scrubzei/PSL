@@ -14,6 +14,7 @@ export interface User {
   avatar?: string;
   plutoniumUsername?: string | null;
   xboxGamertag?: string | null;
+  psnUsername?: string | null;
 }
 
 export interface AuthResponse {

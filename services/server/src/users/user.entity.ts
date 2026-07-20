@@ -38,6 +38,9 @@ export class User {
   activisionId: string;
 
   @Column({ nullable: true })
+  psnUsername: string;
+
+  @Column({ nullable: true })
   emblem: string;
 
   @Column({ default: 0 })

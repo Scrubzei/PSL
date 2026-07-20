@@ -425,16 +425,17 @@ export class TeamsComponent implements OnInit {
     this.loading = true;
     this.teamsService.getMyTeams().subscribe({
       next: (teams) => {
-        this.teams = teams.length ? teams : this.dummyTeams;
+        this.teams = teams;
         this.teamsService.getMyInvites().subscribe({
-          next: (invites) => { this.invites = invites.length ? invites : this.dummyInvites; this.loading = false; },
-          error: () => { this.invites = this.dummyInvites; this.loading = false; },
+          next: (invites) => { this.invites = invites; this.loading = false; },
+          error: () => { this.invites = []; this.loading = false; },
         });
       },
-      error: () => { this.teams = this.dummyTeams; this.invites = this.dummyInvites; this.loading = false; },
+      error: () => { this.teams = []; this.invites = []; this.loading = false; },
     });
   }
 
+  /* Fake teams/invites fallback data — removed (commented out).
   private mk = (id: string, userId: string, username: string, role: 'captain' | 'member' = 'member') =>
     ({ id, userId, role, joinedAt: '2026-07-01', user: { id: userId, username, discordId: userId } });
 
@@ -506,6 +507,7 @@ export class TeamsComponent implements OnInit {
   ];
 
   private dummyInvites: TeamInvite[] = [];
+  */
 
   openCreateDialog(): void {
     const ref = this.dialog.open(CreateTeamDialogComponent, { width: '440px' });

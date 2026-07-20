@@ -282,14 +282,14 @@ export class HeadToHeadComponent implements OnInit {
   ngOnInit(): void {
     this.teamsService.getAll().subscribe({
       next: (teams) => {
-        this.allTeams = teams.length ? teams : this.dummyTeams;
+        this.allTeams = teams;
         const t1 = this.route.snapshot.queryParamMap.get('t1');
         const t2 = this.route.snapshot.queryParamMap.get('t2');
         if (t1) this.team1Id = t1;
         if (t2) this.team2Id = t2;
         if (this.team1Id && this.team2Id) this.compute();
       },
-      error: () => { this.allTeams = this.dummyTeams; },
+      error: () => { this.allTeams = []; },
     });
   }
 
@@ -342,6 +342,7 @@ export class HeadToHeadComponent implements OnInit {
     return { label, val1: v1, val2: v2, display1: v1 + suffix, display2: v2 + suffix, pct1: (v1 / total) * 100, pct2: (v2 / total) * 100 };
   }
 
+  /* Fake teams fallback data — removed (commented out).
   private mk = (id: string, uid: string, name: string, role: 'captain' | 'member' = 'member') =>
     ({ id, userId: uid, role, joinedAt: '2026-07-01', user: { id: uid, username: name, discordId: uid } });
 
@@ -355,4 +356,5 @@ export class HeadToHeadComponent implements OnInit {
     { id: '7', name: 'SkyzCentral', tag: 'SC', game: 'Black Ops 1', region: 'NA', color: '#3b82f6', captainId: 'u30', captain: { id: 'u30', username: 'Decree' }, createdAt: '2026-07-08', memberships: [this.mk('m30','u30','Decree','captain'), this.mk('m31','u31','lemmy'), this.mk('m32','u32','6fo'), this.mk('m33','u33','ghztly'), this.mk('m34','u34','ivy')] },
     { id: '8', name: 'hellRaisers', tag: 'HR', game: 'Black Ops 1', region: 'NA', color: '#64748b', captainId: 'u35', captain: { id: 'u35', username: 'drx' }, createdAt: '2026-07-08', memberships: [this.mk('m35','u35','drx','captain'), this.mk('m36','u36','S3l'), this.mk('m37','u37','4uH'), this.mk('m38','u38','Wubbie'), this.mk('m39','u39','BLASTA')] },
   ];
+  */
 }

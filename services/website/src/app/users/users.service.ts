@@ -111,7 +111,7 @@ export class UsersService {
     });
   }
 
-  updateProfile(data: { plutoniumUsername?: string; xboxGamertag?: string }): Observable<any> {
+  updateProfile(data: { plutoniumUsername?: string; xboxGamertag?: string; psnUsername?: string }): Observable<any> {
     return this.http.patch(`${environment.apiUrl}/auth/profile`, data);
   }
 

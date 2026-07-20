@@ -12,27 +12,34 @@ import { MatIconModule } from '@angular/material/icon';
       <div class="rules-container">
         <h1>PSL Rules</h1>
 
-        <div class="game-tabs">
+        <div class="category-tabs">
           <button
-            class="game-tab"
-            [class.active]="activeGame === 'bo2'"
-            (click)="setGame('bo2')">
-            Black Ops 2
+            class="category-tab"
+            [class.active]="activeCategory === '1v1'"
+            (click)="setCategory('1v1')">
+            1v1
           </button>
           <button
-            class="game-tab"
-            [class.active]="activeGame === 'mw2'"
-            (click)="setGame('mw2')">
-            Modern Warfare 2
-          </button>
-          <button
-            class="game-tab"
-            [class.active]="activeGame === 'mw2019'"
-            (click)="setGame('mw2019')">
-            MW 2019
+            class="category-tab"
+            [class.active]="activeCategory === 'comp'"
+            (click)="setCategory('comp')">
+            Comp
           </button>
         </div>
 
+        <div class="game-tabs">
+          @for (g of games[activeCategory]; track g.key) {
+            <button
+              class="game-tab"
+              [class.active]="activeGame === g.key"
+              (click)="setGame(g.key)">
+              {{ g.label }}
+            </button>
+          }
+        </div>
+
+        <!-- ===== 1v1 Rules ===== -->
+        @if (activeCategory === '1v1') {
         <!-- BO2 Rules -->
         @if (activeGame === 'bo2') {
           <section>
@@ -332,6 +339,172 @@ import { MatIconModule } from '@angular/material/icon';
         @if (activeGame === 'bo2' || activeGame === 'mw2' || activeGame === 'mw2019') {
           <p class="disclaimer">Rules are subject to change. Not all situations are covered here.</p>
         }
+        }
+
+        <!-- ===== Comp Rules ===== -->
+        @if (activeCategory === 'comp') {
+          @if (activeGame === 'bo1') {
+            <section>
+              <h2>Disqualification Rules</h2>
+              <p class="section-desc">Two strikes result in a disqualification.</p>
+              <ul>
+                <li>No knifing</li>
+                <li>No BO1 snaking (turtling is ok)</li>
+                <li>No hardscopes</li>
+                <li>No tomahawks (cross-map is ok)</li>
+                <li>No smokes</li>
+                <li>No suicides for better spawns</li>
+                <li>Equipment of any sort will result in a single warning, then a disqualification</li>
+              </ul>
+            </section>
+
+            <section>
+              <h2>Cheating Accusations</h2>
+              <p class="section-desc">Players accused of cheating (Cronus, Xbox 360, etc.) must provide a phone stream of the monitor or a handcam stream through Discord for the duration of the series.</p>
+            </section>
+
+            <section>
+              <h2>Headquarters Settings</h2>
+              <div class="settings-grid">
+                <div class="setting"><span class="setting-label">HQ Activate Delay</span><span class="setting-value">30 seconds</span></div>
+                <div class="setting"><span class="setting-label">HQ Lifetime</span><span class="setting-value">45 seconds</span></div>
+                <div class="setting"><span class="setting-label">Time Limit</span><span class="setting-value">Unlimited</span></div>
+                <div class="setting"><span class="setting-label">Health</span><span class="setting-value">50%</span></div>
+                <div class="setting"><span class="setting-label">Explosive Damage</span><span class="setting-value">Maximum</span></div>
+                <div class="setting"><span class="setting-label">Score Limit</span><span class="setting-value">First to 250</span></div>
+              </div>
+              <p class="note">*Explosive damage reduced on all classes</p>
+            </section>
+
+            <section>
+              <h2>Capture the Flag Settings</h2>
+              <div class="settings-grid">
+                <div class="setting"><span class="setting-label">Wave Spawn Delay</span><span class="setting-value">None</span></div>
+                <div class="setting"><span class="setting-label">Respawn Delay</span><span class="setting-value">5 seconds</span></div>
+                <div class="setting"><span class="setting-label">Flag Carrier</span><span class="setting-value">Sweeping radar</span></div>
+                <div class="setting"><span class="setting-label">Time</span><span class="setting-value">10 min each side</span></div>
+                <div class="setting"><span class="setting-label">Flag Return Time</span><span class="setting-value">Unlimited</span></div>
+                <div class="setting"><span class="setting-label">Score Limit</span><span class="setting-value">3</span></div>
+                <div class="setting"><span class="setting-label">Round Limit</span><span class="setting-value">2</span></div>
+              </div>
+              <p class="note">*In a tie, the game is won by the first team to score in the 3rd round.</p>
+            </section>
+
+            <section>
+              <h2>Map &amp; Gamemode Selection</h2>
+              <ul>
+                <li>1st win gets map, 2nd win gets gamemode</li>
+                <li>Gamemode fileshares can be found on any of the admins' accounts — please make a copy and place it in your own fileshare for usage</li>
+              </ul>
+            </section>
+
+            <section>
+              <h2>Queue Rules</h2>
+              <ul>
+                <li>Once the queue has started, players have 10 minutes to join the host lobby. Failure to do so results in a queue ban.</li>
+                <li>Leaving queue without a solid reason results in a queue ban (increasing ban times for repeated offenses).</li>
+                <li>Subs must be within the same tier or agreed upon by both teams. If a team can't agree on a sub, the game is canceled.</li>
+                <li>If you need to leave and need a sub mid-match, the match must be ended and the sub must be the same tier or agreed upon by both teams.</li>
+                <li>If someone times out mid-match, the match must be ended and scores kept at that moment, then continued when they rejoin.</li>
+                <li>If someone times out or disconnects during a live cap or while the enemy team has a flag, the game can't be ended until the HQ is destroyed or the flag is returned.</li>
+                <li>If the game is ended during a live HQ, the team who had the HQ capped receives a full cap.</li>
+                <li>If the queue is not finished, it results in a tie.</li>
+                <li>If the game is ended and no one has reached 50 points, the score resets.</li>
+              </ul>
+            </section>
+
+            <p class="disclaimer">Rules are subject to change. Not all situations are covered here.</p>
+          }
+          @if (activeGame === 'mw2') {
+            <section>
+              <h2>General Rules</h2>
+              <ul>
+                <li>Intervention quickscoping kills ONLY. The only exception is environment kills that are exclusively caused by intervention bullets.</li>
+                <li>This includes any use of explosives that affect the killfeed. No grenade of any variety should be seen killing an enemy or yourself — in simpler terms, no killing yourself on purpose.</li>
+                <li>Attachments allowed: FMJ, Extended Mags, or no attachments. All others are banned.</li>
+                <li>NO hardscoping of any kind.</li>
+                <li>NO relapse shotting of any kind (scoping in and out really fast).</li>
+                <li>NO jumpshotting.</li>
+                <li>NO spawning out for any reason other than to sub out of the game. To be clear, you are not allowed to spawn out if you run out of ammo.</li>
+                <li>Breaking any of the above rules accidentally results in <strong>1 warning</strong>; doing so twice results in a <strong>full map DQ</strong>. Any blatantly purposeful deviation results in an automatic map DQ. Any deviation that clearly decides the game (old game-changer rule) results in an automatic map DQ, regardless of intent.</li>
+                <li>Retaliation kills do NOT exist. If you do something back, it will also result in a warning or DQ.</li>
+                <li>There is zero grey area surrounding "the game was already over" or "they couldn't have won anyway." The above rules apply until the final score is on the screen. If you play the game out, you cannot go back and disqualify the other team.</li>
+              </ul>
+            </section>
+
+            <section>
+              <h2>Allowed Perks</h2>
+              <div class="settings-grid">
+                <div class="setting"><span class="setting-label">Perk 1</span><span class="setting-value">Marathon / Sleight of Hand / Bling</span></div>
+                <div class="setting"><span class="setting-label">Perk 2</span><span class="setting-value">Stopping Power / Hardline</span></div>
+                <div class="setting"><span class="setting-label">Perk 3</span><span class="setting-value">Ninja</span></div>
+              </div>
+            </section>
+
+            <section>
+              <h2>Map &amp; Host Rules</h2>
+              <ul>
+                <li><strong>Visiting team</strong> picks game type and map.</li>
+                <li>The hosting team picks the map side before the game is started.</li>
+                <li>3rd-game host is neutral for all players, or you can flip a coin to see who hosts third. Winner of Game 1 picks game type; winner of Game 2 picks map and side. Game type must be chosen before the team chooses their map. Once type is selected, you cannot change it once you hear the map selection.</li>
+                <li>3rd game CTF Derail is banned.</li>
+                <li>Host cannot give 2 bars to players — must see "green" across the board for all spawned-in players.</li>
+                <li>If a queue has a majority (5) of EU players, they have the right to take host on one series if they choose. Fewer than 5 will be on NA hosts unless the full queue is okay with deviating from this.</li>
+                <li>Players refusing to play for any reason (including refusing an opponent's selected map choice) that hinders the game from continuing will result in a team forfeit for the map and a queue ban of the guilty players.</li>
+              </ul>
+            </section>
+
+            <section>
+              <h2>Ending Game Rules</h2>
+              <ul>
+                <li>If a game ends while an HQ is captured or you have complete control capping, you can get up to 35 points depending on control. Clip your game if it ends and use best judgment and reasoning.</li>
+                <li>Ending an HQ game before the score hits 100 points — unless there is already a 75+ point difference — results in a full reset. If both teams are above 200, it will be first to 50. If both teams agree, the game can full reset regardless of the above scenarios, but a majority of BOTH teams must agree.</li>
+              </ul>
+            </section>
+
+            <section>
+              <h2>Banned Spots</h2>
+              <ul>
+                <li><strong>Top Cafe — Invasion:</strong> banned entirely, whether capping the HQ or not.</li>
+                <li><strong>Top Highrise — either side:</strong> cannot go onto the top or ledges of either spawn building.</li>
+                <li><strong>Embassy Cap — Invasion:</strong> cannot 4-man hold back to influence the cap to spawn on them. If Embassy cap is the first HQ spawn of the game, the game will be ended and restarted.</li>
+              </ul>
+            </section>
+
+            <section>
+              <h2>Queue Rules</h2>
+              <ul>
+                <li>You will join the VC or queue to join and play.</li>
+                <li>If you decide to join queue manually, you have 1 minute to join the VC queue.</li>
+                <li>After teams are picked, you have <strong>10 minutes</strong> to join the lobby or you will be penalized.</li>
+                <li>5 minutes between games or you will be penalized.</li>
+                <li><strong>Torching:</strong> time is of the essence — we are trying to improve queue times and overall quality. Please respect each other's and your own time. You can see who is in the queue when joining; you cannot dodge a queue because of the team selection, and you cannot go AFK mid-queue.</li>
+              </ul>
+            </section>
+
+            <section>
+              <h2>Subs</h2>
+              <ul>
+                <li>Equal skill level where the majority agrees. If there is 1 vote under/over, you can &#64; a mod to help decide.</li>
+              </ul>
+              <p class="section-desc">MMR sub rules:</p>
+              <div class="settings-grid">
+                <div class="setting"><span class="setting-label">0–1</span><span class="setting-value">Original player takes loss / Sub gets full MMR win</span></div>
+                <div class="setting"><span class="setting-label">1–0</span><span class="setting-value">Split win</span></div>
+                <div class="setting"><span class="setting-label">1–1</span><span class="setting-value">Original player takes loss / Split win</span></div>
+              </div>
+            </section>
+
+            <p class="disclaimer">Rules are subject to change. Not all situations are covered here.</p>
+          }
+          @if (activeGame === 'bo2') {
+            <section class="coming-soon">
+              <mat-icon>construction</mat-icon>
+              <h2>Comp rules coming soon</h2>
+              <p>Competitive rules for {{ currentGameLabel }} are being finalized. Check back soon.</p>
+            </section>
+          }
+        }
       </div>
     </div>
 
@@ -523,6 +696,40 @@ import { MatIconModule } from '@angular/material/icon';
       color: rgba(255, 255, 255, 0.5);
     }
 
+    .category-tabs {
+      display: inline-flex;
+      gap: 4px;
+      padding: 4px;
+      margin-bottom: 20px;
+      background: rgba(255, 255, 255, 0.03);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: 12px;
+    }
+
+    .category-tab {
+      padding: 10px 28px;
+      border: none;
+      border-radius: 9px;
+      background: transparent;
+      color: rgba(255, 255, 255, 0.5);
+      font-size: 15px;
+      font-weight: 700;
+      letter-spacing: 0.3px;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      font-family: inherit;
+
+      &:hover {
+        color: white;
+      }
+
+      &.active {
+        background: linear-gradient(135deg, #7C3AED, #2563EB);
+        color: white;
+        box-shadow: 0 4px 16px rgba(124, 58, 237, 0.35);
+      }
+    }
+
     .game-tabs {
       display: flex;
       gap: 8px;
@@ -610,10 +817,28 @@ import { MatIconModule } from '@angular/material/icon';
   `]
 })
 export class RulesComponent implements OnInit {
-  activeGame: 'bo2' | 'mw2' | 'mw2019' = 'bo2';
+  activeCategory: '1v1' | 'comp' = '1v1';
+  activeGame: 'bo2' | 'mw2' | 'mw2019' | 'bo1' = 'mw2';
   kar98kImageExpanded = false;
   ax50ImageExpanded = false;
   expandedImage: string | null = null;
+
+  readonly games: Record<'1v1' | 'comp', { key: 'bo2' | 'mw2' | 'mw2019' | 'bo1'; label: string }[]> = {
+    '1v1': [
+      { key: 'mw2', label: 'Modern Warfare 2' },
+      { key: 'bo2', label: 'Black Ops 2' },
+      { key: 'mw2019', label: 'MW 2019' },
+    ],
+    comp: [
+      { key: 'mw2', label: 'Modern Warfare 2' },
+      { key: 'bo1', label: 'Black Ops 1' },
+      { key: 'bo2', label: 'Black Ops 2' },
+    ],
+  };
+
+  get currentGameLabel(): string {
+    return this.games[this.activeCategory].find(g => g.key === this.activeGame)?.label ?? '';
+  }
 
   openImage(src: string): void {
     this.expandedImage = src;
@@ -630,14 +855,30 @@ export class RulesComponent implements OnInit {
 
   ngOnInit(): void {
     this.route.queryParams.subscribe(params => {
+      const category = params['category'];
+      if (category === '1v1' || category === 'comp') {
+        this.activeCategory = category;
+      }
       const game = params['game'];
-      if (game === 'bo2' || game === 'mw2' || game === 'mw2019') {
+      if (this.games[this.activeCategory].some(g => g.key === game)) {
         this.activeGame = game;
+      } else {
+        this.activeGame = this.games[this.activeCategory][0].key;
       }
     });
   }
 
-  setGame(game: 'bo2' | 'mw2' | 'mw2019'): void {
+  setCategory(category: '1v1' | 'comp'): void {
+    this.activeCategory = category;
+    this.activeGame = this.games[category][0].key;
+    this.router.navigate([], {
+      relativeTo: this.route,
+      queryParams: { category, game: this.activeGame },
+      queryParamsHandling: 'merge'
+    });
+  }
+
+  setGame(game: 'bo2' | 'mw2' | 'mw2019' | 'bo1'): void {
     this.activeGame = game;
     this.router.navigate([], {
       relativeTo: this.route,

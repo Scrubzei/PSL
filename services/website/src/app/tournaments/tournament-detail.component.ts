@@ -2255,9 +2255,9 @@ export class TournamentDetailComponent implements OnInit, OnDestroy {
         platformName: this.tournament.platform?.name || '',
         plutoniumUsername: this.authService.currentUser()?.plutoniumUsername || null,
         xboxGamertag: this.authService.currentUser()?.xboxGamertag || null,
+        psnUsername: this.authService.currentUser()?.psnUsername || null,
         startDate: this.tournament.startDate,
         roundDeadlines: this.tournament.roundDeadlines || null,
-        prizePool: this.tournament.prizePool || null,
         howItWorks: this.tournament.howItWorks || null,
         disqualifications: this.tournament.disqualifications || null,
       }
@@ -2269,7 +2269,7 @@ export class TournamentDetailComponent implements OnInit, OnDestroy {
       this.actionLoading = true;
 
       // Save platform username if it changed
-      const profileUpdate: { plutoniumUsername?: string; xboxGamertag?: string } = {};
+      const profileUpdate: { plutoniumUsername?: string; xboxGamertag?: string; psnUsername?: string } = {};
       const user = this.authService.currentUser();
 
       if (result.xboxGamertag !== undefined) {
@@ -2282,6 +2282,12 @@ export class TournamentDetailComponent implements OnInit, OnDestroy {
         const currentPluto = user?.plutoniumUsername || '';
         if (result.plutoniumUsername !== currentPluto) {
           profileUpdate.plutoniumUsername = result.plutoniumUsername;
+        }
+      }
+      if (result.psnUsername !== undefined) {
+        const currentPsn = user?.psnUsername || '';
+        if (result.psnUsername !== currentPsn) {
+          profileUpdate.psnUsername = result.psnUsername;
         }
       }
 

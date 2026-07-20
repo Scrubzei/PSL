@@ -44,7 +44,7 @@ interface PlayerStat {
                   <span class="dot"></span>
                   <span>{{ team.region }}</span>
                   <span class="dot"></span>
-                  <span>{{ team.memberships?.length || 0 }} players</span>
+                  <span>{{ team.memberships.length || 0 }} players</span>
                 </div>
                 <div class="stat-tiles">
                   <div class="stat-tile rank-tile">
@@ -449,7 +449,7 @@ export class TeamDetailComponent implements OnInit {
     const id = this.route.snapshot.paramMap.get('id')!;
     this.teamsService.getById(id).subscribe({
       next: (team) => { this.team = team; this.buildStats(team); this.loading = false; },
-      error: () => { this.team = this.getDummyTeam(id); if (this.team) this.buildStats(this.team); this.loading = false; },
+      error: () => { this.team = null; this.loading = false; },
     });
   }
 
@@ -559,6 +559,7 @@ export class TeamDetailComponent implements OnInit {
   getOpponentTag(name: string): string { return this.opponentMap[name]?.tag || name.substring(0, 3).toUpperCase(); }
   getOpponentColor(name: string): string { return this.opponentMap[name]?.color || '#555'; }
 
+  /* Fake team fallback data — removed (commented out).
   private getDummyTeam(id: string): Team | null {
     const mk = (mid: string, uid: string, name: string, role: 'captain' | 'member' = 'member') =>
       ({ id: mid, userId: uid, role, joinedAt: '2026-07-01', user: { id: uid, username: name, discordId: uid } });
@@ -574,4 +575,5 @@ export class TeamDetailComponent implements OnInit {
     ];
     return teams.find(t => t.id === id) || null;
   }
+  */
 }

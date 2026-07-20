@@ -11,9 +11,9 @@ export interface TournamentJoinModalData {
   platformName: string;
   plutoniumUsername: string | null;
   xboxGamertag: string | null;
+  psnUsername: string | null;
   startDate: string | Date | null;
   roundDeadlines: { name: string; deadline: string | null }[] | null;
-  prizePool: { place: number; prize: string }[] | null;
   howItWorks: string | null;
   disqualifications: string[] | null;
 }
@@ -39,25 +39,6 @@ interface RoundSchedule {
         <mat-icon class="trophy">emoji_events</mat-icon>
         <h2>Join the {{ data.tournamentName }}</h2>
       </div>
-
-      <!-- Prize Pool -->
-      @if (data.prizePool?.length) {
-        <div class="prize-section">
-          <h3>
-            <mat-icon>attach_money</mat-icon>
-            Prize Pool
-          </h3>
-          <div class="prize-list">
-            @for (entry of data.prizePool; track entry.place) {
-              <div class="prize-item" [class.first]="entry.place === 1" [class.second]="entry.place === 2" [class.third]="entry.place === 3">
-                <mat-icon class="prize-trophy" [class.gold]="entry.place === 1" [class.silver]="entry.place === 2" [class.bronze]="entry.place === 3">emoji_events</mat-icon>
-                <span class="prize-place">{{ getPlaceLabel(entry.place) }}</span>
-                <span class="prize-amount">{{ entry.prize }}</span>
-              </div>
-            }
-          </div>
-        </div>
-      }
 
       <!-- Rules (hidden for MW2) -->
       @if (!isMw2) {
@@ -150,6 +131,18 @@ interface RoundSchedule {
               placeholder="Your Xbox Gamertag"
               class="pluto-input"
             />
+          } @else if (isPlayStation) {
+            <h3>
+              <mat-icon>person</mat-icon>
+              PlayStation Username
+            </h3>
+            <p>Enter your PlayStation (PSN) username. This is required to participate.</p>
+            <input
+              type="text"
+              [(ngModel)]="psnUsername"
+              placeholder="Your PSN username"
+              class="pluto-input"
+            />
           } @else {
             <h3>
               <mat-icon>person</mat-icon>
@@ -222,7 +215,7 @@ interface RoundSchedule {
       }
     }
 
-    .prize-section, .rules-section, .schedule-section, .discord-section, .pluto-section {
+    .rules-section, .schedule-section, .discord-section, .pluto-section {
       margin-bottom: 20px;
       padding: 16px;
       background: rgba(255, 255, 255, 0.03);
@@ -304,52 +297,6 @@ interface RoundSchedule {
       &:hover {
         filter: brightness(1.1);
       }
-    }
-
-    .prize-list {
-      display: flex;
-      gap: 10px;
-    }
-
-    .prize-item {
-      flex: 1;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      padding: 12px 8px;
-      background: rgba(255, 255, 255, 0.03);
-      border-radius: 8px;
-      border: 1px solid rgba(255, 255, 255, 0.06);
-
-      &.first { border-color: rgba(255, 215, 0, 0.2); background: rgba(255, 215, 0, 0.05); }
-      &.second { border-color: rgba(192, 192, 192, 0.15); }
-      &.third { border-color: rgba(205, 127, 50, 0.15); }
-    }
-
-    .prize-place {
-      font-size: 11px;
-      font-weight: 600;
-      color: rgba(255, 255, 255, 0.4);
-      text-transform: uppercase;
-      letter-spacing: 0.5px;
-    }
-
-    .prize-trophy {
-      font-size: 28px;
-      width: 28px;
-      height: 28px;
-      margin-bottom: 4px;
-
-      &.gold { color: #FFD700; filter: drop-shadow(0 0 6px rgba(255, 215, 0, 0.5)); }
-      &.silver { color: #C0C0C0; }
-      &.bronze { color: #CD7F32; }
-    }
-
-    .prize-amount {
-      font-size: 14px;
-      font-weight: 700;
-      color: rgba(255, 255, 255, 0.9);
     }
 
     .rules-link {
@@ -507,10 +454,12 @@ export class TournamentJoinModalComponent implements AfterViewInit {
   @ViewChild('modalContent') modalContent!: ElementRef;
   plutoniumUsername: string;
   xboxGamertag: string;
+  psnUsername: string;
   rounds: RoundSchedule[] = [];
   startDateFormatted = '';
   isMw2 = false;
   isXbox = false;
+  isPlayStation = false;
   isCrossPlatform = false;
 
   constructor(
@@ -519,15 +468,20 @@ export class TournamentJoinModalComponent implements AfterViewInit {
   ) {
     this.plutoniumUsername = data.plutoniumUsername || '';
     this.xboxGamertag = data.xboxGamertag || '';
+    this.psnUsername = data.psnUsername || '';
     this.isMw2 = data.gameName?.toLowerCase() === 'mw2';
-    this.isXbox = data.platformName?.toLowerCase() === 'xbox';
-    this.isCrossPlatform = data.platformName?.toLowerCase() === 'cross-platform';
+    const platform = data.platformName?.toLowerCase() || '';
+    this.isXbox = platform === 'xbox';
+    this.isCrossPlatform = platform === 'cross-platform';
+    this.isPlayStation = platform.includes('ps4') || platform.includes('ps5') || platform.includes('playstation');
     this.buildSchedule();
   }
 
   get usernameValid(): boolean {
     if (this.isCrossPlatform) return true;
-    return this.isXbox ? !!this.xboxGamertag.trim() : !!this.plutoniumUsername.trim();
+    if (this.isXbox) return !!this.xboxGamertag.trim();
+    if (this.isPlayStation) return !!this.psnUsername.trim();
+    return !!this.plutoniumUsername.trim();
   }
 
   ngAfterViewInit(): void {
@@ -543,20 +497,14 @@ export class TournamentJoinModalComponent implements AfterViewInit {
     this.startDateFormatted = startDate.toLocaleDateString('en-US', { month: 'long', day: 'numeric' });
 
     if (this.data.roundDeadlines?.length) {
-      this.rounds = this.data.roundDeadlines.map(r => ({
-        name: r.name,
-        deadline: r.deadline
-          ? `Due by ${new Date(r.deadline).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}`
-          : 'TBD between finalists',
-      }));
+      // Only show rounds that actually have a deadline set.
+      this.rounds = this.data.roundDeadlines
+        .filter(r => r.deadline)
+        .map(r => ({
+          name: r.name,
+          deadline: `Due by ${new Date(r.deadline!).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}`,
+        }));
     }
-  }
-
-  getPlaceLabel(place: number): string {
-    if (place === 1) return '1st';
-    if (place === 2) return '2nd';
-    if (place === 3) return '3rd';
-    return `${place}th`;
   }
 
   cancel(): void {
@@ -569,6 +517,8 @@ export class TournamentJoinModalComponent implements AfterViewInit {
       this.dialogRef.close({ confirmed: true });
     } else if (this.isXbox) {
       this.dialogRef.close({ confirmed: true, xboxGamertag: this.xboxGamertag.trim() });
+    } else if (this.isPlayStation) {
+      this.dialogRef.close({ confirmed: true, psnUsername: this.psnUsername.trim() });
     } else {
       this.dialogRef.close({ confirmed: true, plutoniumUsername: this.plutoniumUsername.trim() });
     }

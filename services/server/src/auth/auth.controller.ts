@@ -38,6 +38,7 @@ export class AuthController {
       xboxGamertag: user.xboxGamertag,
       ps3Username: user.ps3Username,
       activisionId: user.activisionId,
+      psnUsername: user.psnUsername,
     };
   }
 
@@ -71,7 +72,7 @@ export class AuthController {
   @Patch("profile")
   async updateProfile(
     @Request() req,
-    @Body() body: { plutoniumUsername?: string; xboxGamertag?: string; ps3Username?: string; activisionId?: string },
+    @Body() body: { plutoniumUsername?: string; xboxGamertag?: string; ps3Username?: string; activisionId?: string; psnUsername?: string },
   ) {
     const user = await this.usersService.updateProfile(req.user.userId, body);
     return {
@@ -83,6 +84,7 @@ export class AuthController {
       xboxGamertag: user.xboxGamertag,
       ps3Username: user.ps3Username,
       activisionId: user.activisionId,
+      psnUsername: user.psnUsername,
     };
   }
 

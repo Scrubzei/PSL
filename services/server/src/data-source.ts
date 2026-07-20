@@ -49,6 +49,7 @@ import { AllowMultipleQueueStates1742500000000 } from './migrations/174250000000
 import { AddGameServerMatchFields1742600000000 } from './migrations/1742600000000-AddGameServerMatchFields';
 import { AddTeams1742700000000 } from './migrations/1742700000000-AddTeams';
 import { AddPs4Ps5Platform1742800000000 } from './migrations/1742800000000-AddPs4Ps5Platform';
+import { AddPsnUsername1742900000000 } from './migrations/1742900000000-AddPsnUsername';
 
 export const AppDataSource = new DataSource({
   type: 'postgres',
@@ -97,6 +98,7 @@ export const AppDataSource = new DataSource({
     AddGameServerMatchFields1742600000000,
     AddTeams1742700000000,
     AddPs4Ps5Platform1742800000000,
+    AddPsnUsername1742900000000,
   ],
   synchronize: false,
 });
